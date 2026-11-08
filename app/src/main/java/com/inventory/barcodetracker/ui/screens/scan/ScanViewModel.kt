@@ -2,6 +2,7 @@ package com.inventory.barcodetracker.ui.screens.scan
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
@@ -10,6 +11,7 @@ import com.inventory.barcodetracker.scanner.BarcodeScannerService
 import com.inventory.barcodetracker.scanner.ScanResult
 import com.inventory.barcodetracker.service.OpenFoodFactsService
 import java.util.Locale
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -42,6 +44,9 @@ class ScanViewModel(
 
     val currencySymbol: StateFlow<String> = currencyPreferences.currencySymbol
     val budgetLimit: StateFlow<Double> = currencyPreferences.budgetLimit
+
+    val savedOffers: StateFlow<List<OfferEntity>> = repository.allOffers
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun setBudgetLimit(limit: Double) {
         currencyPreferences.setBudgetLimit(limit)
@@ -91,11 +96,15 @@ class ScanViewModel(
             val matchingPieces = pieces.filter {
                 it.barcode.contains(trimmed, ignoreCase = true) ||
                         it.name.contains(trimmed, ignoreCase = true) ||
-                        it.location.contains(trimmed, ignoreCase = true)
+                        it.location.contains(trimmed, ignoreCase = true) ||
+                        it.description.contains(trimmed, ignoreCase = true) ||
+                        it.offerDescription.contains(trimmed, ignoreCase = true) ||
+                        it.offerType.contains(trimmed, ignoreCase = true)
             }
             val matchingProducts = products.filter {
                 it.productSku.contains(trimmed, ignoreCase = true) ||
-                        it.name.contains(trimmed, ignoreCase = true)
+                        it.name.contains(trimmed, ignoreCase = true) ||
+                        it.description.contains(trimmed, ignoreCase = true)
             }
             Pair(matchingPieces, matchingProducts)
         }
@@ -176,7 +185,6 @@ class ScanViewModel(
     fun adjustPieceStock(barcode: String, delta: Int) {
         viewModelScope.launch {
             repository.adjustPieceStock(barcode, delta)
-            // Refresh current state if piece is still displayed
             val updated = repository.getPieceByBarcode(barcode)
             updated?.let {
                 _scannedItemState.value = ScannedItemState.FoundPiece(it)
@@ -202,6 +210,21 @@ class ScanViewModel(
             _scannedItemState.value = ScannedItemState.FoundPiece(piece)
             _snackbarMessages.emit("Created piece ${piece.name}")
         }
+    }
+
+    fun applySavedOfferToPiece(barcode: String, offer: OfferEntity) {
+        viewModelScope.launch {
+            repository.applyOfferToPiece(barcode, offer)
+            val updated = repository.getPieceByBarcode(barcode)
+            updated?.let {
+                _scannedItemState.value = ScannedItemState.FoundPiece(it)
+            }
+            _snackbarMessages.emit("Applied deal \"${offer.displayBadge}\"")
+        }
+    }
+
+    fun getOfferHistoryForPiece(barcode: String): Flow<List<OfferEntity>> {
+        return repository.getOfferHistoryForPiece(barcode)
     }
 
     fun createProduct(product: ProductEntity) {

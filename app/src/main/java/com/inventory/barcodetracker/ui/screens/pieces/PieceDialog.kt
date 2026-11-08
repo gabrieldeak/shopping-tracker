@@ -217,7 +217,7 @@ fun PieceDialog(
                             if (offerBuyQty.isBlank()) offerBuyQty = "3"
                             if (offerPayQty.isBlank()) offerPayQty = "2"
                         },
-                        label = { Text("3 for 2 / Multi-buy Free") }
+                        label = { Text("Buy X Pay Y (3 for 2)") }
                     )
                     FilterChip(
                         selected = offerType == "MULTI_BUY_FIXED",
@@ -225,7 +225,14 @@ fun PieceDialog(
                             offerType = "MULTI_BUY_FIXED"
                             if (offerBuyQty.isBlank()) offerBuyQty = "2"
                         },
-                        label = { Text("Multi-buy Fixed (2 for £5)") }
+                        label = { Text("X for $currencySymbol Y (2 for ${currencySymbol}5)") }
+                    )
+                    FilterChip(
+                        selected = offerType == "REDUCED_PRICE",
+                        onClick = {
+                            offerType = "REDUCED_PRICE"
+                        },
+                        label = { Text("Reduced to $currencySymbol Y") }
                     )
                     FilterChip(
                         selected = offerType == "PERCENT_OFF",
@@ -233,66 +240,129 @@ fun PieceDialog(
                             offerType = "PERCENT_OFF"
                             if (offerPercentOff.isBlank()) offerPercentOff = "20"
                         },
-                        label = { Text("% Discount / Half Price") }
+                        label = { Text("% Off / Half Price") }
                     )
                 }
 
                 if (offerType == "THREE_FOR_TWO") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = offerBuyQty,
-                            onValueChange = { offerBuyQty = it },
-                            label = { Text("Buy Qty") },
-                            placeholder = { Text("3") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = offerPayQty,
-                            onValueChange = { offerPayQty = it },
-                            label = { Text("Pay Qty") },
-                            placeholder = { Text("2") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            AssistChip(
+                                onClick = { offerBuyQty = "3"; offerPayQty = "2" },
+                                label = { Text("3 for 2 (1 free)") }
+                            )
+                            AssistChip(
+                                onClick = { offerBuyQty = "2"; offerPayQty = "1" },
+                                label = { Text("2 for 1 (BOGO)") }
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = offerBuyQty,
+                                onValueChange = { offerBuyQty = it },
+                                label = { Text("Buy Quantity (X)") },
+                                placeholder = { Text("3") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = offerPayQty,
+                                onValueChange = { offerPayQty = it },
+                                label = { Text("Pay Quantity (Y)") },
+                                placeholder = { Text("2") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                        }
                     }
                 }
 
                 if (offerType == "MULTI_BUY_FIXED") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = offerBuyQty,
-                            onValueChange = { offerBuyQty = it },
-                            label = { Text("Buy Qty") },
-                            placeholder = { Text("2") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = offerFixedPrice,
-                            onValueChange = { offerFixedPrice = it },
-                            label = { Text("Bundle Price ($currencySymbol)") },
-                            prefix = { Text(currencySymbol) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            AssistChip(
+                                onClick = { offerBuyQty = "2"; offerFixedPrice = "5.00" },
+                                label = { Text("2 for ${currencySymbol}5") }
+                            )
+                            AssistChip(
+                                onClick = { offerBuyQty = "3"; offerFixedPrice = "10.00" },
+                                label = { Text("3 for ${currencySymbol}10") }
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = offerBuyQty,
+                                onValueChange = { offerBuyQty = it },
+                                label = { Text("Buy Quantity (X)") },
+                                placeholder = { Text("2") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = offerFixedPrice,
+                                onValueChange = { offerFixedPrice = it },
+                                label = { Text("Bundle Price ($currencySymbol Y)") },
+                                prefix = { Text(currencySymbol) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
+                            )
+                        }
                     }
                 }
 
-                if (offerType == "PERCENT_OFF") {
+                if (offerType == "REDUCED_PRICE") {
                     OutlinedTextField(
-                        value = offerPercentOff,
-                        onValueChange = { offerPercentOff = it },
-                        label = { Text("Discount Percentage (%)") },
-                        suffix = { Text("%") },
+                        value = offerFixedPrice,
+                        onValueChange = { offerFixedPrice = it },
+                        label = { Text("Special Reduced Price ($currencySymbol)") },
+                        placeholder = { Text("e.g. 2.50") },
+                        prefix = { Text(currencySymbol) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        supportingText = {
+                            val standardPrice = unitPrice.toDoubleOrNull() ?: 0.0
+                            val reducedPrice = offerFixedPrice.toDoubleOrNull() ?: 0.0
+                            if (standardPrice > 0.0 && reducedPrice > 0.0) {
+                                val savingPerUnit = standardPrice - reducedPrice
+                                if (savingPerUnit > 0) {
+                                    Text("Standard: $currencySymbol${String.format(Locale.US, "%.2f", standardPrice)} -> Save $currencySymbol${String.format(Locale.US, "%.2f", savingPerUnit)} per item!", color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
                     )
+                }
+
+                if (offerType == "PERCENT_OFF") {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            AssistChip(
+                                onClick = { offerPercentOff = "50" },
+                                label = { Text("50% (Half Price)") }
+                            )
+                            AssistChip(
+                                onClick = { offerPercentOff = "20" },
+                                label = { Text("20% Off") }
+                            )
+                            AssistChip(
+                                onClick = { offerPercentOff = "25" },
+                                label = { Text("25% Off") }
+                            )
+                        }
+                        OutlinedTextField(
+                            value = offerPercentOff,
+                            onValueChange = { offerPercentOff = it },
+                            label = { Text("Discount Percentage (%)") },
+                            suffix = { Text("%") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
                 }
             }
         },

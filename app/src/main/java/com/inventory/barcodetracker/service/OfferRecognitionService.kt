@@ -79,6 +79,19 @@ object OfferRecognitionService {
                     )
                 }
             }
+
+            // 6. Check Reduced Price (e.g. "REDUCED TO £2.50", "WAS £4 NOW £2.50", "NOW £2.50", "SPECIAL £2.50")
+            val reducedMatcher = Pattern.compile("(?:WAS\\s*[£$€]?\\d+(?:\\.\\d{1,2})?\\s*)?(?:REDUCED TO|NOW|SPECIAL|OFFER PRICE)\\s*[£$€]?\\s*(\\d+(?:\\.\\d{1,2})?)").matcher(upper)
+            if (reducedMatcher.find()) {
+                val price = reducedMatcher.group(1)?.toDoubleOrNull() ?: 0.0
+                if (price > 0.0) {
+                    return DetectedOffer(
+                        offerType = "REDUCED_PRICE",
+                        fixedPrice = price,
+                        detectedText = line,
+                    )
+                }
+            }
         }
         return null
     }

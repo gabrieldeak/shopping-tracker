@@ -1,0 +1,78 @@
+package com.inventory.barcodetracker.ui.screens.offers
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.inventory.barcodetracker.data.local.entity.OfferEntity
+import com.inventory.barcodetracker.data.local.entity.PieceEntity
+import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
+import com.inventory.barcodetracker.data.repository.InventoryRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import java.util.Locale
+
+class OffersViewModel(
+    private val repository: InventoryRepository,
+    private val currencyPreferences: CurrencyPreferences,
+) : ViewModel() {
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    val currencySymbol: StateFlow<String> = currencyPreferences.currencySymbol
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "$")
+
+    val allPieces: StateFlow<List<PieceEntity>> = repository.allPieces
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val offersList: StateFlow<List<OfferEntity>> = combine(repository.allOffers, _searchQuery) { offers, query ->
+        if (query.isBlank()) {
+            offers
+        } else {
+            val q = query.trim().lowercase(Locale.ROOT)
+            offers.filter {
+                it.title.lowercase(Locale.ROOT).contains(q) ||
+                    it.storeName.lowercase(Locale.ROOT).contains(q) ||
+                    it.displayBadge.lowercase(Locale.ROOT).contains(q) ||
+                    it.notes.lowercase(Locale.ROOT).contains(q) ||
+                    it.offerType.lowercase(Locale.ROOT).contains(q)
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _snackbarMessages = MutableSharedFlow<String>()
+    val snackbarMessages: SharedFlow<String> = _snackbarMessages.asSharedFlow()
+
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun saveOffer(offer: OfferEntity) {
+        viewModelScope.launch {
+            repository.upsertOffer(offer)
+            _snackbarMessages.emit("Offer \"${offer.title}\" saved successfully.")
+        }
+    }
+
+    fun deleteOffer(offer: OfferEntity) {
+        viewModelScope.launch {
+            repository.deleteOffer(offer)
+            _snackbarMessages.emit("Offer \"${offer.title}\" deleted.")
+        }
+    }
+
+    fun applyOfferToPiece(barcode: String, offer: OfferEntity) {
+        viewModelScope.launch {
+            repository.applyOfferToPiece(barcode, offer)
+            val piece = repository.getPieceByBarcode(barcode)
+            _snackbarMessages.emit("Applied deal \"${offer.displayBadge}\" to ${piece?.name ?: barcode}.")
+        }
+    }
+}

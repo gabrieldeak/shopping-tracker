@@ -48,6 +48,13 @@ data class PieceEntity(
                     val percent = offerPercentOff.coerceIn(0.0, 100.0)
                     rawSubtotal * (1.0 - (percent / 100.0))
                 }
+                "REDUCED_PRICE" -> {
+                    if (offerFixedPrice > 0.0) {
+                        stockQuantity * offerFixedPrice
+                    } else {
+                        rawSubtotal
+                    }
+                }
                 else -> rawSubtotal
             }
         }
@@ -67,6 +74,7 @@ data class PieceEntity(
                 "$buy for ${String.format(Locale.US, "%.2f", offerFixedPrice)}"
             }
             "PERCENT_OFF" -> "${String.format(Locale.US, "%.0f", offerPercentOff)}% Off"
+            "REDUCED_PRICE" -> "Reduced to ${String.format(Locale.US, "%.2f", offerFixedPrice)}"
             else -> ""
         }
 }

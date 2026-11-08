@@ -6,8 +6,10 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
+import com.inventory.barcodetracker.data.local.entity.ProductOfferHistoryEntity
 import com.inventory.barcodetracker.data.local.entity.ProductPieceCrossRef
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 import com.inventory.barcodetracker.data.local.model.BomItem
@@ -156,5 +158,40 @@ abstract class InventoryDao {
         clearPieces()
         clearProducts()
         clearShoppingTrips()
+        clearOffers()
     }
+
+    // --- Saved Offers ---
+    @Query("SELECT * FROM offers ORDER BY createdAt DESC")
+    abstract fun getAllOffers(): Flow<List<OfferEntity>>
+
+    @Query("SELECT * FROM offers ORDER BY createdAt DESC")
+    abstract suspend fun getAllOffersSync(): List<OfferEntity>
+
+    @Query("SELECT * FROM offers WHERE id = :id LIMIT 1")
+    abstract suspend fun getOfferById(id: Long): OfferEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertOffer(offer: OfferEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertOffers(offers: List<OfferEntity>)
+
+    @Delete
+    abstract suspend fun deleteOffer(offer: OfferEntity)
+
+    @Query("DELETE FROM offers")
+    abstract suspend fun clearOffers()
+
+    // --- Product Offer History ---
+    @Query("""
+        SELECT DISTINCT o.* FROM offers o
+        INNER JOIN product_offer_history h ON o.id = h.offerId
+        WHERE h.barcode = :barcode
+        ORDER BY h.appliedAt DESC
+    """)
+    abstract fun getOfferHistoryForPiece(barcode: String): Flow<List<OfferEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun recordOfferHistory(history: ProductOfferHistoryEntity)
 }

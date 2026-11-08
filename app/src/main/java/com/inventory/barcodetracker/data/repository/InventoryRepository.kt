@@ -1,8 +1,10 @@
 package com.inventory.barcodetracker.data.repository
 
 import com.inventory.barcodetracker.data.local.dao.InventoryDao
+import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
+import com.inventory.barcodetracker.data.local.entity.ProductOfferHistoryEntity
 import com.inventory.barcodetracker.data.local.entity.ProductPieceCrossRef
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 import com.inventory.barcodetracker.data.local.model.BomItem
@@ -124,6 +126,48 @@ class InventoryRepository(
         inventoryDao.clearAllData()
     }
 
+    // --- Saved Offers ---
+    val allOffers: Flow<List<OfferEntity>> = inventoryDao.getAllOffers()
+
+    suspend fun getAllOffersSync(): List<OfferEntity> {
+        return inventoryDao.getAllOffersSync()
+    }
+
+    suspend fun getOfferById(id: Long): OfferEntity? {
+        return inventoryDao.getOfferById(id)
+    }
+
+    suspend fun upsertOffer(offer: OfferEntity): Long {
+        return inventoryDao.upsertOffer(offer)
+    }
+
+    suspend fun deleteOffer(offer: OfferEntity) {
+        inventoryDao.deleteOffer(offer)
+    }
+
+    fun getOfferHistoryForPiece(barcode: String): Flow<List<OfferEntity>> {
+        return inventoryDao.getOfferHistoryForPiece(barcode)
+    }
+
+    suspend fun applyOfferToPiece(barcode: String, offer: OfferEntity) {
+        val piece = inventoryDao.getPieceByBarcode(barcode) ?: return
+        val updatedPiece = piece.copy(
+            offerType = offer.offerType,
+            offerBuyQty = offer.buyQty,
+            offerPayQty = offer.payQty,
+            offerFixedPrice = offer.fixedPrice,
+            offerPercentOff = offer.percentOff
+        )
+        inventoryDao.upsertPiece(updatedPiece)
+        inventoryDao.recordOfferHistory(
+            ProductOfferHistoryEntity(
+                barcode = barcode,
+                offerId = offer.id,
+                appliedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
     // --- Sample Data Seeding ---
     suspend fun seedSampleData() {
         val samplePieces = listOf(
@@ -175,5 +219,32 @@ class InventoryRepository(
         )
 
         inventoryDao.upsertPieces(samplePieces)
+
+        val sampleOffers = listOf(
+            OfferEntity(
+                title = "3 for 2 Mix & Match Deal",
+                offerType = "THREE_FOR_TWO",
+                buyQty = 3,
+                payQty = 2,
+                storeName = "Tesco",
+                notes = "Buy 3 items, cheapest is free"
+            ),
+            OfferEntity(
+                title = "2 for £5 Grill Promotion",
+                offerType = "MULTI_BUY_FIXED",
+                buyQty = 2,
+                fixedPrice = 5.0,
+                storeName = "Sainsbury's",
+                notes = "Select 2 items for £5.00 total"
+            ),
+            OfferEntity(
+                title = "50% Half Price Clearout",
+                offerType = "PERCENT_OFF",
+                percentOff = 50.0,
+                storeName = "Asda",
+                notes = "50% off standard shelf price"
+            )
+        )
+        inventoryDao.upsertOffers(sampleOffers)
     }
 }

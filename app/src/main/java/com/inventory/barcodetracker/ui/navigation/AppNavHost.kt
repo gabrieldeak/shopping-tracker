@@ -14,6 +14,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.inventory.barcodetracker.di.AppContainer
 import com.inventory.barcodetracker.ui.AppViewModelFactory
+import com.inventory.barcodetracker.ui.screens.offers.OffersScreen
+import com.inventory.barcodetracker.ui.screens.offers.OffersViewModel
 import com.inventory.barcodetracker.ui.screens.pieces.PiecesScreen
 import com.inventory.barcodetracker.ui.screens.pieces.PiecesViewModel
 import com.inventory.barcodetracker.ui.screens.scan.QuickScanScreen
@@ -97,6 +99,20 @@ fun AppNavHost(
                 )
                 PiecesScreen(
                     viewModel = piecesViewModel,
+                    snackbarHostState = snackbarHostState
+                )
+            }
+
+            // Store Offers & Multi-Buys
+            composable(Screen.Offers.route) {
+                val offersViewModel: OffersViewModel = viewModel(
+                    factory = AppViewModelFactory(
+                        repository = appContainer.inventoryRepository,
+                        currencyPreferences = appContainer.currencyPreferences
+                    )
+                )
+                OffersScreen(
+                    viewModel = offersViewModel,
                     snackbarHostState = snackbarHostState
                 )
             }
