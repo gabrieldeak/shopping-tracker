@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.service.TextRecognitionService
+import com.inventory.barcodetracker.ui.components.OcrTextEditDialog
 import com.inventory.barcodetracker.ui.theme.StockLowRed
 import com.inventory.barcodetracker.ui.theme.StockLowRedContainer
 import com.inventory.barcodetracker.ui.theme.StockOkGreen
@@ -359,6 +360,7 @@ private fun NotFoundResolutionContent(
     var notes by remember(scannedBarcode, initialBrand) { mutableStateOf(initialBrand) }
 
     var ocrTextCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
+    var editableOcrText by remember { mutableStateOf("") }
     var showOcrChoiceDialog by remember { mutableStateOf(false) }
 
     val cameraOcrLauncher = rememberLauncherForActivityResult(
@@ -368,12 +370,9 @@ private fun NotFoundResolutionContent(
             coroutineScope.launch {
                 val detected = TextRecognitionService.processImage(bmp)
                 if (detected.isNotEmpty()) {
-                    if (detected.size == 1) {
-                        name = detected.first()
-                    } else {
-                        ocrTextCandidates = detected
-                        showOcrChoiceDialog = true
-                    }
+                    ocrTextCandidates = detected
+                    editableOcrText = detected.joinToString(" ")
+                    showOcrChoiceDialog = true
                 }
             }
         }
@@ -496,34 +495,13 @@ private fun NotFoundResolutionContent(
     }
 
     if (showOcrChoiceDialog) {
-        AlertDialog(
-            onDismissRequest = { showOcrChoiceDialog = false },
-            title = { Text("Select Name Recognized from Package") },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text("Tap the text line that matches your product name:", style = MaterialTheme.typography.bodySmall)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ocrTextCandidates.forEach { textLine ->
-                        OutlinedButton(
-                            onClick = {
-                                name = textLine
-                                showOcrChoiceDialog = false
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(textLine)
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showOcrChoiceDialog = false }) {
-                    Text("Cancel")
-                }
+        OcrTextEditDialog(
+            initialText = editableOcrText,
+            linesDetected = ocrTextCandidates,
+            onDismiss = { showOcrChoiceDialog = false },
+            onConfirm = { editedName ->
+                name = editedName
+                showOcrChoiceDialog = false
             }
         )
     }
