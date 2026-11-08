@@ -228,7 +228,7 @@ fun PiecesScreen(
         AlertDialog(
             onDismissRequest = { pieceToDelete = null },
             title = { Text("Delete Part") },
-            text = { Text("Are you sure you want to delete \"${piece.name}\" (${piece.barcode})? Note: this will fail if it is currently part of any BOM.") },
+            text = { Text("Are you sure you want to delete \"${piece.name}\" (${piece.barcode})? Note: this will fail if it is currently linked to an assembled product.") },
             confirmButton = {
                 Button(
                     onClick = {

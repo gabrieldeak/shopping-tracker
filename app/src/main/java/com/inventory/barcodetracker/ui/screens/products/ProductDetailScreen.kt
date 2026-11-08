@@ -54,7 +54,7 @@ fun ProductDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(product?.name ?: "Product BOM") },
+                title = { Text(product?.name ?: "Product Recipe") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -68,7 +68,7 @@ fun ProductDetailScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Part to BOM")
+                Icon(Icons.Default.Add, contentDescription = "Add Component")
             }
         }
     ) { innerPadding ->
@@ -78,7 +78,7 @@ fun ProductDetailScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            // Calculate BOM total unit cost
+            // Calculate components total unit cost
             val totalBomUnitCost = bomItems.sumOf { it.quantityRequired * it.unitPrice }
 
             // Product info & Build Capacity Card
@@ -120,7 +120,7 @@ fun ProductDetailScreen(
                             }
                             if (totalBomUnitCost > 0) {
                                 Text(
-                                    text = String.format(Locale.US, "BOM Cost: %s%.2f", currencySymbol, totalBomUnitCost),
+                                    text = String.format(Locale.US, "Component Cost: %s%.2f", currencySymbol, totalBomUnitCost),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
@@ -176,7 +176,7 @@ fun ProductDetailScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Bill of Materials (${bomItems.size} components)",
+                text = "Bundle Components (${bomItems.size} parts)",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 8.dp)
@@ -191,7 +191,7 @@ fun ProductDetailScreen(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "No parts linked to this product yet.",
+                            text = "No components linked to this product yet.",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -199,7 +199,7 @@ fun ProductDetailScreen(
                         Button(onClick = { showAddBomDialog = true }) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Add First BOM Part")
+                            Text("Add First Component")
                         }
                     }
                 }
@@ -248,7 +248,7 @@ fun ProductDetailScreen(
                                 }
 
                                 IconButton(onClick = { itemToRemove = item }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Remove part from BOM", tint = MaterialTheme.colorScheme.error)
+                                    Icon(Icons.Default.Delete, contentDescription = "Remove component", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
@@ -258,7 +258,7 @@ fun ProductDetailScreen(
         }
     }
 
-    // Add BOM Dialog
+    // Add Component Dialog
     if (showAddBomDialog) {
         val alreadyLinked = bomItems.map { it.barcode }.toSet()
         AddBomItemDialog(
@@ -276,8 +276,8 @@ fun ProductDetailScreen(
     itemToRemove?.let { item ->
         AlertDialog(
             onDismissRequest = { itemToRemove = null },
-            title = { Text("Remove from BOM") },
-            text = { Text("Remove \"${item.pieceName}\" from the Bill of Materials for this product?") },
+            title = { Text("Remove Component") },
+            text = { Text("Remove \"${item.pieceName}\" from the recipe components for this product?") },
             confirmButton = {
                 Button(
                     onClick = {

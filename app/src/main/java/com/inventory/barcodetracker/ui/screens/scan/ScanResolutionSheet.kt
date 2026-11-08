@@ -674,7 +674,7 @@ private fun ProductResolutionContent(
         },
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text("View Bill of Materials (BOM) & Build Capacity")
+        Text("View Product Components & Build Capacity")
         Spacer(modifier = Modifier.width(8.dp))
         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
     }

@@ -5,7 +5,7 @@
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4.svg)](https://developer.android.com/jetpack/compose)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
-A local-first, offline-ready Android application built with **Kotlin** and **Jetpack Compose**. Developed & Designed by **G.A.D** and ✨ *Vibe coded with AI*. Designed for fast in-store shopping, barcode scanning, budget tracking, dedicated multi-buy offer management, comprehensive field searching, OCR label recognition, shopping history receipts, and Bill of Materials (BOM) product assembly.
+A local-first, offline-ready Android application built with **Kotlin** and **Jetpack Compose**. Developed & Designed by **G.A.D** and ✨ *Vibe coded with AI*. Designed for fast in-store shopping, barcode scanning, budget tracking, dedicated multi-buy offer management, comprehensive field searching, OCR label recognition, shopping history receipts, and product bundle assembly.
 
 ---
 
@@ -14,7 +14,7 @@ A local-first, offline-ready Android application built with **Kotlin** and **Jet
 - ⚙️ **About & Developer Info**:
   - **Developed & Designed by G.A.D**
   - **✨ Vibe Coded with AI**
-- 🔍 **Deep Multi-Field Search**: Search filters across the app (Quick Scan, My Items, Offers, BOM assembly, and Offer Dialogs) perform exhaustive multi-field matching across:
+- 🔍 **Deep Multi-Field Search**: Search filters across the app (Quick Scan, My Items, Offers, Product Components, and Offer Dialogs) perform exhaustive multi-field matching across:
   - **Barcode / SKU**
   - **Item Name**
   - **Location / Category / Store Section**
@@ -35,10 +35,10 @@ A local-first, offline-ready Android application built with **Kotlin** and **Jet
 - 🌐 **OpenFoodFacts Barcode Lookup**: Automatically fetches product names, brands, and categories from OpenFoodFacts for unrecognized grocery barcodes.
 - 💰 **Cart Total & Target Budget Tracker**: Live shopping cart total with customizable budget limit alerts, visual progress bar, remaining budget calculations, and over-budget warnings.
 - 📦 **My Items Catalog**: Manage inventory items (*Pieces*) with custom barcodes, quantities in cart, unit prices, storage categories/locations, and active offer badges.
-- 🧩 **Bill of Materials (BOM) & Build Capacity**: Define assembled products built from multiple sub-components and compute maximum assembly build capacity from current stock.
+- 🧩 **Product Bundles & Component Assembly**: Define composite products built from multiple sub-components and compute maximum build capacity from current stock.
 - 🛒 **Shopping History & Receipts**: Finish and save completed shopping carts to a historical trip log with total cost, date, item count, and item summaries.
 - 💱 **Multi-Currency & Custom Themes**: Configure preferred currency symbols (`RON`, `€`, `£`, `$`, or Custom) and toggle between Light, Dark, or System themes.
-- 💾 **Data Backup, Restore & CSV Export/Import**: Full JSON backup and restore for all app data and settings, plus Storage Access Framework CSV export/import for items, products, BOM links, and trip history.
+- 💾 **Data Backup, Restore & CSV Export/Import**: Full JSON backup and restore for all app data and settings, plus Storage Access Framework CSV export/import for items, products, component links, and trip history.
 
 ---
 
@@ -66,7 +66,7 @@ shopping-tracker/
 ├── app/
 │   ├── src/main/
 │   │   ├── java/com/inventory/barcodetracker/
-│   │   │   ├── data/             # Room Entities (Piece, Product, Offer, ProductOfferHistory, BOM, Trip), DAOs, AppDatabase, Repository
+│   │   │   ├── data/             # Room Entities (Piece, Product, Offer, ProductOfferHistory, Trip), DAOs, AppDatabase, Repository
 │   │   │   ├── di/               # AppContainer manual DI
 │   │   │   ├── scanner/          # Google Code Scanner Service
 │   │   │   ├── service/          # CsvService, TextRecognitionService, OfferRecognitionService, OpenFoodFactsService, BackupRestoreService

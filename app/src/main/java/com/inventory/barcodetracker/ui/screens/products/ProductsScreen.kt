@@ -45,7 +45,7 @@ fun ProductsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Assembled Products & BOM") }
+                title = { Text("Assembled Products & Bundles") }
             )
         },
         floatingActionButton = {
@@ -150,7 +150,7 @@ fun ProductsScreen(
         AlertDialog(
             onDismissRequest = { productToDelete = null },
             title = { Text("Delete Product") },
-            text = { Text("Are you sure you want to delete \"${product.name}\" (${product.productSku})? This will also remove all BOM links for this product.") },
+            text = { Text("Are you sure you want to delete \"${product.name}\" (${product.productSku})? This will also remove all component links for this product.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -250,7 +250,7 @@ private fun ProductItemCard(
                 }
 
                 FilledTonalButton(onClick = onOpenBom) {
-                    Text("BOM & Build")
+                    Text("Components & Build")
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                 }

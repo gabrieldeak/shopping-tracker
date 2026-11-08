@@ -46,7 +46,7 @@ fun AddBomItemDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Part to BOM") },
+        title = { Text("Add Component to Product") },
         text = {
             Column(
                 modifier = Modifier
@@ -55,7 +55,7 @@ fun AddBomItemDialog(
             ) {
                 if (selectedPiece == null) {
                     Text(
-                        "Select a part to link to this product:",
+                        "Select a component part to link to this product:",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -156,7 +156,7 @@ fun AddBomItemDialog(
                 },
                 enabled = selectedPiece != null && (quantityText.toIntOrNull() ?: 0) > 0
             ) {
-                Text("Add to BOM")
+                Text("Add Component")
             }
         },
         dismissButton = {

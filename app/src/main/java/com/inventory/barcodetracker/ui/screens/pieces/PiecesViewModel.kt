@@ -83,7 +83,7 @@ class PiecesViewModel(
                 _snackbarMessages.emit("Deleted ${piece.name}")
             } catch (_: Exception) {
                 // If ForeignKey constraint fails because piece is used in a BOM
-                _snackbarMessages.emit("Cannot delete piece: it is currently used in a product BOM.")
+                _snackbarMessages.emit("Cannot delete item: it is currently linked to an assembled product.")
             }
         }
     }
