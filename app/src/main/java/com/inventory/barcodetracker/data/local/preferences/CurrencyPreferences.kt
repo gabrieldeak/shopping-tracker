@@ -49,16 +49,10 @@ class CurrencyPreferences(context: Context) {
         private const val KEY_BUDGET_LIMIT = "budget_limit"
         private const val KEY_THEME_MODE = "theme_mode"
         val POPULAR_CURRENCIES = listOf(
-            "$" to "US Dollar ($)",
+            "RON" to "Romanian Leu (RON)",
             "€" to "Euro (€)",
             "£" to "British Pound (£)",
-            "¥" to "Japanese Yen / Yuan (¥)",
-            "₹" to "Indian Rupee (₹)",
-            "C$" to "Canadian Dollar (C$)",
-            "A$" to "Australian Dollar (A$)",
-            "R$" to "Brazilian Real (R$)",
-            "CHF" to "Swiss Franc (CHF)",
-            "kr" to "Krona / Krone (kr)",
+            "$" to "US Dollar ($)",
         )
     }
 }

@@ -37,7 +37,7 @@ A local-first, offline-ready Android application built with **Kotlin** and **Jet
 - 📦 **My Items Catalog**: Manage inventory items (*Pieces*) with custom barcodes, quantities in cart, unit prices, storage categories/locations, and active offer badges.
 - 🧩 **Bill of Materials (BOM) & Build Capacity**: Define assembled products built from multiple sub-components and compute maximum assembly build capacity from current stock.
 - 🛒 **Shopping History & Receipts**: Finish and save completed shopping carts to a historical trip log with total cost, date, item count, and item summaries.
-- 💱 **Multi-Currency & Custom Themes**: Configure preferred currency symbols (`$`, `£`, `€`, `¥`, etc.) and toggle between Light, Dark, or System themes.
+- 💱 **Multi-Currency & Custom Themes**: Configure preferred currency symbols (`RON`, `€`, `£`, `$`, or Custom) and toggle between Light, Dark, or System themes.
 - 💾 **Data Backup, Restore & CSV Export/Import**: Full JSON backup and restore for all app data and settings, plus Storage Access Framework CSV export/import for items, products, BOM links, and trip history.
 
 ---
