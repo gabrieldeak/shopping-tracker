@@ -44,6 +44,7 @@ fun QuickScanScreen(
     val basketSummary by viewModel.basketSummary.collectAsStateWithLifecycle()
     val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
     val budgetLimit by viewModel.budgetLimit.collectAsStateWithLifecycle()
+    val savedOffers by viewModel.savedOffers.collectAsStateWithLifecycle()
 
     var showManualInputDialog by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
@@ -506,6 +507,7 @@ fun QuickScanScreen(
     ScanResolutionSheet(
         state = scannedItemState,
         currencySymbol = currencySymbol,
+        savedOffers = savedOffers,
         onDismiss = viewModel::dismissScannedSheet,
         onAdjustPieceStock = viewModel::adjustPieceStock,
         onAdjustProductStock = viewModel::adjustProductStock,

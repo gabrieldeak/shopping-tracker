@@ -35,7 +35,11 @@ fun AddBomItemDialog(
             !alreadyLinkedBarcodes.contains(piece.barcode) && (
                     trimmed.isEmpty() ||
                             piece.name.contains(trimmed, ignoreCase = true) ||
-                            piece.barcode.contains(trimmed, ignoreCase = true)
+                            piece.barcode.contains(trimmed, ignoreCase = true) ||
+                            piece.location.contains(trimmed, ignoreCase = true) ||
+                            piece.description.contains(trimmed, ignoreCase = true) ||
+                            piece.offerDescription.contains(trimmed, ignoreCase = true) ||
+                            piece.offerType.contains(trimmed, ignoreCase = true)
                     )
         }
     }

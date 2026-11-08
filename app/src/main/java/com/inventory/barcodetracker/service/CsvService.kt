@@ -55,7 +55,7 @@ object CsvService {
     // --- Export Pieces ---
     fun exportPieces(outputStream: OutputStream, pieces: List<PieceEntity>) {
         OutputStreamWriter(outputStream, StandardCharsets.UTF_8).use { writer ->
-            writer.write("barcode,name,description,location,stockQuantity,minStockThreshold,unitPrice,createdAt\n")
+            writer.write("barcode,name,description,location,stockQuantity,minStockThreshold,unitPrice,offerType,offerBuyQty,offerPayQty,offerFixedPrice,offerPercentOff,createdAt\n")
             for (p in pieces) {
                 val row = listOf(
                     escapeCsv(p.barcode),
@@ -65,6 +65,11 @@ object CsvService {
                     p.stockQuantity.toString(),
                     p.minStockThreshold.toString(),
                     p.unitPrice.toString(),
+                    escapeCsv(p.offerType),
+                    p.offerBuyQty.toString(),
+                    p.offerPayQty.toString(),
+                    p.offerFixedPrice.toString(),
+                    p.offerPercentOff.toString(),
                     p.createdAt.toString()
                 ).joinToString(",")
                 writer.write("$row\n")
@@ -86,6 +91,11 @@ object CsvService {
             val stockIdx = header.indexOf("stockquantity")
             val minStockIdx = header.indexOf("minstockthreshold")
             val priceIdx = header.indexOf("unitprice")
+            val offerTypeIdx = header.indexOf("offertype")
+            val offerBuyQtyIdx = header.indexOf("offerbuyqty")
+            val offerPayQtyIdx = header.indexOf("offerpayqty")
+            val offerFixedPriceIdx = header.indexOf("offerfixedprice")
+            val offerPercentOffIdx = header.indexOf("offerpercentoff")
             val createdIdx = header.indexOf("createdat")
 
             var line: String?
@@ -99,10 +109,15 @@ object CsvService {
                 if (barcode.isBlank()) continue
                 val name = if (nameIdx in cols.indices) cols[nameIdx] else barcode
                 val desc = if (descIdx in cols.indices) cols[descIdx] else ""
-                val loc = if (locIdx in cols.indices && cols[locIdx].isNotBlank()) cols[locIdx] else "Default Bin"
+                val loc = if (locIdx in cols.indices && cols[locIdx].isNotBlank()) cols[locIdx] else "Grocery"
                 val stock = if (stockIdx in cols.indices) cols[stockIdx].toIntOrNull() ?: 0 else 0
                 val minStock = if (minStockIdx in cols.indices) cols[minStockIdx].toIntOrNull() ?: 0 else 0
                 val unitPrice = if (priceIdx in cols.indices) cols[priceIdx].toDoubleOrNull() ?: 0.0 else 0.0
+                val offerType = if (offerTypeIdx in cols.indices && cols[offerTypeIdx].isNotBlank()) cols[offerTypeIdx] else "NONE"
+                val offerBuyQty = if (offerBuyQtyIdx in cols.indices) cols[offerBuyQtyIdx].toIntOrNull() ?: 0 else 0
+                val offerPayQty = if (offerPayQtyIdx in cols.indices) cols[offerPayQtyIdx].toIntOrNull() ?: 0 else 0
+                val offerFixedPrice = if (offerFixedPriceIdx in cols.indices) cols[offerFixedPriceIdx].toDoubleOrNull() ?: 0.0 else 0.0
+                val offerPercentOff = if (offerPercentOffIdx in cols.indices) cols[offerPercentOffIdx].toDoubleOrNull() ?: 0.0 else 0.0
                 val created = if (createdIdx in cols.indices) cols[createdIdx].toLongOrNull() ?: System.currentTimeMillis() else System.currentTimeMillis()
 
                 pieces.add(
@@ -114,6 +129,11 @@ object CsvService {
                         stockQuantity = stock,
                         minStockThreshold = minStock,
                         unitPrice = unitPrice,
+                        offerType = offerType,
+                        offerBuyQty = offerBuyQty,
+                        offerPayQty = offerPayQty,
+                        offerFixedPrice = offerFixedPrice,
+                        offerPercentOff = offerPercentOff,
                         createdAt = created
                     )
                 )

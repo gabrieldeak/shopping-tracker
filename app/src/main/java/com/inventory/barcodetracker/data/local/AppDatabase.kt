@@ -7,8 +7,10 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.inventory.barcodetracker.data.local.dao.InventoryDao
+import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
+import com.inventory.barcodetracker.data.local.entity.ProductOfferHistoryEntity
 import com.inventory.barcodetracker.data.local.entity.ProductPieceCrossRef
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 
@@ -46,14 +48,47 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `offers` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `title` TEXT NOT NULL,
+                `offerType` TEXT NOT NULL,
+                `buyQty` INTEGER NOT NULL DEFAULT 0,
+                `payQty` INTEGER NOT NULL DEFAULT 0,
+                `fixedPrice` REAL NOT NULL DEFAULT 0.0,
+                `percentOff` REAL NOT NULL DEFAULT 0.0,
+                `storeName` TEXT NOT NULL DEFAULT '',
+                `notes` TEXT NOT NULL DEFAULT '',
+                `createdAt` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `product_offer_history` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `barcode` TEXT NOT NULL,
+                `offerId` INTEGER NOT NULL,
+                `appliedAt` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+}
+
 @Database(
     entities = [
         PieceEntity::class,
         ProductEntity::class,
         ProductPieceCrossRef::class,
         ShoppingTripEntity::class,
+        OfferEntity::class,
+        ProductOfferHistoryEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -71,7 +106,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "barcode_inventory.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .fallbackToDestructiveMigrationOnDowngrade(true)
                     .build()
                 INSTANCE = instance

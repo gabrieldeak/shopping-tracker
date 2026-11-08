@@ -38,12 +38,15 @@ class PiecesViewModel(
         _lowStockOnly,
     ) { pieces, filter, isLowStockOnly ->
         val trimmed = filter.trim()
-        pieces.filter { (barcode, name, _, location, stockQuantity, minStockThreshold) ->
+        pieces.filter { piece ->
             val matchesFilter = trimmed.isEmpty() ||
-                    name.contains(trimmed, ignoreCase = true) ||
-                    barcode.contains(trimmed, ignoreCase = true) ||
-                    location.contains(trimmed, ignoreCase = true)
-            val matchesLowStock = !isLowStockOnly || (stockQuantity <= minStockThreshold)
+                    piece.name.contains(trimmed, ignoreCase = true) ||
+                    piece.barcode.contains(trimmed, ignoreCase = true) ||
+                    piece.location.contains(trimmed, ignoreCase = true) ||
+                    piece.description.contains(trimmed, ignoreCase = true) ||
+                    piece.offerDescription.contains(trimmed, ignoreCase = true) ||
+                    piece.offerType.contains(trimmed, ignoreCase = true)
+            val matchesLowStock = !isLowStockOnly || (piece.stockQuantity <= piece.minStockThreshold)
             matchesFilter && matchesLowStock
         }
     }.stateIn(

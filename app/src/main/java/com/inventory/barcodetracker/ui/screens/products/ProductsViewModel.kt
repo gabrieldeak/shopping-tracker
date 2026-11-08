@@ -39,7 +39,8 @@ class ProductsViewModel(
         } else {
             products.filter {
                 it.productSku.contains(trimmed, ignoreCase = true) ||
-                        it.name.contains(trimmed, ignoreCase = true)
+                        it.name.contains(trimmed, ignoreCase = true) ||
+                        it.description.contains(trimmed, ignoreCase = true)
             }
         }
     }.stateIn(
