@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.service.OfferRecognitionService
 import com.inventory.barcodetracker.service.TextRecognitionService
+import com.inventory.barcodetracker.ui.components.OcrTextEditDialog
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -51,6 +52,7 @@ fun PieceDialog(
     var nameError by remember { mutableStateOf<String?>(null) }
 
     var ocrTextCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
+    var editableOcrText by remember { mutableStateOf("") }
     var showOcrChoiceDialog by remember { mutableStateOf(false) }
 
     val cameraOcrLauncher = rememberLauncherForActivityResult(
@@ -60,13 +62,9 @@ fun PieceDialog(
             coroutineScope.launch {
                 val detected = TextRecognitionService.processImage(bmp)
                 if (detected.isNotEmpty()) {
-                    if (detected.size == 1) {
-                        name = detected.first()
-                        nameError = null
-                    } else {
-                        ocrTextCandidates = detected
-                        showOcrChoiceDialog = true
-                    }
+                    ocrTextCandidates = detected
+                    editableOcrText = detected.joinToString(" ")
+                    showOcrChoiceDialog = true
                 }
             }
         }
@@ -341,35 +339,14 @@ fun PieceDialog(
     )
 
     if (showOcrChoiceDialog) {
-        AlertDialog(
-            onDismissRequest = { showOcrChoiceDialog = false },
-            title = { Text("Select Name Recognized from Package") },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text("Tap the text line that matches your product name:", style = MaterialTheme.typography.bodySmall)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ocrTextCandidates.forEach { textLine ->
-                        OutlinedButton(
-                            onClick = {
-                                name = textLine
-                                nameError = null
-                                showOcrChoiceDialog = false
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(textLine)
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showOcrChoiceDialog = false }) {
-                    Text("Cancel")
-                }
+        OcrTextEditDialog(
+            initialText = editableOcrText,
+            linesDetected = ocrTextCandidates,
+            onDismiss = { showOcrChoiceDialog = false },
+            onConfirm = { editedName ->
+                name = editedName
+                if (editedName.isNotBlank()) nameError = null
+                showOcrChoiceDialog = false
             }
         )
     }

@@ -1,15 +1,23 @@
 package com.inventory.barcodetracker.ui.screens.products
 
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
+import com.inventory.barcodetracker.service.TextRecognitionService
+import com.inventory.barcodetracker.ui.components.OcrTextEditDialog
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
@@ -20,6 +28,7 @@ fun ProductDialog(
     onSave: (ProductEntity) -> Unit,
 ) {
     val isEditing = initialProduct != null
+    val coroutineScope = rememberCoroutineScope()
 
     var sku by remember { mutableStateOf(initialProduct?.productSku ?: "") }
     var name by remember { mutableStateOf(initialProduct?.name ?: "") }
@@ -30,6 +39,25 @@ fun ProductDialog(
 
     var skuError by remember { mutableStateOf<String?>(null) }
     var nameError by remember { mutableStateOf<String?>(null) }
+
+    var ocrTextCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
+    var editableOcrText by remember { mutableStateOf("") }
+    var showOcrChoiceDialog by remember { mutableStateOf(false) }
+
+    val cameraOcrLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        bitmap?.let { bmp ->
+            coroutineScope.launch {
+                val detected = TextRecognitionService.processImage(bmp)
+                if (detected.isNotEmpty()) {
+                    ocrTextCandidates = detected
+                    editableOcrText = detected.joinToString(" ")
+                    showOcrChoiceDialog = true
+                }
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -62,6 +90,15 @@ fun ProductDialog(
                         if (it.isNotBlank()) nameError = null
                     },
                     label = { Text("Product Name *") },
+                    trailingIcon = {
+                        IconButton(onClick = { cameraOcrLauncher.launch(null) }) {
+                            Icon(
+                                Icons.Default.PhotoCamera,
+                                contentDescription = "Scan Product Name with Camera",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
                     isError = nameError != null,
                     supportingText = nameError?.let { { Text(it) } },
                     singleLine = true,
@@ -144,4 +181,17 @@ fun ProductDialog(
             }
         }
     )
+
+    if (showOcrChoiceDialog) {
+        OcrTextEditDialog(
+            initialText = editableOcrText,
+            linesDetected = ocrTextCandidates,
+            onDismiss = { showOcrChoiceDialog = false },
+            onConfirm = { editedName ->
+                name = editedName
+                if (editedName.isNotBlank()) nameError = null
+                showOcrChoiceDialog = false
+            }
+        )
+    }
 }
