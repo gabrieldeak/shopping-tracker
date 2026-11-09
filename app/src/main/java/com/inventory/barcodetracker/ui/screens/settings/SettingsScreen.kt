@@ -98,6 +98,18 @@ fun SettingsScreen(
         uri?.let { viewModel.restoreFullBackup(contentResolver, it) }
     }
 
+    val exportDatabaseLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri: Uri? ->
+        uri?.let { viewModel.exportRawDatabase(context, contentResolver, it) }
+    }
+
+    val restoreDatabaseLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.importRawDatabase(context, contentResolver, it) }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -276,12 +288,13 @@ fun SettingsScreen(
 
             // Section: Full Backup & Restore
             Text(
-                text = "Full Backup & Cloud Restore",
+                text = "Full Backup & Database Restore",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
 
+            // JSON Full Backup Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
@@ -292,8 +305,8 @@ fun SettingsScreen(
                         Icon(Icons.Default.CloudUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text("Complete App Backup & Restore", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text("Backs up all products, offers, shopping receipts, and settings into a single file.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("1. Complete JSON Data Backup", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Human-readable JSON backup covering all items, products, deals, offer history, receipts, and settings.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
@@ -308,7 +321,7 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Save Backup")
+                            Text("Save JSON")
                         }
 
                         OutlinedButton(
@@ -324,7 +337,50 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Restore Backup")
+                            Text("Restore JSON")
+                        }
+                    }
+                }
+            }
+
+            // Raw SQLite DB File Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Save, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text("2. Raw SQLite Database File (.db)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Direct 1:1 backup/restore of the SQLite database file (barcode_inventory.db).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { exportDatabaseLauncher.launch("barcode_inventory.db") },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Export .db File")
+                        }
+
+                        FilledTonalButton(
+                            onClick = { restoreDatabaseLauncher.launch(arrayOf("*/*")) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Restore .db File")
                         }
                     }
                 }

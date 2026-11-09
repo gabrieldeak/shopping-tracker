@@ -179,6 +179,36 @@ class SettingsViewModel(
         }
     }
 
+    fun exportRawDatabase(context: Context, contentResolver: ContentResolver, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        BackupRestoreService.exportDatabaseFile(context, outputStream)
+                    }
+                }
+                _snackbarMessages.emit("Raw SQLite database exported successfully (.db)!")
+            } catch (e: Exception) {
+                _snackbarMessages.emit("Failed to export database file: ${e.message}")
+            }
+        }
+    }
+
+    fun importRawDatabase(context: Context, contentResolver: ContentResolver, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    contentResolver.openInputStream(uri)?.use { inputStream ->
+                        BackupRestoreService.restoreDatabaseFile(context, inputStream)
+                    }
+                }
+                _snackbarMessages.emit("Raw SQLite database restored! Restart app if needed.")
+            } catch (e: Exception) {
+                _snackbarMessages.emit("Failed to restore database file: ${e.message}")
+            }
+        }
+    }
+
     fun shareFullBackup(context: Context) {
         viewModelScope.launch {
             try {
