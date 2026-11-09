@@ -354,29 +354,35 @@ fun SettingsScreen(
                         Icon(Icons.Default.Save, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text("2. Raw SQLite Database File (.db)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text("Direct 1:1 backup/restore of the SQLite database file (barcode_inventory.db).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("2. Raw SQLite Database File (shopping_tracker.db)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Direct 1:1 backup/restore of the SQLite database file (shopping_tracker.db).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedButton(
-                            onClick = { exportDatabaseLauncher.launch("barcode_inventory.db") },
-                            modifier = Modifier.weight(1f)
+                        Button(
+                            onClick = { exportDatabaseLauncher.launch("shopping_tracker.db") }
                         ) {
                             Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Export .db File")
+                            Text("Save .db File")
+                        }
+
+                        OutlinedButton(
+                            onClick = { viewModel.shareRawDatabase(context) }
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Share / Drive")
                         }
 
                         FilledTonalButton(
-                            onClick = { restoreDatabaseLauncher.launch(arrayOf("*/*")) },
-                            modifier = Modifier.weight(1f)
+                            onClick = { restoreDatabaseLauncher.launch(arrayOf("*/*")) }
                         ) {
                             Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(4.dp))

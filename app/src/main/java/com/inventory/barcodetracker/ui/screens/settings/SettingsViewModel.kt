@@ -261,6 +261,40 @@ class SettingsViewModel(
         }
     }
 
+    fun shareRawDatabase(context: Context) {
+        viewModelScope.launch {
+            try {
+                val dbFile = withContext(Dispatchers.IO) {
+                    val cacheDir = File(context.cacheDir, "shared_backups")
+                    cacheDir.mkdirs()
+                    val targetFile = File(cacheDir, "shopping_tracker.db")
+                    val sourceDb = context.getDatabasePath("barcode_inventory.db")
+                    if (sourceDb.exists()) {
+                        sourceDb.copyTo(targetFile, overwrite = true)
+                    }
+                    targetFile
+                }
+
+                val contentUri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    dbFile
+                )
+
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/octet-stream"
+                    putExtra(Intent.EXTRA_STREAM, contentUri)
+                    putExtra(Intent.EXTRA_SUBJECT, "Shopping Tracker Database (.db)")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
+                context.startActivity(Intent.createChooser(shareIntent, "Share SQLite Database via Google Drive, Email, etc."))
+            } catch (e: Exception) {
+                _snackbarMessages.emit("Failed to share database file: ${e.message}")
+            }
+        }
+    }
+
     fun shareAppApk(context: Context) {
         viewModelScope.launch {
             try {
