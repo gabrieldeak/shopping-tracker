@@ -3,6 +3,7 @@ package com.inventory.barcodetracker.ui.screens.pieces
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -204,7 +205,10 @@ fun PieceDialog(
                     )
                 }
 
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     FilterChip(
                         selected = offerType == "NONE",
                         onClick = { offerType = "NONE" },
@@ -245,8 +249,11 @@ fun PieceDialog(
                 }
 
                 if (offerType == "THREE_FOR_TWO") {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             AssistChip(
                                 onClick = { offerBuyQty = "3"; offerPayQty = "2" },
                                 label = { Text("3 for 2 (1 free)") }
@@ -256,11 +263,15 @@ fun PieceDialog(
                                 label = { Text("2 for 1 (BOGO)") }
                             )
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             OutlinedTextField(
                                 value = offerBuyQty,
                                 onValueChange = { offerBuyQty = it },
-                                label = { Text("Buy Quantity (X)") },
+                                label = { Text("Buy Qty") },
                                 placeholder = { Text("3") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f),
@@ -269,7 +280,7 @@ fun PieceDialog(
                             OutlinedTextField(
                                 value = offerPayQty,
                                 onValueChange = { offerPayQty = it },
-                                label = { Text("Pay Quantity (Y)") },
+                                label = { Text("Pay Qty") },
                                 placeholder = { Text("2") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f),
@@ -280,8 +291,11 @@ fun PieceDialog(
                 }
 
                 if (offerType == "MULTI_BUY_FIXED") {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             AssistChip(
                                 onClick = { offerBuyQty = "2"; offerFixedPrice = "5.00" },
                                 label = { Text("2 for ${currencySymbol}5") }
@@ -291,11 +305,15 @@ fun PieceDialog(
                                 label = { Text("3 for ${currencySymbol}10") }
                             )
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             OutlinedTextField(
                                 value = offerBuyQty,
                                 onValueChange = { offerBuyQty = it },
-                                label = { Text("Buy Quantity (X)") },
+                                label = { Text("Buy Qty") },
                                 placeholder = { Text("2") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f),
@@ -304,7 +322,7 @@ fun PieceDialog(
                             OutlinedTextField(
                                 value = offerFixedPrice,
                                 onValueChange = { offerFixedPrice = it },
-                                label = { Text("Bundle Price ($currencySymbol Y)") },
+                                label = { Text("Bundle Price") },
                                 prefix = { Text(currencySymbol) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.weight(1f),
@@ -318,7 +336,7 @@ fun PieceDialog(
                     OutlinedTextField(
                         value = offerFixedPrice,
                         onValueChange = { offerFixedPrice = it },
-                        label = { Text("Special Reduced Price ($currencySymbol)") },
+                        label = { Text("Special Reduced Price") },
                         placeholder = { Text("e.g. 2.50") },
                         prefix = { Text(currencySymbol) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -338,8 +356,11 @@ fun PieceDialog(
                 }
 
                 if (offerType == "PERCENT_OFF") {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             AssistChip(
                                 onClick = { offerPercentOff = "50" },
                                 label = { Text("50% (Half Price)") }
@@ -356,7 +377,7 @@ fun PieceDialog(
                         OutlinedTextField(
                             value = offerPercentOff,
                             onValueChange = { offerPercentOff = it },
-                            label = { Text("Discount Percentage (%)") },
+                            label = { Text("Discount Percentage") },
                             suffix = { Text("%") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.fillMaxWidth(),

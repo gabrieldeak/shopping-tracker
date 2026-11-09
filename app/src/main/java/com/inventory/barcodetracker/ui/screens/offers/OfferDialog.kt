@@ -3,6 +3,7 @@ package com.inventory.barcodetracker.ui.screens.offers
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -132,7 +133,10 @@ fun OfferDialog(
                     color = MaterialTheme.colorScheme.primary
                 )
 
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     FilterChip(
                         selected = offerType == "THREE_FOR_TWO",
                         onClick = {
@@ -166,8 +170,11 @@ fun OfferDialog(
                 }
 
                 if (offerType == "THREE_FOR_TWO") {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             AssistChip(
                                 onClick = { offerBuyQty = "3"; offerPayQty = "2" },
                                 label = { Text("3 for 2 (1 free)") }
@@ -177,11 +184,15 @@ fun OfferDialog(
                                 label = { Text("2 for 1 (BOGO)") }
                             )
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             OutlinedTextField(
                                 value = offerBuyQty,
                                 onValueChange = { offerBuyQty = it },
-                                label = { Text("Buy Qty (X)") },
+                                label = { Text("Buy Qty") },
                                 placeholder = { Text("3") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f),
@@ -190,7 +201,7 @@ fun OfferDialog(
                             OutlinedTextField(
                                 value = offerPayQty,
                                 onValueChange = { offerPayQty = it },
-                                label = { Text("Pay Qty (Y)") },
+                                label = { Text("Pay Qty") },
                                 placeholder = { Text("2") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f),
@@ -201,8 +212,11 @@ fun OfferDialog(
                 }
 
                 if (offerType == "MULTI_BUY_FIXED") {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             AssistChip(
                                 onClick = { offerBuyQty = "2"; offerFixedPrice = "5.00" },
                                 label = { Text("2 for ${currencySymbol}5") }
@@ -212,11 +226,15 @@ fun OfferDialog(
                                 label = { Text("3 for ${currencySymbol}10") }
                             )
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             OutlinedTextField(
                                 value = offerBuyQty,
                                 onValueChange = { offerBuyQty = it },
-                                label = { Text("Buy Qty (X)") },
+                                label = { Text("Buy Qty") },
                                 placeholder = { Text("2") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f),
@@ -225,7 +243,7 @@ fun OfferDialog(
                             OutlinedTextField(
                                 value = offerFixedPrice,
                                 onValueChange = { offerFixedPrice = it },
-                                label = { Text("Bundle Price ($currencySymbol Y)") },
+                                label = { Text("Bundle Price") },
                                 prefix = { Text(currencySymbol) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier.weight(1f),
@@ -239,7 +257,7 @@ fun OfferDialog(
                     OutlinedTextField(
                         value = offerFixedPrice,
                         onValueChange = { offerFixedPrice = it },
-                        label = { Text("Special Reduced Price ($currencySymbol)") },
+                        label = { Text("Special Reduced Price") },
                         placeholder = { Text("e.g. 2.50") },
                         prefix = { Text(currencySymbol) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -249,8 +267,11 @@ fun OfferDialog(
                 }
 
                 if (offerType == "PERCENT_OFF") {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             AssistChip(
                                 onClick = { offerPercentOff = "50" },
                                 label = { Text("50% (Half Price)") }
@@ -267,7 +288,7 @@ fun OfferDialog(
                         OutlinedTextField(
                             value = offerPercentOff,
                             onValueChange = { offerPercentOff = it },
-                            label = { Text("Discount Percentage (%)") },
+                            label = { Text("Discount Percentage") },
                             suffix = { Text("%") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.fillMaxWidth(),
@@ -290,7 +311,6 @@ fun OfferDialog(
             Button(
                 onClick = {
                     if (title.isBlank()) {
-                        // Generate fallback title if blank
                         val badge = when (offerType) {
                             "THREE_FOR_TWO" -> "${offerBuyQty.ifBlank { "3" }} for ${offerPayQty.ifBlank { "2" }} Offer"
                             "MULTI_BUY_FIXED" -> "${offerBuyQty.ifBlank { "2" }} for $currencySymbol${offerFixedPrice.ifBlank { "0.00" }}"
