@@ -134,6 +134,9 @@ abstract class InventoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertShoppingTrip(trip: ShoppingTripEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertShoppingTrips(trips: List<ShoppingTripEntity>)
+
     @Delete
     abstract suspend fun deleteShoppingTrip(trip: ShoppingTripEntity)
 

@@ -141,6 +141,14 @@ class InventoryRepository(
         return inventoryDao.upsertOffer(offer)
     }
 
+    suspend fun importOffers(offers: List<OfferEntity>) {
+        inventoryDao.upsertOffers(offers)
+    }
+
+    suspend fun importShoppingTrips(trips: List<ShoppingTripEntity>) {
+        inventoryDao.insertShoppingTrips(trips)
+    }
+
     suspend fun deleteOffer(offer: OfferEntity) {
         inventoryDao.deleteOffer(offer)
     }

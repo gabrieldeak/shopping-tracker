@@ -1,6 +1,8 @@
 package com.inventory.barcodetracker.service
 
 import android.content.Context
+import android.database.Cursor
+import android.database.sqlite.SQLiteDatabase
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
@@ -9,6 +11,7 @@ import com.inventory.barcodetracker.data.local.entity.ProductPieceCrossRef
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
@@ -141,9 +144,21 @@ object BackupRestoreService {
         outputStream.flush()
     }
 
-    fun importFullBackup(inputStream: InputStream): FullBackupPayload {
-        val text = inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
-        val root = JSONObject(text)
+    fun parseBackupStream(context: Context, inputStream: InputStream): FullBackupPayload? {
+        val bytes = inputStream.readBytes()
+        if (bytes.isEmpty()) return null
+
+        val headerString = if (bytes.size >= 15) String(bytes, 0, 15, StandardCharsets.US_ASCII) else ""
+        return if (headerString.startsWith("SQLite format 3")) {
+            importDatabasePayload(context, bytes.inputStream())
+        } else {
+            val jsonText = String(bytes, StandardCharsets.UTF_8)
+            parseJsonText(jsonText)
+        }
+    }
+
+    fun parseJsonText(jsonText: String): FullBackupPayload {
+        val root = JSONObject(jsonText)
 
         val currencySymbol = root.optString("currencySymbol", "$")
         val budgetLimit = root.optDouble("budgetLimit", 0.0)
@@ -219,7 +234,7 @@ object BackupRestoreService {
                 val obj = tripsArr.getJSONObject(i)
                 tripsList.add(
                     ShoppingTripEntity(
-                        id = obj.optLong("id", 0),
+                        id = 0,
                         tripDate = obj.optLong("tripDate", System.currentTimeMillis()),
                         totalCost = obj.optDouble("totalCost", 0.0),
                         itemCount = obj.optInt("itemCount", 0),
@@ -238,7 +253,7 @@ object BackupRestoreService {
                 val obj = offersArr.getJSONObject(i)
                 offersList.add(
                     OfferEntity(
-                        id = obj.optLong("id", 0),
+                        id = 0,
                         title = obj.optString("title", ""),
                         offerType = obj.optString("offerType", "THREE_FOR_TWO"),
                         buyQty = obj.optInt("buyQty", 0),
@@ -261,7 +276,7 @@ object BackupRestoreService {
                 val obj = historyArr.getJSONObject(i)
                 historyList.add(
                     ProductOfferHistoryEntity(
-                        id = obj.optLong("id", 0),
+                        id = 0,
                         barcode = obj.optString("barcode", ""),
                         offerId = obj.optLong("offerId", 0),
                         appliedAt = obj.optLong("appliedAt", System.currentTimeMillis())
@@ -283,20 +298,378 @@ object BackupRestoreService {
         )
     }
 
-    fun exportDatabaseFile(context: Context, outputStream: OutputStream) {
-        val dbFile = context.getDatabasePath("barcode_inventory.db")
-        if (dbFile.exists()) {
-            dbFile.inputStream().use { input ->
-                input.copyTo(outputStream)
+    fun exportDatabaseFile(
+        context: Context,
+        outputStream: OutputStream,
+        pieces: List<PieceEntity>,
+        products: List<ProductEntity>,
+        productPieces: List<ProductPieceCrossRef>,
+        shoppingTrips: List<ShoppingTripEntity>,
+        offers: List<OfferEntity>,
+        offerHistory: List<ProductOfferHistoryEntity>
+    ) {
+        val tempFile = File.createTempFile("export_db", ".db", context.cacheDir)
+        if (tempFile.exists()) tempFile.delete()
+
+        val db = SQLiteDatabase.openOrCreateDatabase(tempFile, null)
+
+        db.beginTransaction()
+        try {
+            // 1. Pieces Table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `pieces` (
+                    `barcode` TEXT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `description` TEXT NOT NULL,
+                    `location` TEXT NOT NULL,
+                    `stockQuantity` INTEGER NOT NULL,
+                    `minStockThreshold` INTEGER NOT NULL,
+                    `unitPrice` REAL NOT NULL,
+                    `offerType` TEXT NOT NULL,
+                    `offerBuyQty` INTEGER NOT NULL,
+                    `offerPayQty` INTEGER NOT NULL,
+                    `offerFixedPrice` REAL NOT NULL,
+                    `offerPercentOff` REAL NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    PRIMARY KEY(`barcode`)
+                )
+                """.trimIndent()
+            )
+            val stmtPiece = db.compileStatement("INSERT OR REPLACE INTO `pieces` VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            for (p in pieces) {
+                stmtPiece.clearBindings()
+                stmtPiece.bindString(1, p.barcode)
+                stmtPiece.bindString(2, p.name)
+                stmtPiece.bindString(3, p.description)
+                stmtPiece.bindString(4, p.location)
+                stmtPiece.bindLong(5, p.stockQuantity.toLong())
+                stmtPiece.bindLong(6, p.minStockThreshold.toLong())
+                stmtPiece.bindDouble(7, p.unitPrice)
+                stmtPiece.bindString(8, p.offerType)
+                stmtPiece.bindLong(9, p.offerBuyQty.toLong())
+                stmtPiece.bindLong(10, p.offerPayQty.toLong())
+                stmtPiece.bindDouble(11, p.offerFixedPrice)
+                stmtPiece.bindDouble(12, p.offerPercentOff)
+                stmtPiece.bindLong(13, p.createdAt)
+                stmtPiece.executeInsert()
             }
-            outputStream.flush()
+
+            // 2. Products Table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `products` (
+                    `productSku` TEXT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `description` TEXT NOT NULL,
+                    `stockQuantity` INTEGER NOT NULL,
+                    `targetProductionCount` INTEGER NOT NULL,
+                    `unitPrice` REAL NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    PRIMARY KEY(`productSku`)
+                )
+                """.trimIndent()
+            )
+            val stmtProduct = db.compileStatement("INSERT OR REPLACE INTO `products` VALUES (?, ?, ?, ?, ?, ?, ?)")
+            for (prod in products) {
+                stmtProduct.clearBindings()
+                stmtProduct.bindString(1, prod.productSku)
+                stmtProduct.bindString(2, prod.name)
+                stmtProduct.bindString(3, prod.description)
+                stmtProduct.bindLong(4, prod.stockQuantity.toLong())
+                stmtProduct.bindLong(5, prod.targetProductionCount.toLong())
+                stmtProduct.bindDouble(6, prod.unitPrice)
+                stmtProduct.bindLong(7, prod.createdAt)
+                stmtProduct.executeInsert()
+            }
+
+            // 3. Product Pieces Cross Ref
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `product_pieces` (
+                    `productSku` TEXT NOT NULL,
+                    `barcode` TEXT NOT NULL,
+                    `quantityRequiredPerProduct` INTEGER NOT NULL,
+                    PRIMARY KEY(`productSku`, `barcode`)
+                )
+                """.trimIndent()
+            )
+            val stmtRef = db.compileStatement("INSERT OR REPLACE INTO `product_pieces` VALUES (?, ?, ?)")
+            for (ref in productPieces) {
+                stmtRef.clearBindings()
+                stmtRef.bindString(1, ref.productSku)
+                stmtRef.bindString(2, ref.barcode)
+                stmtRef.bindLong(3, ref.quantityRequiredPerProduct.toLong())
+                stmtRef.executeInsert()
+            }
+
+            // 4. Shopping Trips Table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `shopping_trips` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `tripDate` INTEGER NOT NULL,
+                    `totalCost` REAL NOT NULL,
+                    `itemCount` INTEGER NOT NULL,
+                    `itemsSummary` TEXT NOT NULL,
+                    `currencySymbol` TEXT NOT NULL
+                )
+                """.trimIndent()
+            )
+            val stmtTrip = db.compileStatement("INSERT OR REPLACE INTO `shopping_trips` VALUES (?, ?, ?, ?, ?, ?)")
+            for (t in shoppingTrips) {
+                stmtTrip.clearBindings()
+                if (t.id != 0L) stmtTrip.bindLong(1, t.id) else stmtTrip.bindNull(1)
+                stmtTrip.bindLong(2, t.tripDate)
+                stmtTrip.bindDouble(3, t.totalCost)
+                stmtTrip.bindLong(4, t.itemCount.toLong())
+                stmtTrip.bindString(5, t.itemsSummary)
+                stmtTrip.bindString(6, t.currencySymbol)
+                stmtTrip.executeInsert()
+            }
+
+            // 5. Offers Table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `offers` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `title` TEXT NOT NULL,
+                    `offerType` TEXT NOT NULL,
+                    `buyQty` INTEGER NOT NULL,
+                    `payQty` INTEGER NOT NULL,
+                    `fixedPrice` REAL NOT NULL,
+                    `percentOff` REAL NOT NULL,
+                    `storeName` TEXT NOT NULL,
+                    `notes` TEXT NOT NULL,
+                    `createdAt` INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            val stmtOffer = db.compileStatement("INSERT OR REPLACE INTO `offers` VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            for (off in offers) {
+                stmtOffer.clearBindings()
+                if (off.id != 0L) stmtOffer.bindLong(1, off.id) else stmtOffer.bindNull(1)
+                stmtOffer.bindString(2, off.title)
+                stmtOffer.bindString(3, off.offerType)
+                stmtOffer.bindLong(4, off.buyQty.toLong())
+                stmtOffer.bindLong(5, off.payQty.toLong())
+                stmtOffer.bindDouble(6, off.fixedPrice)
+                stmtOffer.bindDouble(7, off.percentOff)
+                stmtOffer.bindString(8, off.storeName)
+                stmtOffer.bindString(9, off.notes)
+                stmtOffer.bindLong(10, off.createdAt)
+                stmtOffer.executeInsert()
+            }
+
+            // 6. Product Offer History Table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `product_offer_history` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `barcode` TEXT NOT NULL,
+                    `offerId` INTEGER NOT NULL,
+                    `appliedAt` INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            val stmtHist = db.compileStatement("INSERT OR REPLACE INTO `product_offer_history` VALUES (?, ?, ?, ?)")
+            for (h in offerHistory) {
+                stmtHist.clearBindings()
+                if (h.id != 0L) stmtHist.bindLong(1, h.id) else stmtHist.bindNull(1)
+                stmtHist.bindString(2, h.barcode)
+                stmtHist.bindLong(3, h.offerId)
+                stmtHist.bindLong(4, h.appliedAt)
+                stmtHist.executeInsert()
+            }
+
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+            db.close()
         }
+
+        tempFile.inputStream().use { input ->
+            input.copyTo(outputStream)
+        }
+        outputStream.flush()
+        tempFile.delete()
     }
 
-    fun restoreDatabaseFile(context: Context, inputStream: InputStream) {
-        val dbFile = context.getDatabasePath("barcode_inventory.db")
-        dbFile.outputStream().use { output ->
+    fun importDatabasePayload(context: Context, inputStream: InputStream): FullBackupPayload {
+        val tempFile = File.createTempFile("temp_restore", ".db", context.cacheDir)
+        tempFile.outputStream().use { output ->
             inputStream.copyTo(output)
         }
+
+        val db = SQLiteDatabase.openDatabase(
+            tempFile.path,
+            null,
+            SQLiteDatabase.OPEN_READONLY
+        )
+
+        fun Cursor.optStr(col: String, default: String = ""): String {
+            val idx = getColumnIndex(col)
+            if (idx < 0 || isNull(idx)) return default
+            return try { getString(idx) ?: default } catch (_: Exception) { default }
+        }
+
+        fun Cursor.optInt(col: String, default: Int = 0): Int {
+            val idx = getColumnIndex(col)
+            if (idx < 0 || isNull(idx)) return default
+            return try { getInt(idx) } catch (_: Exception) { default }
+        }
+
+        fun Cursor.optLong(col: String, default: Long = 0L): Long {
+            val idx = getColumnIndex(col)
+            if (idx < 0 || isNull(idx)) return default
+            return try { getLong(idx) } catch (_: Exception) { default }
+        }
+
+        fun Cursor.optDbl(col: String, default: Double = 0.0): Double {
+            val idx = getColumnIndex(col)
+            if (idx < 0 || isNull(idx)) return default
+            return try { getDouble(idx) } catch (_: Exception) { default }
+        }
+
+        val piecesList = mutableListOf<PieceEntity>()
+        try {
+            val cursor = db.rawQuery("SELECT * FROM pieces", null)
+            while (cursor.moveToNext()) {
+                val barcode = cursor.optStr("barcode")
+                if (barcode.isBlank()) continue
+                piecesList.add(
+                    PieceEntity(
+                        barcode = barcode,
+                        name = cursor.optStr("name", barcode),
+                        description = cursor.optStr("description"),
+                        location = cursor.optStr("location", "Grocery"),
+                        stockQuantity = cursor.optInt("stockQuantity"),
+                        minStockThreshold = cursor.optInt("minStockThreshold"),
+                        unitPrice = cursor.optDbl("unitPrice"),
+                        offerType = cursor.optStr("offerType", "NONE"),
+                        offerBuyQty = cursor.optInt("offerBuyQty"),
+                        offerPayQty = cursor.optInt("offerPayQty"),
+                        offerFixedPrice = cursor.optDbl("offerFixedPrice"),
+                        offerPercentOff = cursor.optDbl("offerPercentOff"),
+                        createdAt = cursor.optLong("createdAt", System.currentTimeMillis())
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+
+        val productsList = mutableListOf<ProductEntity>()
+        try {
+            val cursor = db.rawQuery("SELECT * FROM products", null)
+            while (cursor.moveToNext()) {
+                val sku = cursor.optStr("productSku")
+                if (sku.isBlank()) continue
+                productsList.add(
+                    ProductEntity(
+                        productSku = sku,
+                        name = cursor.optStr("name", sku),
+                        description = cursor.optStr("description"),
+                        stockQuantity = cursor.optInt("stockQuantity"),
+                        targetProductionCount = cursor.optInt("targetProductionCount"),
+                        unitPrice = cursor.optDbl("unitPrice"),
+                        createdAt = cursor.optLong("createdAt", System.currentTimeMillis())
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+
+        val refList = mutableListOf<ProductPieceCrossRef>()
+        try {
+            val cursor = db.rawQuery("SELECT * FROM product_pieces", null)
+            while (cursor.moveToNext()) {
+                val sku = cursor.optStr("productSku")
+                val barcode = cursor.optStr("barcode")
+                if (sku.isBlank() || barcode.isBlank()) continue
+                refList.add(
+                    ProductPieceCrossRef(
+                        productSku = sku,
+                        barcode = barcode,
+                        quantityRequiredPerProduct = cursor.optInt("quantityRequiredPerProduct", 1)
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+
+        val tripsList = mutableListOf<ShoppingTripEntity>()
+        try {
+            val cursor = db.rawQuery("SELECT * FROM shopping_trips", null)
+            while (cursor.moveToNext()) {
+                tripsList.add(
+                    ShoppingTripEntity(
+                        id = 0,
+                        tripDate = cursor.optLong("tripDate", System.currentTimeMillis()),
+                        totalCost = cursor.optDbl("totalCost"),
+                        itemCount = cursor.optInt("itemCount"),
+                        itemsSummary = cursor.optStr("itemsSummary"),
+                        currencySymbol = cursor.optStr("currencySymbol", "$")
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+
+        val offersList = mutableListOf<OfferEntity>()
+        try {
+            val cursor = db.rawQuery("SELECT * FROM offers", null)
+            while (cursor.moveToNext()) {
+                val title = cursor.optStr("title")
+                if (title.isBlank()) continue
+                offersList.add(
+                    OfferEntity(
+                        id = 0,
+                        title = title,
+                        offerType = cursor.optStr("offerType", "THREE_FOR_TWO"),
+                        buyQty = cursor.optInt("buyQty"),
+                        payQty = cursor.optInt("payQty"),
+                        fixedPrice = cursor.optDbl("fixedPrice"),
+                        percentOff = cursor.optDbl("percentOff"),
+                        storeName = cursor.optStr("storeName"),
+                        notes = cursor.optStr("notes"),
+                        createdAt = cursor.optLong("createdAt", System.currentTimeMillis())
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+
+        val historyList = mutableListOf<ProductOfferHistoryEntity>()
+        try {
+            val cursor = db.rawQuery("SELECT * FROM product_offer_history", null)
+            while (cursor.moveToNext()) {
+                val barcode = cursor.optStr("barcode")
+                if (barcode.isBlank()) continue
+                historyList.add(
+                    ProductOfferHistoryEntity(
+                        id = 0,
+                        barcode = barcode,
+                        offerId = cursor.optLong("offerId"),
+                        appliedAt = cursor.optLong("appliedAt", System.currentTimeMillis())
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+
+        db.close()
+        tempFile.delete()
+
+        return FullBackupPayload(
+            pieces = piecesList,
+            products = productsList,
+            productPieces = refList,
+            shoppingTrips = tripsList,
+            offers = offersList,
+            offerHistory = historyList,
+            currencySymbol = "$",
+            budgetLimit = 0.0,
+            themeMode = "system"
+        )
     }
 }

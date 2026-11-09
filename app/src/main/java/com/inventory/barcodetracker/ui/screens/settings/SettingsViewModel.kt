@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.inventory.barcodetracker.data.local.AppDatabase
 import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
 import com.inventory.barcodetracker.data.repository.InventoryRepository
 import com.inventory.barcodetracker.service.BackupRestoreService
@@ -154,25 +155,32 @@ class SettingsViewModel(
         }
     }
 
-    fun restoreFullBackup(contentResolver: ContentResolver, uri: Uri) {
+    fun restoreFullBackup(context: Context, contentResolver: ContentResolver, uri: Uri) {
         viewModelScope.launch {
             try {
-                withContext(Dispatchers.IO) {
+                val summary = withContext(Dispatchers.IO) {
                     contentResolver.openInputStream(uri)?.use { inputStream ->
-                        val payload = BackupRestoreService.importFullBackup(inputStream)
-                        currencyPreferences.setCurrencySymbol(payload.currencySymbol)
-                        currencyPreferences.setBudgetLimit(payload.budgetLimit)
-                        currencyPreferences.setThemeMode(payload.themeMode)
+                        val payload = BackupRestoreService.parseBackupStream(context, inputStream) ?: return@use null
+                        if (payload.currencySymbol.isNotBlank() && payload.currencySymbol != "$") {
+                            currencyPreferences.setCurrencySymbol(payload.currencySymbol)
+                        }
+                        if (payload.budgetLimit > 0) {
+                            currencyPreferences.setBudgetLimit(payload.budgetLimit)
+                        }
+                        if (payload.themeMode in listOf("light", "dark", "system")) {
+                            currencyPreferences.setThemeMode(payload.themeMode)
+                        }
 
                         repository.importPieces(payload.pieces)
                         repository.importProducts(payload.products)
                         repository.importProductPieces(payload.productPieces)
-                        payload.shoppingTrips.forEach { repository.saveShoppingTrip(it) }
-                        payload.offers.forEach { repository.upsertOffer(it) }
+                        repository.importOffers(payload.offers)
+                        repository.importShoppingTrips(payload.shoppingTrips)
                         repository.importOfferHistory(payload.offerHistory)
+                        "Restored ${payload.pieces.size} items, ${payload.products.size} products, ${payload.offers.size} offers & ${payload.shoppingTrips.size} receipts!"
                     }
                 }
-                _snackbarMessages.emit("Full backup restored successfully!")
+                _snackbarMessages.emit(summary ?: "Could not parse backup file.")
             } catch (e: Exception) {
                 _snackbarMessages.emit("Failed to restore backup: ${e.message}")
             }
@@ -183,11 +191,27 @@ class SettingsViewModel(
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
+                    val pieces = repository.getAllPiecesSync()
+                    val products = repository.getAllProductsSync()
+                    val crossRefs = repository.getAllProductPiecesSync()
+                    val trips = repository.allShoppingTrips.firstOrNull() ?: emptyList()
+                    val offers = repository.getAllOffersSync()
+                    val history = repository.getAllOfferHistorySync()
+
                     contentResolver.openOutputStream(uri)?.use { outputStream ->
-                        BackupRestoreService.exportDatabaseFile(context, outputStream)
+                        BackupRestoreService.exportDatabaseFile(
+                            context = context,
+                            outputStream = outputStream,
+                            pieces = pieces,
+                            products = products,
+                            productPieces = crossRefs,
+                            shoppingTrips = trips,
+                            offers = offers,
+                            offerHistory = history,
+                        )
                     }
                 }
-                _snackbarMessages.emit("Raw SQLite database exported successfully (.db)!")
+                _snackbarMessages.emit("Raw SQLite database exported successfully (shopping_tracker.db)!")
             } catch (e: Exception) {
                 _snackbarMessages.emit("Failed to export database file: ${e.message}")
             }
@@ -197,12 +221,19 @@ class SettingsViewModel(
     fun importRawDatabase(context: Context, contentResolver: ContentResolver, uri: Uri) {
         viewModelScope.launch {
             try {
-                withContext(Dispatchers.IO) {
+                val summary = withContext(Dispatchers.IO) {
                     contentResolver.openInputStream(uri)?.use { inputStream ->
-                        BackupRestoreService.restoreDatabaseFile(context, inputStream)
+                        val payload = BackupRestoreService.parseBackupStream(context, inputStream) ?: return@use null
+                        repository.importPieces(payload.pieces)
+                        repository.importProducts(payload.products)
+                        repository.importProductPieces(payload.productPieces)
+                        repository.importOffers(payload.offers)
+                        repository.importShoppingTrips(payload.shoppingTrips)
+                        repository.importOfferHistory(payload.offerHistory)
+                        "Restored ${payload.pieces.size} items, ${payload.products.size} products, ${payload.offers.size} offers & ${payload.shoppingTrips.size} receipts!"
                     }
                 }
-                _snackbarMessages.emit("Raw SQLite database restored! Restart app if needed.")
+                _snackbarMessages.emit(summary ?: "Could not parse database file.")
             } catch (e: Exception) {
                 _snackbarMessages.emit("Failed to restore database file: ${e.message}")
             }
@@ -268,9 +299,25 @@ class SettingsViewModel(
                     val cacheDir = File(context.cacheDir, "shared_backups")
                     cacheDir.mkdirs()
                     val targetFile = File(cacheDir, "shopping_tracker.db")
-                    val sourceDb = context.getDatabasePath("barcode_inventory.db")
-                    if (sourceDb.exists()) {
-                        sourceDb.copyTo(targetFile, overwrite = true)
+
+                    val pieces = repository.getAllPiecesSync()
+                    val products = repository.getAllProductsSync()
+                    val crossRefs = repository.getAllProductPiecesSync()
+                    val trips = repository.allShoppingTrips.firstOrNull() ?: emptyList()
+                    val offers = repository.getAllOffersSync()
+                    val history = repository.getAllOfferHistorySync()
+
+                    FileOutputStream(targetFile).use { outputStream ->
+                        BackupRestoreService.exportDatabaseFile(
+                            context = context,
+                            outputStream = outputStream,
+                            pieces = pieces,
+                            products = products,
+                            productPieces = crossRefs,
+                            shoppingTrips = trips,
+                            offers = offers,
+                            offerHistory = history,
+                        )
                     }
                     targetFile
                 }

@@ -95,6 +95,12 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun inventoryDao(): InventoryDao
 
+    fun checkpointWal() {
+        try {
+            openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").close()
+        } catch (_: Exception) {}
+    }
+
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null

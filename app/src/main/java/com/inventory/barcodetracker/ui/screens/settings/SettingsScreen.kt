@@ -95,7 +95,7 @@ fun SettingsScreen(
     val restoreFullBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { viewModel.restoreFullBackup(contentResolver, it) }
+        uri?.let { viewModel.restoreFullBackup(context, contentResolver, it) }
     }
 
     val exportDatabaseLauncher = rememberLauncherForActivityResult(
