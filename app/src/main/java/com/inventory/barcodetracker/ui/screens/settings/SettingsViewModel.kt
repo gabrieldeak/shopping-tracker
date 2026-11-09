@@ -130,6 +130,7 @@ class SettingsViewModel(
                     val crossRefs = repository.getAllProductPiecesSync()
                     val trips = repository.allShoppingTrips.firstOrNull() ?: emptyList()
                     val offers = repository.getAllOffersSync()
+                    val history = repository.getAllOfferHistorySync()
 
                     contentResolver.openOutputStream(uri)?.use { outputStream ->
                         BackupRestoreService.exportFullBackup(
@@ -139,6 +140,7 @@ class SettingsViewModel(
                             productPieces = crossRefs,
                             shoppingTrips = trips,
                             offers = offers,
+                            offerHistory = history,
                             currencySymbol = currencySymbol.value,
                             budgetLimit = budgetLimit.value,
                             themeMode = themeMode.value,
@@ -167,6 +169,7 @@ class SettingsViewModel(
                         repository.importProductPieces(payload.productPieces)
                         payload.shoppingTrips.forEach { repository.saveShoppingTrip(it) }
                         payload.offers.forEach { repository.upsertOffer(it) }
+                        repository.importOfferHistory(payload.offerHistory)
                     }
                 }
                 _snackbarMessages.emit("Full backup restored successfully!")
@@ -189,6 +192,7 @@ class SettingsViewModel(
                     val crossRefs = repository.getAllProductPiecesSync()
                     val trips = repository.allShoppingTrips.firstOrNull() ?: emptyList()
                     val offers = repository.getAllOffersSync()
+                    val history = repository.getAllOfferHistorySync()
 
                     FileOutputStream(backupFile).use { outputStream ->
                         BackupRestoreService.exportFullBackup(
@@ -198,6 +202,7 @@ class SettingsViewModel(
                             productPieces = crossRefs,
                             shoppingTrips = trips,
                             offers = offers,
+                            offerHistory = history,
                             currencySymbol = currencySymbol.value,
                             budgetLimit = budgetLimit.value,
                             themeMode = themeMode.value,

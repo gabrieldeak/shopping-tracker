@@ -133,9 +133,9 @@ fun OfferDialog(
                     color = MaterialTheme.colorScheme.primary
                 )
 
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FilterChip(
                         selected = offerType == "THREE_FOR_TWO",
@@ -144,7 +144,8 @@ fun OfferDialog(
                             if (offerBuyQty.isBlank()) offerBuyQty = "3"
                             if (offerPayQty.isBlank()) offerPayQty = "2"
                         },
-                        label = { Text("Buy X Pay Y (3 for 2)") }
+                        label = { Text("Buy X Pay Y") },
+                        modifier = Modifier.weight(1f)
                     )
                     FilterChip(
                         selected = offerType == "MULTI_BUY_FIXED",
@@ -152,12 +153,20 @@ fun OfferDialog(
                             offerType = "MULTI_BUY_FIXED"
                             if (offerBuyQty.isBlank()) offerBuyQty = "2"
                         },
-                        label = { Text("X for $currencySymbol Y (2 for ${currencySymbol}5)") }
+                        label = { Text("X for $currencySymbol Y") },
+                        modifier = Modifier.weight(1f)
                     )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     FilterChip(
                         selected = offerType == "REDUCED_PRICE",
                         onClick = { offerType = "REDUCED_PRICE" },
-                        label = { Text("Reduced to $currencySymbol Y") }
+                        label = { Text("Reduced to $currencySymbol Y") },
+                        modifier = Modifier.weight(1f)
                     )
                     FilterChip(
                         selected = offerType == "PERCENT_OFF",
@@ -165,7 +174,8 @@ fun OfferDialog(
                             offerType = "PERCENT_OFF"
                             if (offerPercentOff.isBlank()) offerPercentOff = "20"
                         },
-                        label = { Text("% Off / Half Price") }
+                        label = { Text("% Discount") },
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -274,7 +284,7 @@ fun OfferDialog(
                         ) {
                             AssistChip(
                                 onClick = { offerPercentOff = "50" },
-                                label = { Text("50% (Half Price)") }
+                                label = { Text("50% Off") }
                             )
                             AssistChip(
                                 onClick = { offerPercentOff = "20" },

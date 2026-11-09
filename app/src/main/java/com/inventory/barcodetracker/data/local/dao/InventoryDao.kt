@@ -194,4 +194,10 @@ abstract class InventoryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun recordOfferHistory(history: ProductOfferHistoryEntity)
+
+    @Query("SELECT * FROM product_offer_history ORDER BY appliedAt DESC")
+    abstract suspend fun getAllOfferHistorySync(): List<ProductOfferHistoryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertOfferHistories(history: List<ProductOfferHistoryEntity>)
 }

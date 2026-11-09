@@ -205,14 +205,15 @@ fun PieceDialog(
                     )
                 }
 
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FilterChip(
                         selected = offerType == "NONE",
                         onClick = { offerType = "NONE" },
-                        label = { Text("No Offer") }
+                        label = { Text("No Offer") },
+                        modifier = Modifier.weight(1f)
                     )
                     FilterChip(
                         selected = offerType == "THREE_FOR_TWO",
@@ -221,30 +222,44 @@ fun PieceDialog(
                             if (offerBuyQty.isBlank()) offerBuyQty = "3"
                             if (offerPayQty.isBlank()) offerPayQty = "2"
                         },
-                        label = { Text("Buy X Pay Y (3 for 2)") }
+                        label = { Text("Buy X Pay Y") },
+                        modifier = Modifier.weight(1f)
                     )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     FilterChip(
                         selected = offerType == "MULTI_BUY_FIXED",
                         onClick = {
                             offerType = "MULTI_BUY_FIXED"
                             if (offerBuyQty.isBlank()) offerBuyQty = "2"
                         },
-                        label = { Text("X for $currencySymbol Y (2 for ${currencySymbol}5)") }
+                        label = { Text("X for $currencySymbol Y") },
+                        modifier = Modifier.weight(1f)
                     )
                     FilterChip(
                         selected = offerType == "REDUCED_PRICE",
-                        onClick = {
-                            offerType = "REDUCED_PRICE"
-                        },
-                        label = { Text("Reduced to $currencySymbol Y") }
+                        onClick = { offerType = "REDUCED_PRICE" },
+                        label = { Text("Reduced to $currencySymbol Y") },
+                        modifier = Modifier.weight(1f)
                     )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     FilterChip(
                         selected = offerType == "PERCENT_OFF",
                         onClick = {
                             offerType = "PERCENT_OFF"
                             if (offerPercentOff.isBlank()) offerPercentOff = "20"
                         },
-                        label = { Text("% Off / Half Price") }
+                        label = { Text("% Discount") },
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -363,7 +378,7 @@ fun PieceDialog(
                         ) {
                             AssistChip(
                                 onClick = { offerPercentOff = "50" },
-                                label = { Text("50% (Half Price)") }
+                                label = { Text("50% Off") }
                             )
                             AssistChip(
                                 onClick = { offerPercentOff = "20" },

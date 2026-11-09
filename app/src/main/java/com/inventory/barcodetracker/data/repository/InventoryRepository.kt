@@ -168,6 +168,14 @@ class InventoryRepository(
         )
     }
 
+    suspend fun getAllOfferHistorySync(): List<ProductOfferHistoryEntity> {
+        return inventoryDao.getAllOfferHistorySync()
+    }
+
+    suspend fun importOfferHistory(history: List<ProductOfferHistoryEntity>) {
+        inventoryDao.upsertOfferHistories(history)
+    }
+
     // --- Sample Data Seeding ---
     suspend fun seedSampleData() {
         val samplePieces = listOf(

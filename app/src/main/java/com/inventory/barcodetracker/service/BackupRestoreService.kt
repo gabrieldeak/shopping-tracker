@@ -1,8 +1,10 @@
 package com.inventory.barcodetracker.service
 
+import android.content.Context
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
+import com.inventory.barcodetracker.data.local.entity.ProductOfferHistoryEntity
 import com.inventory.barcodetracker.data.local.entity.ProductPieceCrossRef
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 import org.json.JSONArray
@@ -17,6 +19,7 @@ data class FullBackupPayload(
     val productPieces: List<ProductPieceCrossRef>,
     val shoppingTrips: List<ShoppingTripEntity>,
     val offers: List<OfferEntity> = emptyList(),
+    val offerHistory: List<ProductOfferHistoryEntity> = emptyList(),
     val currencySymbol: String,
     val budgetLimit: Double,
     val themeMode: String,
@@ -31,6 +34,7 @@ object BackupRestoreService {
         productPieces: List<ProductPieceCrossRef>,
         shoppingTrips: List<ShoppingTripEntity>,
         offers: List<OfferEntity> = emptyList(),
+        offerHistory: List<ProductOfferHistoryEntity> = emptyList(),
         currencySymbol: String,
         budgetLimit: Double,
         themeMode: String,
@@ -120,6 +124,18 @@ object BackupRestoreService {
             offersArr.put(obj)
         }
         rootJson.put("offers", offersArr)
+
+        // 6. Offer History
+        val historyArr = JSONArray()
+        for (h in offerHistory) {
+            val obj = JSONObject()
+            obj.put("id", h.id)
+            obj.put("barcode", h.barcode)
+            obj.put("offerId", h.offerId)
+            obj.put("appliedAt", h.appliedAt)
+            historyArr.put(obj)
+        }
+        rootJson.put("offerHistory", historyArr)
 
         outputStream.write(rootJson.toString(2).toByteArray(StandardCharsets.UTF_8))
         outputStream.flush()
@@ -237,15 +253,50 @@ object BackupRestoreService {
             }
         }
 
+        // Parse Offer History
+        val historyList = mutableListOf<ProductOfferHistoryEntity>()
+        val historyArr = root.optJSONArray("offerHistory")
+        if (historyArr != null) {
+            for (i in 0 until historyArr.length()) {
+                val obj = historyArr.getJSONObject(i)
+                historyList.add(
+                    ProductOfferHistoryEntity(
+                        id = obj.optLong("id", 0),
+                        barcode = obj.optString("barcode", ""),
+                        offerId = obj.optLong("offerId", 0),
+                        appliedAt = obj.optLong("appliedAt", System.currentTimeMillis())
+                    )
+                )
+            }
+        }
+
         return FullBackupPayload(
             pieces = piecesList,
             products = productsList,
             productPieces = refList,
             shoppingTrips = tripsList,
             offers = offersList,
+            offerHistory = historyList,
             currencySymbol = currencySymbol,
             budgetLimit = budgetLimit,
             themeMode = themeMode,
         )
+    }
+
+    fun exportDatabaseFile(context: Context, outputStream: OutputStream) {
+        val dbFile = context.getDatabasePath("barcode_inventory.db")
+        if (dbFile.exists()) {
+            dbFile.inputStream().use { input ->
+                input.copyTo(outputStream)
+            }
+            outputStream.flush()
+        }
+    }
+
+    fun restoreDatabaseFile(context: Context, inputStream: InputStream) {
+        val dbFile = context.getDatabasePath("barcode_inventory.db")
+        dbFile.outputStream().use { output ->
+            inputStream.copyTo(output)
+        }
     }
 }
