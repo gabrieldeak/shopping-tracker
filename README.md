@@ -25,11 +25,12 @@ A local-first, offline-ready Android application built with **Kotlin** and **Jet
   - **Apply to Product**: Search your items catalog directly from any offer card to assign the deal to a product in 1 tap.
   - **Product Offer History**: View past offers previously applied to a specific product and re-apply historical deals instantly.
 - 📷 **Instant Barcode Scanning**: Powered by **Google Code Scanner API** to scan standard 1D/2D barcodes and QR codes instantly with zero runtime camera permissions needed. Includes manual barcode entry for emulators and damaged labels.
-- 🏷️ **Store Special Offers & Multi-Buy Deal Engine**:
+- 🏷️ **Store Special Offers & Basket Vouchers Engine**:
+  - **Basket Discount Vouchers**: Apply 1-tap store vouchers/coupons (e.g. *£5 Off*, *£10 Off*, or custom amount) directly to your active shopping list to reduce total basket cost.
   - **Buy X Pay Y**: e.g. *3 for 2* (1 free) or *2 for 1* (BOGO).
   - **Multi-Buy Fixed Price**: e.g. *2 for £5.00* or *3 for £10.00*.
   - **Special Reduced Price**: e.g. *Was £4.00 $\rightarrow$ Reduced to £2.50*, with live savings calculation.
-  - **Percentage Discount**: e.g. *20% Off* or *50% Off / Half Price*.
+  - **Percentage Discount**: e.g. *20% Off* or *50% Off*.
   - **1-Tap Saved Offers Picker**: Pick saved deals directly from your library during camera scan or manual item entry if shop OCR fails to detect the label.
 - 🧾 **ML Kit OCR Camera Text & Offer Recognition**: On-device optical character recognition to extract product names and deal text directly from packaging and store labels.
 - 🌐 **OpenFoodFacts Barcode Lookup**: Automatically fetches product names, brands, and categories from OpenFoodFacts for unrecognized grocery barcodes.

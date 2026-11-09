@@ -3,9 +3,11 @@ package com.inventory.barcodetracker.ui.screens.scan
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -13,6 +15,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.PrecisionManufacturing
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
@@ -45,11 +48,13 @@ fun QuickScanScreen(
     val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
     val budgetLimit by viewModel.budgetLimit.collectAsStateWithLifecycle()
     val savedOffers by viewModel.savedOffers.collectAsStateWithLifecycle()
+    val appliedCartVouchers by viewModel.appliedCartVouchers.collectAsStateWithLifecycle()
 
     var showManualInputDialog by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var showFinishSaveDialog by remember { mutableStateOf(false) }
     var showConfirmClearDialog by remember { mutableStateOf(false) }
+    var showVoucherDialog by remember { mutableStateOf(false) }
     var manualBarcodeText by remember { mutableStateOf("") }
     var budgetInputText by remember { mutableStateOf("") }
 
@@ -210,6 +215,42 @@ fun QuickScanScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer
                             )
+                        }
+                    }
+
+                    // Applied Basket Vouchers Row
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (appliedCartVouchers.isEmpty()) {
+                            TextButton(onClick = { showVoucherDialog = true }) {
+                                Icon(Icons.Default.LocalOffer, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("+ Apply Voucher / Coupon", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                appliedCartVouchers.forEach { voucher ->
+                                    InputChip(
+                                        selected = true,
+                                        onClick = { viewModel.removeCartVoucher(voucher) },
+                                        label = { Text("🎟️ ${voucher.title} (-$currencySymbol${String.format(Locale.US, "%.2f", voucher.fixedPrice)})") },
+                                        trailingIcon = { Icon(Icons.Default.Clear, contentDescription = "Remove Voucher", modifier = Modifier.size(16.dp)) }
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { showVoucherDialog = true }) {
+                                Icon(Icons.Default.LocalOffer, contentDescription = "Add Voucher", tint = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
 
@@ -499,6 +540,20 @@ fun QuickScanScreen(
                         Text("Cancel")
                     }
                 }
+            }
+        )
+    }
+
+    // Apply Voucher Dialog
+    if (showVoucherDialog) {
+        val savedVoucherList = savedOffers.filter { it.offerType == "VOUCHER" }
+        ApplyVoucherDialog(
+            savedVouchers = savedVoucherList,
+            currencySymbol = currencySymbol,
+            onDismiss = { showVoucherDialog = false },
+            onApplyVoucher = { voucher ->
+                viewModel.applyCartVoucher(voucher)
+                showVoucherDialog = false
             }
         )
     }

@@ -8,7 +8,7 @@ import java.util.Locale
 data class OfferEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
-    val offerType: String, // "THREE_FOR_TWO", "MULTI_BUY_FIXED", "REDUCED_PRICE", "PERCENT_OFF"
+    val offerType: String, // "THREE_FOR_TWO", "MULTI_BUY_FIXED", "REDUCED_PRICE", "PERCENT_OFF", "VOUCHER"
     val buyQty: Int = 0,
     val payQty: Int = 0,
     val fixedPrice: Double = 0.0,
@@ -30,6 +30,7 @@ data class OfferEntity(
             }
             "REDUCED_PRICE" -> "Reduced to ${String.format(Locale.US, "%.2f", fixedPrice)}"
             "PERCENT_OFF" -> "${String.format(Locale.US, "%.0f", percentOff)}% Off"
+            "VOUCHER" -> "Voucher (${String.format(Locale.US, "%.2f", fixedPrice)} Off)"
             else -> "Special Offer"
         }
 }

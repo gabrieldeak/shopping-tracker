@@ -110,7 +110,7 @@ fun OfferDialog(
                         if (it.isNotBlank()) titleError = null
                     },
                     label = { Text("Offer Title / Name *") },
-                    placeholder = { Text("e.g. 3 for 2 Grill Deal, 2 for $currencySymbol 5") },
+                    placeholder = { Text("e.g. Tesco $currencySymbol 10 Voucher, 3 for 2 Grill Deal") },
                     isError = titleError != null,
                     supportingText = titleError?.let { { Text(it) } },
                     singleLine = true,
@@ -176,6 +176,20 @@ fun OfferDialog(
                         },
                         label = { Text("% Discount") },
                         modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    FilterChip(
+                        selected = offerType == "VOUCHER",
+                        onClick = {
+                            offerType = "VOUCHER"
+                            if (offerFixedPrice.isBlank()) offerFixedPrice = "10.00"
+                        },
+                        label = { Text("🎟️ Basket Voucher ($currencySymbol Off)") },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 
@@ -307,11 +321,46 @@ fun OfferDialog(
                     }
                 }
 
+                if (offerType == "VOUCHER") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            AssistChip(
+                                onClick = { offerFixedPrice = "5.00" },
+                                label = { Text("${currencySymbol}5 Voucher") }
+                            )
+                            AssistChip(
+                                onClick = { offerFixedPrice = "10.00" },
+                                label = { Text("${currencySymbol}10 Voucher") }
+                            )
+                            AssistChip(
+                                onClick = { offerFixedPrice = "15.00" },
+                                label = { Text("${currencySymbol}15 Voucher") }
+                            )
+                            AssistChip(
+                                onClick = { offerFixedPrice = "20.00" },
+                                label = { Text("${currencySymbol}20 Voucher") }
+                            )
+                        }
+                        OutlinedTextField(
+                            value = offerFixedPrice,
+                            onValueChange = { offerFixedPrice = it },
+                            label = { Text("Basket Voucher Discount Amount") },
+                            prefix = { Text(currencySymbol) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
+                }
+
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Notes / Offer Description") },
-                    placeholder = { Text("e.g. Valid until end of month, selected items only") },
+                    placeholder = { Text("e.g. Spend $currencySymbol 50 get $currencySymbol 10 off") },
                     maxLines = 2,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -326,6 +375,7 @@ fun OfferDialog(
                             "MULTI_BUY_FIXED" -> "${offerBuyQty.ifBlank { "2" }} for $currencySymbol${offerFixedPrice.ifBlank { "0.00" }}"
                             "REDUCED_PRICE" -> "Reduced to $currencySymbol${offerFixedPrice.ifBlank { "0.00" }}"
                             "PERCENT_OFF" -> "${offerPercentOff.ifBlank { "20" }}% Off"
+                            "VOUCHER" -> "$currencySymbol${offerFixedPrice.ifBlank { "10.00" }} Basket Voucher"
                             else -> "Special Offer"
                         }
                         title = if (storeName.isNotBlank()) "$storeName $badge" else badge

@@ -61,15 +61,40 @@ class ScanViewModel(
     private val _snackbarMessages = MutableSharedFlow<String>()
     val snackbarMessages: SharedFlow<String> = _snackbarMessages.asSharedFlow()
 
+    private val _appliedCartVouchers = MutableStateFlow<List<OfferEntity>>(emptyList())
+    val appliedCartVouchers: StateFlow<List<OfferEntity>> = _appliedCartVouchers.asStateFlow()
+
+    fun applyCartVoucher(voucher: OfferEntity) {
+        if (_appliedCartVouchers.value.none { it.id == voucher.id && voucher.id != 0L }) {
+            _appliedCartVouchers.value = _appliedCartVouchers.value + voucher
+            viewModelScope.launch {
+                _snackbarMessages.emit("Applied ${voucher.title} (-${currencySymbol.value}${String.format(Locale.US, "%.2f", voucher.fixedPrice)}) to Basket!")
+            }
+        }
+    }
+
+    fun removeCartVoucher(voucher: OfferEntity) {
+        _appliedCartVouchers.value = _appliedCartVouchers.value.filter { it != voucher }
+        viewModelScope.launch {
+            _snackbarMessages.emit("Removed voucher ${voucher.title}")
+        }
+    }
+
     val basketSummary: StateFlow<Pair<Double, Int>> = combine(
         repository.allPieces,
         repository.allProducts,
-    ) { pieces, products ->
+        _appliedCartVouchers
+    ) { pieces, products, vouchers ->
         val pieceValue = pieces.sumOf { it.calculatedTotal }
         val pieceCount = pieces.sumOf { it.stockQuantity }
         val productValue = products.sumOf { it.stockQuantity * it.unitPrice }
         val productCount = products.sumOf { it.stockQuantity }
-        Pair(pieceValue + productValue, pieceCount + productCount)
+
+        val itemsSubtotal = pieceValue + productValue
+        val vouchersDiscount = vouchers.sumOf { it.fixedPrice }
+        val netBasketTotal = maxOf(0.0, itemsSubtotal - vouchersDiscount)
+
+        Pair(netBasketTotal, pieceCount + productCount)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -262,15 +287,22 @@ class ScanViewModel(
                 }
             }
 
-            val summaryText = (pieceLines + productLines).joinToString("\n")
-            val totalDiscountedCost = currentPieces.sumOf { it.calculatedTotal } + currentProducts.sumOf { it.stockQuantity * it.unitPrice }
+            val voucherLines = _appliedCartVouchers.value.map {
+                "🎟️ Voucher Applied: ${it.title} (-$symbol${String.format(Locale.US, "%.2f", it.fixedPrice)})"
+            }
+
+            val summaryText = (pieceLines + productLines + voucherLines).joinToString("\n")
+            val itemsCost = currentPieces.sumOf { it.calculatedTotal } + currentProducts.sumOf { it.stockQuantity * it.unitPrice }
+            val vouchersDiscount = _appliedCartVouchers.value.sumOf { it.fixedPrice }
+            val finalBasketCost = maxOf(0.0, itemsCost - vouchersDiscount)
 
             repository.checkoutCartAndSaveTrip(
-                totalCost = totalDiscountedCost,
+                totalCost = finalBasketCost,
                 itemCount = itemCount,
                 itemsSummary = summaryText.ifEmpty { "Purchased items" },
                 currencySymbol = symbol,
             )
+            _appliedCartVouchers.value = emptyList()
             _snackbarMessages.emit("Basket saved to History! Items remain in My Items.")
         }
     }
@@ -278,6 +310,7 @@ class ScanViewModel(
     fun clearBasketOnly() {
         viewModelScope.launch {
             repository.resetCartQuantities()
+            _appliedCartVouchers.value = emptyList()
             _snackbarMessages.emit("Basket cleared. Items remain saved in My Items.")
         }
     }
