@@ -1,5 +1,6 @@
 package com.inventory.barcodetracker.service
 
+import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.data.local.entity.ProductPieceCrossRef
@@ -15,6 +16,7 @@ data class FullBackupPayload(
     val products: List<ProductEntity>,
     val productPieces: List<ProductPieceCrossRef>,
     val shoppingTrips: List<ShoppingTripEntity>,
+    val offers: List<OfferEntity> = emptyList(),
     val currencySymbol: String,
     val budgetLimit: Double,
     val themeMode: String,
@@ -28,6 +30,7 @@ object BackupRestoreService {
         products: List<ProductEntity>,
         productPieces: List<ProductPieceCrossRef>,
         shoppingTrips: List<ShoppingTripEntity>,
+        offers: List<OfferEntity> = emptyList(),
         currencySymbol: String,
         budgetLimit: Double,
         themeMode: String,
@@ -99,6 +102,24 @@ object BackupRestoreService {
             tripsArr.put(obj)
         }
         rootJson.put("shoppingTrips", tripsArr)
+
+        // 5. Offers Array
+        val offersArr = JSONArray()
+        for (off in offers) {
+            val obj = JSONObject()
+            obj.put("id", off.id)
+            obj.put("title", off.title)
+            obj.put("offerType", off.offerType)
+            obj.put("buyQty", off.buyQty)
+            obj.put("payQty", off.payQty)
+            obj.put("fixedPrice", off.fixedPrice)
+            obj.put("percentOff", off.percentOff)
+            obj.put("storeName", off.storeName)
+            obj.put("notes", off.notes)
+            obj.put("createdAt", off.createdAt)
+            offersArr.put(obj)
+        }
+        rootJson.put("offers", offersArr)
 
         outputStream.write(rootJson.toString(2).toByteArray(StandardCharsets.UTF_8))
         outputStream.flush()
@@ -193,11 +214,35 @@ object BackupRestoreService {
             }
         }
 
+        // Parse Offers
+        val offersList = mutableListOf<OfferEntity>()
+        val offersArr = root.optJSONArray("offers")
+        if (offersArr != null) {
+            for (i in 0 until offersArr.length()) {
+                val obj = offersArr.getJSONObject(i)
+                offersList.add(
+                    OfferEntity(
+                        id = obj.optLong("id", 0),
+                        title = obj.optString("title", ""),
+                        offerType = obj.optString("offerType", "THREE_FOR_TWO"),
+                        buyQty = obj.optInt("buyQty", 0),
+                        payQty = obj.optInt("payQty", 0),
+                        fixedPrice = obj.optDouble("fixedPrice", 0.0),
+                        percentOff = obj.optDouble("percentOff", 0.0),
+                        storeName = obj.optString("storeName", ""),
+                        notes = obj.optString("notes", ""),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                    )
+                )
+            }
+        }
+
         return FullBackupPayload(
             pieces = piecesList,
             products = productsList,
             productPieces = refList,
             shoppingTrips = tripsList,
+            offers = offersList,
             currencySymbol = currencySymbol,
             budgetLimit = budgetLimit,
             themeMode = themeMode,

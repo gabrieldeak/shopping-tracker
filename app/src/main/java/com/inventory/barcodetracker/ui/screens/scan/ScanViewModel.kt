@@ -242,27 +242,31 @@ class ScanViewModel(
 
             val symbol = currencySymbol.value
             val pieceLines = currentPieces.map {
-                val total = it.stockQuantity * it.unitPrice
+                val total = it.calculatedTotal
+                val offerTag = if (it.offerType != "NONE" && it.offerDescription.isNotBlank()) {
+                    " [${it.offerDescription}" + (if (it.savings > 0) " — saved $symbol${String.format(Locale.US, "%.2f", it.savings)}" else "") + "]"
+                } else ""
                 if (it.unitPrice > 0) {
-                    "${it.name} (x${it.stockQuantity}) — $symbol${String.format(Locale.US, "%.2f", total)}"
+                    "• ${it.name} (x${it.stockQuantity})$offerTag — $symbol${String.format(Locale.US, "%.2f", total)}"
                 } else {
-                    "${it.name} (x${it.stockQuantity})"
+                    "• ${it.name} (x${it.stockQuantity})$offerTag"
                 }
             }
 
             val productLines = currentProducts.map {
                 val total = it.stockQuantity * it.unitPrice
                 if (it.unitPrice > 0) {
-                    "${it.name} (x${it.stockQuantity}) — $symbol${String.format(Locale.US, "%.2f", total)}"
+                    "• ${it.name} (x${it.stockQuantity}) — $symbol${String.format(Locale.US, "%.2f", total)}"
                 } else {
-                    "${it.name} (x${it.stockQuantity})"
+                    "• ${it.name} (x${it.stockQuantity})"
                 }
             }
 
             val summaryText = (pieceLines + productLines).joinToString("\n")
+            val totalDiscountedCost = currentPieces.sumOf { it.calculatedTotal } + currentProducts.sumOf { it.stockQuantity * it.unitPrice }
 
             repository.checkoutCartAndSaveTrip(
-                totalCost = totalCost,
+                totalCost = totalDiscountedCost,
                 itemCount = itemCount,
                 itemsSummary = summaryText.ifEmpty { "Purchased items" },
                 currencySymbol = symbol,

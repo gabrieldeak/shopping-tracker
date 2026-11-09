@@ -44,3 +44,6 @@ local.properties
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Safety Database Backups
+db_backups/

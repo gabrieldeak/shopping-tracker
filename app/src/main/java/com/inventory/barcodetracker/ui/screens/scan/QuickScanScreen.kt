@@ -609,10 +609,18 @@ private fun SearchPieceCard(
                 )
                 if (piece.unitPrice > 0) {
                     Text(
-                        String.format(Locale.US, "%s%.2f", currencySymbol, piece.stockQuantity * piece.unitPrice),
+                        String.format(Locale.US, "%s%.2f", currencySymbol, piece.calculatedTotal),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold
                     )
+                    if (piece.savings > 0) {
+                        Text(
+                            String.format(Locale.US, "Saved %s%.2f", currencySymbol, piece.savings),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
                 }
             }
         }

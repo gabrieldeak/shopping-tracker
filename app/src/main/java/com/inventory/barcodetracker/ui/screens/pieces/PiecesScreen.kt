@@ -117,7 +117,8 @@ fun PiecesScreen(
             )
 
             // Total Inventory / Basket Value Banner
-            val cartTotalValue = piecesList.sumOf { it.stockQuantity * it.unitPrice }
+            val cartTotalValue = piecesList.sumOf { it.calculatedTotal }
+            val cartTotalSavings = piecesList.sumOf { it.savings }
             val cartTotalCount = piecesList.sumOf { it.stockQuantity }
             val catalogCount = piecesList.size
 
@@ -149,6 +150,14 @@ fun PiecesScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
+                        if (cartTotalSavings > 0) {
+                            Text(
+                                text = String.format(Locale.US, "Saved %s%.2f with deals", currencySymbol, cartTotalSavings),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
