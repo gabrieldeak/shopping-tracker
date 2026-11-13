@@ -11,9 +11,14 @@ A local-first, offline-ready Android application built with **Kotlin** and **Jet
 
 ## ✨ Key Features
 
-- ⚙️ **About & Developer Info**:
-  - **Developed & Designed by G.A.D**
-  - **✨ Vibe Coded with AI**
+- 🚀 **Version 2.0.0 Feature Upgrades**:
+  - 📋 **Multiple Shopping Baskets Feed**: Main screen presents a unified, scrollable list of expandable **Shopping Basket Cards** (each list card is a full-featured basket with item count, subtotal, vouchers, checkout, clear, duplicate, rename, and delete).
+  - ☑️ **Multi-Select Scan Targets**: Check one or more baskets to receive scanned items directly from camera barcode scanning or item search results!
+  - 🖐️ **Swipe Gestures**: Swipe any shopping basket card Right to **Duplicate** or Left to **Delete**.
+  - 🏷️ **Optional Barcodes & Prices**: Register items without barcodes (auto-generates clean internal IDs for loose produce) or with optional prices.
+  - 🔄 **Reload Historical Baskets**: Reload any previous receipt from History back into an active shopping basket with 1 tap.
+  - 🚀 **GitHub Release Auto-Update Check**: Automatically checks GitHub API on app startup and notifies when a newer version is available.
+  - 💾 **Safe Database Migrations & Backups**: Room Database Migration `5 -> 6` with zero data loss, supported by complete JSON and standalone `.db` file backup/restore.
 - 🔍 **Deep Multi-Field Search**: Search filters across the app (Quick Scan, My Items, Offers, Product Components, and Offer Dialogs) perform exhaustive multi-field matching across:
   - **Barcode / SKU**
   - **Item Name**

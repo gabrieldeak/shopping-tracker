@@ -49,7 +49,6 @@ fun PieceDialog(
     var offerPercentOff by remember { mutableStateOf(initialPiece?.offerPercentOff?.let { if (it == 0.0) "" else String.format(Locale.US, "%.0f", it) } ?: "") }
     var detectedOfferMessage by remember { mutableStateOf<String?>(null) }
 
-    var barcodeError by remember { mutableStateOf<String?>(null) }
     var nameError by remember { mutableStateOf<String?>(null) }
 
     var ocrTextCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -104,14 +103,10 @@ fun PieceDialog(
             ) {
                 OutlinedTextField(
                     value = barcode,
-                    onValueChange = {
-                        barcode = it
-                        if (it.isNotBlank()) barcodeError = null
-                    },
-                    label = { Text("Barcode / Item Code *") },
+                    onValueChange = { barcode = it },
+                    label = { Text("Barcode / Item Code (Optional)") },
+                    placeholder = { Text("Auto-generated if left blank") },
                     enabled = !isEditing,
-                    isError = barcodeError != null,
-                    supportingText = barcodeError?.let { { Text(it) } },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -405,19 +400,15 @@ fun PieceDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    var hasError = false
-                    if (barcode.isBlank()) {
-                        barcodeError = "Barcode is required"
-                        hasError = true
-                    }
                     if (name.isBlank()) {
                         nameError = "Item name is required"
-                        hasError = true
+                        return@Button
                     }
-                    if (hasError) return@Button
+
+                    val finalBarcode = if (barcode.isBlank()) "ITEM_${System.currentTimeMillis()}" else barcode.trim()
 
                     val piece = PieceEntity(
-                        barcode = barcode.trim(),
+                        barcode = finalBarcode,
                         name = name.trim(),
                         description = description.trim(),
                         location = if (category.isBlank()) "Grocery" else category.trim(),

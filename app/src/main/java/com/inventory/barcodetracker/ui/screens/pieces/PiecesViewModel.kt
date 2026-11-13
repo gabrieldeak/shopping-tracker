@@ -32,6 +32,9 @@ class PiecesViewModel(
     private val _snackbarMessages = MutableSharedFlow<String>()
     val snackbarMessages: SharedFlow<String> = _snackbarMessages.asSharedFlow()
 
+    private val _selectedBarcodes = MutableStateFlow<Set<String>>(emptySet())
+    val selectedBarcodes: StateFlow<Set<String>> = _selectedBarcodes.asStateFlow()
+
     val piecesList = combine(
         repository.allPieces,
         _searchFilter,
@@ -63,6 +66,26 @@ class PiecesViewModel(
         _lowStockOnly.value = !_lowStockOnly.value
     }
 
+    fun toggleSelectPiece(barcode: String) {
+        if (_selectedBarcodes.value.contains(barcode)) {
+            _selectedBarcodes.value = _selectedBarcodes.value - barcode
+        } else {
+            _selectedBarcodes.value = _selectedBarcodes.value + barcode
+        }
+    }
+
+    fun selectAllPieces(barcodes: List<String>) {
+        if (_selectedBarcodes.value.size == barcodes.size && barcodes.isNotEmpty()) {
+            _selectedBarcodes.value = emptySet()
+        } else {
+            _selectedBarcodes.value = barcodes.toSet()
+        }
+    }
+
+    fun clearSelections() {
+        _selectedBarcodes.value = emptySet()
+    }
+
     fun adjustStock(barcode: String, delta: Int) {
         viewModelScope.launch {
             repository.adjustPieceStock(barcode, delta)
@@ -82,8 +105,22 @@ class PiecesViewModel(
                 repository.deletePiece(piece)
                 _snackbarMessages.emit("Deleted ${piece.name}")
             } catch (_: Exception) {
-                // If ForeignKey constraint fails because piece is used in a BOM
                 _snackbarMessages.emit("Cannot delete item: it is currently linked to an assembled product.")
+            }
+        }
+    }
+
+    fun deleteSelectedPieces() {
+        viewModelScope.launch {
+            val selected = _selectedBarcodes.value.toList()
+            if (selected.isNotEmpty()) {
+                try {
+                    repository.deletePiecesByBarcodes(selected)
+                    _selectedBarcodes.value = emptySet()
+                    _snackbarMessages.emit("Deleted ${selected.size} selected item(s)")
+                } catch (_: Exception) {
+                    _snackbarMessages.emit("Could not delete some items linked to product BOMs")
+                }
             }
         }
     }

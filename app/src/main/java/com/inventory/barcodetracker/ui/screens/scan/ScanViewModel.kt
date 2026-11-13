@@ -5,11 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
+import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
+import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
 import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
 import com.inventory.barcodetracker.data.repository.InventoryRepository
 import com.inventory.barcodetracker.scanner.BarcodeScannerService
 import com.inventory.barcodetracker.scanner.ScanResult
+import com.inventory.barcodetracker.service.AppUpdateInfo
 import com.inventory.barcodetracker.service.OpenFoodFactsService
+import com.inventory.barcodetracker.service.UpdateCheckService
 import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -63,6 +67,104 @@ class ScanViewModel(
 
     private val _appliedCartVouchers = MutableStateFlow<List<OfferEntity>>(emptyList())
     val appliedCartVouchers: StateFlow<List<OfferEntity>> = _appliedCartVouchers.asStateFlow()
+
+    val allShoppingLists: StateFlow<List<ShoppingListEntity>> = repository.allShoppingLists
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allShoppingListItems: StateFlow<List<ShoppingListItemEntity>> = repository.allShoppingListItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allPiecesMap: StateFlow<Map<String, PieceEntity>> = repository.allPieces
+        .map { pieces -> pieces.associateBy { it.barcode } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    private val _activeListId = MutableStateFlow<Long?>(null)
+    val activeListId: StateFlow<Long?> = _activeListId.asStateFlow()
+
+    private val _selectedListIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedListIds: StateFlow<Set<Long>> = _selectedListIds.asStateFlow()
+
+    private val _appUpdateInfo = MutableStateFlow<AppUpdateInfo?>(null)
+    val appUpdateInfo: StateFlow<AppUpdateInfo?> = _appUpdateInfo.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val lists = repository.getAllShoppingListsSync()
+            if (lists.isEmpty()) {
+                val defaultId = repository.upsertShoppingList(ShoppingListEntity(name = "Main Shopping Basket"))
+                _activeListId.value = defaultId
+                _selectedListIds.value = setOf(defaultId)
+            } else {
+                _activeListId.value = lists.first().id
+                _selectedListIds.value = setOf(lists.first().id)
+            }
+
+            val update = UpdateCheckService.checkForUpdates()
+            if (update.hasUpdate) {
+                _appUpdateInfo.value = update
+            }
+        }
+    }
+
+    fun dismissUpdateBanner() {
+        _appUpdateInfo.value = null
+    }
+
+    fun createShoppingList(name: String) {
+        viewModelScope.launch {
+            val id = repository.upsertShoppingList(ShoppingListEntity(name = name))
+            _activeListId.value = id
+            _selectedListIds.value = _selectedListIds.value + id
+            _snackbarMessages.emit("Created basket \"$name\"")
+        }
+    }
+
+    fun copyShoppingList(listId: Long, newName: String) {
+        viewModelScope.launch {
+            val newId = repository.copyShoppingList(listId, newName)
+            _activeListId.value = newId
+            _selectedListIds.value = _selectedListIds.value + newId
+            _snackbarMessages.emit("Duplicated basket as \"$newName\"")
+        }
+    }
+
+    fun renameShoppingList(listId: Long, newName: String) {
+        viewModelScope.launch {
+            val existing = repository.getAllShoppingListsSync().firstOrNull { it.id == listId }
+            if (existing != null) {
+                repository.upsertShoppingList(existing.copy(name = newName))
+                _snackbarMessages.emit("Renamed basket to \"$newName\"")
+            }
+        }
+    }
+
+    fun deleteShoppingList(list: ShoppingListEntity) {
+        viewModelScope.launch {
+            repository.deleteShoppingList(list)
+            if (_activeListId.value == list.id) _activeListId.value = null
+            _selectedListIds.value = _selectedListIds.value - list.id
+            _snackbarMessages.emit("Deleted basket \"${list.name}\"")
+        }
+    }
+
+    fun deleteSelectedShoppingLists() {
+        viewModelScope.launch {
+            val selected = _selectedListIds.value.toList()
+            if (selected.isNotEmpty()) {
+                repository.deleteShoppingListsByIds(selected)
+                _selectedListIds.value = emptySet()
+                _snackbarMessages.emit("Deleted ${selected.size} selected basket(s)")
+            }
+        }
+    }
+
+    fun toggleSelectList(listId: Long) {
+        if (_selectedListIds.value.contains(listId)) {
+            _selectedListIds.value = _selectedListIds.value - listId
+        } else {
+            _selectedListIds.value = _selectedListIds.value + listId
+        }
+    }
 
     fun applyCartVoucher(voucher: OfferEntity) {
         if (_appliedCartVouchers.value.none { it.id == voucher.id && voucher.id != 0L }) {
@@ -211,10 +313,31 @@ class ScanViewModel(
         viewModelScope.launch {
             repository.adjustPieceStock(barcode, delta)
             val updated = repository.getPieceByBarcode(barcode)
-            updated?.let {
-                _scannedItemState.value = ScannedItemState.FoundPiece(it)
+            updated?.let { piece ->
+                _scannedItemState.value = ScannedItemState.FoundPiece(piece)
+
+                val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
+                for (listId in targetLists) {
+                    if (piece.stockQuantity > 0) {
+                        repository.upsertShoppingListItem(
+                            ShoppingListItemEntity(
+                                listId = listId,
+                                barcode = piece.barcode,
+                                quantity = piece.stockQuantity,
+                                unitPrice = piece.unitPrice,
+                                offerType = piece.offerType,
+                                offerBuyQty = piece.offerBuyQty,
+                                offerPayQty = piece.offerPayQty,
+                                offerFixedPrice = piece.offerFixedPrice,
+                                offerPercentOff = piece.offerPercentOff
+                            )
+                        )
+                    } else {
+                        repository.removeShoppingListItem(listId, piece.barcode)
+                    }
+                }
             }
-            _snackbarMessages.emit("Piece stock updated ($delta)")
+            _snackbarMessages.emit("Cart quantity updated ($delta)")
         }
     }
 
@@ -233,7 +356,24 @@ class ScanViewModel(
         viewModelScope.launch {
             repository.upsertPiece(piece)
             _scannedItemState.value = ScannedItemState.FoundPiece(piece)
-            _snackbarMessages.emit("Created piece ${piece.name}")
+
+            val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
+            for (listId in targetLists) {
+                repository.upsertShoppingListItem(
+                    ShoppingListItemEntity(
+                        listId = listId,
+                        barcode = piece.barcode,
+                        quantity = piece.stockQuantity,
+                        unitPrice = piece.unitPrice,
+                        offerType = piece.offerType,
+                        offerBuyQty = piece.offerBuyQty,
+                        offerPayQty = piece.offerPayQty,
+                        offerFixedPrice = piece.offerFixedPrice,
+                        offerPercentOff = piece.offerPercentOff
+                    )
+                )
+            }
+            _snackbarMessages.emit("Created item ${piece.name}")
         }
     }
 
@@ -250,6 +390,50 @@ class ScanViewModel(
 
     fun getOfferHistoryForPiece(barcode: String): Flow<List<OfferEntity>> {
         return repository.getOfferHistoryForPiece(barcode)
+    }
+
+    fun finishAndSaveBasketForList(list: ShoppingListEntity) {
+        viewModelScope.launch {
+            val listItems = repository.getItemsForListSync(list.id)
+            if (listItems.isEmpty()) {
+                _snackbarMessages.emit("List \"${list.name}\" is empty!")
+                return@launch
+            }
+
+            val symbol = currencySymbol.value
+            val pieceMap = repository.getAllPiecesSync().associateBy { it.barcode }
+
+            val itemLines = listItems.map { item ->
+                val p = pieceMap[item.barcode]
+                val name = p?.name ?: item.barcode
+                val total = item.quantity * item.unitPrice
+                if (item.unitPrice > 0) {
+                    "• $name (x${item.quantity}) — $symbol${String.format(Locale.US, "%.2f", total)}"
+                } else {
+                    "• $name (x${item.quantity})"
+                }
+            }
+
+            val summaryText = "Basket: ${list.name}\n" + itemLines.joinToString("\n")
+            val totalCost = listItems.sumOf { it.quantity * it.unitPrice }
+            val itemCount = listItems.sumOf { it.quantity }
+
+            repository.checkoutCartAndSaveTrip(
+                totalCost = totalCost,
+                itemCount = itemCount,
+                itemsSummary = summaryText,
+                currencySymbol = symbol,
+            )
+            repository.clearShoppingListItems(list.id)
+            _snackbarMessages.emit("Saved \"${list.name}\" to History and cleared basket!")
+        }
+    }
+
+    fun clearListBasket(list: ShoppingListEntity) {
+        viewModelScope.launch {
+            repository.clearShoppingListItems(list.id)
+            _snackbarMessages.emit("Cleared basket \"${list.name}\"")
+        }
     }
 
     fun createProduct(product: ProductEntity) {

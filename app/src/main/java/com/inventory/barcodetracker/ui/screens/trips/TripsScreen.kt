@@ -12,17 +12,16 @@ import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.inventory.barcodetracker.R
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -35,7 +34,10 @@ fun TripsScreen(
     snackbarHostState: SnackbarHostState,
 ) {
     val trips by viewModel.shoppingTrips.collectAsStateWithLifecycle()
+    val selectedTripIds by viewModel.selectedTripIds.collectAsStateWithLifecycle()
+
     var tripToDelete by remember { mutableStateOf<ShoppingTripEntity?>(null) }
+    var showConfirmDeleteBatch by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.snackbarMessages.collect { msg ->
@@ -65,6 +67,19 @@ fun TripsScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("Shopping History")
                     }
+                },
+                actions = {
+                    if (selectedTripIds.isNotEmpty()) {
+                        Button(
+                            onClick = { showConfirmDeleteBatch = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Delete Selected (${selectedTripIds.size})", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             )
         }
@@ -75,6 +90,22 @@ fun TripsScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
+            if (trips.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = { viewModel.selectAllTrips(trips.map { it.id }) }
+                    ) {
+                        Text(if (selectedTripIds.size == trips.size) "Deselect All" else "Select All")
+                    }
+                }
+            }
+
             if (trips.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -95,7 +126,7 @@ fun TripsScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "When you finish shopping, tap 'Finish & Save' on the Quick Scan screen to save a date-stamped receipt here.",
+                            text = "When you finish shopping, tap 'Finish & Save' on any basket card to save a date-stamped receipt here.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 32.dp)
@@ -106,12 +137,15 @@ fun TripsScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp)
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp)
                 ) {
                     items(trips, key = { it.id }) { trip ->
                         TripItemCard(
                             trip = trip,
-                            onDelete = { tripToDelete = trip }
+                            isSelected = selectedTripIds.contains(trip.id),
+                            onToggleSelect = { viewModel.toggleSelectTrip(trip.id) },
+                            onDelete = { tripToDelete = trip },
+                            onReload = { viewModel.reloadTripIntoCart(trip) }
                         )
                     }
                 }
@@ -119,6 +153,7 @@ fun TripsScreen(
         }
     }
 
+    // Delete Single Confirmation Dialog
     tripToDelete?.let { trip ->
         AlertDialog(
             onDismissRequest = { tripToDelete = null },
@@ -142,55 +177,104 @@ fun TripsScreen(
             }
         )
     }
+
+    // Delete Batch Confirmation Dialog
+    if (showConfirmDeleteBatch) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDeleteBatch = false },
+            title = { Text("Delete Selected Receipts") },
+            text = { Text("Are you sure you want to delete ${selectedTripIds.size} selected receipt(s) from your history?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteSelectedTrips()
+                        showConfirmDeleteBatch = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Selected")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDeleteBatch = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun TripItemCard(
     trip: ShoppingTripEntity,
+    isSelected: Boolean,
+    onToggleSelect: () -> Unit,
     onDelete: () -> Unit,
+    onReload: () -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+
+    val firstLine = trip.itemsSummary.lineSequence().firstOrNull()?.trim() ?: ""
+    val basketName = if (firstLine.startsWith("Basket:") || firstLine.startsWith("List:")) {
+        firstLine.substringAfter(":").trim()
+    } else {
+        "Shopping Basket"
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { isExpanded = !isExpanded },
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = formatDate(trip.tripDate),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = { onToggleSelect() }
                     )
-                    Text(
-                        text = "${trip.itemCount} items purchased",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column {
                         Text(
-                            text = if (isExpanded) "Hide itemized list" else "Tap to view itemized list",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
+                            text = "🛒 $basketName",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary
                         )
-                        Icon(
-                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
+                        Text(
+                            text = "${formatDate(trip.tripDate)} • ${trip.itemCount} items",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isExpanded) "Hide itemized list" else "Tap to view itemized list",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Icon(
+                                imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
+
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = String.format(Locale.US, "%s%.2f", trip.currencySymbol, trip.totalCost),
@@ -201,6 +285,23 @@ private fun TripItemCard(
                     IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = onReload,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Reload Basket into Cart", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -216,12 +317,6 @@ private fun TripItemCard(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "• ",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
                             Text(
                                 text = line,
                                 style = MaterialTheme.typography.bodySmall,

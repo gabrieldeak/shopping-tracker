@@ -6,6 +6,8 @@ import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.data.local.entity.ProductOfferHistoryEntity
 import com.inventory.barcodetracker.data.local.entity.ProductPieceCrossRef
+import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
+import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 import com.inventory.barcodetracker.data.local.model.BomItem
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +28,10 @@ class InventoryRepository(
 
     suspend fun deletePiece(piece: PieceEntity) {
         inventoryDao.deletePiece(piece)
+    }
+
+    suspend fun deletePiecesByBarcodes(barcodes: List<String>) {
+        inventoryDao.deletePiecesByBarcodes(barcodes)
     }
 
     suspend fun adjustPieceStock(barcode: String, delta: Int) {
@@ -102,6 +108,10 @@ class InventoryRepository(
 
     suspend fun deleteShoppingTrip(trip: ShoppingTripEntity) {
         inventoryDao.deleteShoppingTrip(trip)
+    }
+
+    suspend fun deleteShoppingTripsByIds(ids: List<Long>) {
+        inventoryDao.deleteShoppingTripsByIds(ids)
     }
 
     suspend fun resetCartQuantities() {
@@ -182,6 +192,119 @@ class InventoryRepository(
 
     suspend fun importOfferHistory(history: List<ProductOfferHistoryEntity>) {
         inventoryDao.upsertOfferHistories(history)
+    }
+
+    // --- Shopping Lists ---
+    val allShoppingLists: Flow<List<ShoppingListEntity>> = inventoryDao.getAllShoppingLists()
+    val allShoppingListItems: Flow<List<ShoppingListItemEntity>> = inventoryDao.getAllShoppingListItems()
+
+    suspend fun getAllShoppingListsSync(): List<ShoppingListEntity> {
+        return inventoryDao.getAllShoppingListsSync()
+    }
+
+    suspend fun upsertShoppingList(list: ShoppingListEntity): Long {
+        return inventoryDao.upsertShoppingList(list)
+    }
+
+    suspend fun importShoppingLists(lists: List<ShoppingListEntity>) {
+        inventoryDao.upsertShoppingLists(lists)
+    }
+
+    suspend fun deleteShoppingList(list: ShoppingListEntity) {
+        inventoryDao.deleteShoppingList(list)
+    }
+
+    suspend fun deleteShoppingListsByIds(ids: List<Long>) {
+        inventoryDao.deleteShoppingListsByIds(ids)
+    }
+
+    suspend fun copyShoppingList(sourceListId: Long, newName: String): Long {
+        return inventoryDao.copyShoppingList(sourceListId, newName)
+    }
+
+    fun getItemsForList(listId: Long): Flow<List<ShoppingListItemEntity>> {
+        return inventoryDao.getItemsForList(listId)
+    }
+
+    suspend fun getItemsForListSync(listId: Long): List<ShoppingListItemEntity> {
+        return inventoryDao.getItemsForListSync(listId)
+    }
+
+    suspend fun getAllShoppingListItemsSync(): List<ShoppingListItemEntity> {
+        return inventoryDao.getAllShoppingListItemsSync()
+    }
+
+    suspend fun upsertShoppingListItem(item: ShoppingListItemEntity) {
+        inventoryDao.upsertShoppingListItem(item)
+    }
+
+    suspend fun importShoppingListItems(items: List<ShoppingListItemEntity>) {
+        inventoryDao.upsertShoppingListItems(items)
+    }
+
+    suspend fun removeShoppingListItem(listId: Long, barcode: String) {
+        inventoryDao.removeShoppingListItem(listId, barcode)
+    }
+
+    suspend fun clearShoppingListItems(listId: Long) {
+        inventoryDao.clearShoppingListItems(listId)
+    }
+
+    suspend fun reloadTripIntoCart(trip: ShoppingTripEntity): String {
+        val firstLine = trip.itemsSummary.lineSequence().firstOrNull()?.trim() ?: ""
+        val extractedName = if (firstLine.startsWith("Basket:") || firstLine.startsWith("List:")) {
+            firstLine.substringAfter(":").trim()
+        } else {
+            "Reloaded " + java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(trip.tripDate))
+        }
+
+        val existingLists = inventoryDao.getAllShoppingListsSync()
+        val targetList = existingLists.firstOrNull { it.name.equals(extractedName, ignoreCase = true) }
+        val targetListId = if (targetList != null) {
+            targetList.id
+        } else {
+            inventoryDao.upsertShoppingList(ShoppingListEntity(name = extractedName))
+        }
+
+        val summaryLines = trip.itemsSummary.split("\n")
+        val currentPieces = inventoryDao.getAllPiecesSync().associateBy { it.name.lowercase() }
+
+        for (line in summaryLines) {
+            val trimmed = line.trim()
+            if (!trimmed.startsWith("•")) continue
+            val regex = Regex("""•\s*(.*?)\s*\(x(\d+)\)""")
+            val match = regex.find(trimmed) ?: continue
+            val itemName = match.groupValues[1].trim()
+            val qty = match.groupValues[2].toIntOrNull() ?: 1
+
+            val existing = currentPieces[itemName.lowercase()]
+            val barcode = if (existing != null) {
+                inventoryDao.upsertPiece(existing.copy(stockQuantity = qty))
+                existing.barcode
+            } else {
+                val newBarcode = "RELOAD_" + System.currentTimeMillis() + "_" + (100..999).random()
+                inventoryDao.upsertPiece(
+                    PieceEntity(
+                        barcode = newBarcode,
+                        name = itemName,
+                        stockQuantity = qty,
+                        unitPrice = 0.0,
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+                newBarcode
+            }
+
+            inventoryDao.upsertShoppingListItem(
+                ShoppingListItemEntity(
+                    listId = targetListId,
+                    barcode = barcode,
+                    quantity = qty,
+                    addedAt = System.currentTimeMillis()
+                )
+            )
+        }
+        return extractedName
     }
 
     // --- Sample Data Seeding ---

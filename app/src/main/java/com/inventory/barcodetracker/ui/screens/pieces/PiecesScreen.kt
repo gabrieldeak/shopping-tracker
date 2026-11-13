@@ -1,7 +1,6 @@
 package com.inventory.barcodetracker.ui.screens.pieces
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,26 +11,18 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.inventory.barcodetracker.R
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
-import com.inventory.barcodetracker.ui.theme.StockLowRed
-import com.inventory.barcodetracker.ui.theme.StockLowRedContainer
-import com.inventory.barcodetracker.ui.theme.StockOkGreen
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,10 +35,12 @@ fun PiecesScreen(
     val lowStockOnly by viewModel.lowStockOnly.collectAsStateWithLifecycle()
     val piecesList by viewModel.piecesList.collectAsStateWithLifecycle()
     val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
+    val selectedBarcodes by viewModel.selectedBarcodes.collectAsStateWithLifecycle()
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingPiece by remember { mutableStateOf<PieceEntity?>(null) }
     var pieceToDelete by remember { mutableStateOf<PieceEntity?>(null) }
+    var showConfirmDeleteBatch by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.snackbarMessages.collect { msg ->
@@ -77,6 +70,19 @@ fun PiecesScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("My Items Catalog")
                     }
+                },
+                actions = {
+                    if (selectedBarcodes.isNotEmpty()) {
+                        Button(
+                            onClick = { showConfirmDeleteBatch = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Delete Selected (${selectedBarcodes.size})", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             )
         },
@@ -96,25 +102,36 @@ fun PiecesScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            // Search Input
-            OutlinedTextField(
-                value = searchFilter,
-                onValueChange = viewModel::onSearchFilterChanged,
-                placeholder = { Text("Filter by name, barcode, location...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchFilter.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onSearchFilterChanged("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+            // Search Input & Select All Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = searchFilter,
+                    onValueChange = viewModel::onSearchFilterChanged,
+                    placeholder = { Text("Filter by name, barcode, location...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchFilter.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.onSearchFilterChanged("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            }
                         }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (piecesList.isNotEmpty()) {
+                    TextButton(
+                        onClick = { viewModel.selectAllPieces(piecesList.map { it.barcode }) }
+                    ) {
+                        Text(if (selectedBarcodes.size == piecesList.size) "Deselect All" else "Select All")
                     }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            )
+                }
+            }
 
             // Total Inventory / Basket Value Banner
             val cartTotalValue = piecesList.sumOf { it.calculatedTotal }
@@ -195,7 +212,9 @@ fun PiecesScreen(
                     items(piecesList, key = { it.barcode }) { piece ->
                         PieceItemCard(
                             piece = piece,
+                            isSelected = selectedBarcodes.contains(piece.barcode),
                             currencySymbol = currencySymbol,
+                            onToggleSelect = { viewModel.toggleSelectPiece(piece.barcode) },
                             onAdjustStock = { delta -> viewModel.adjustStock(piece.barcode, delta) },
                             onEdit = { editingPiece = piece },
                             onDelete = { pieceToDelete = piece }
@@ -232,7 +251,7 @@ fun PiecesScreen(
         )
     }
 
-    // Delete Confirmation Dialog
+    // Delete Single Confirmation Dialog
     pieceToDelete?.let { piece ->
         AlertDialog(
             onDismissRequest = { pieceToDelete = null },
@@ -256,12 +275,39 @@ fun PiecesScreen(
             }
         )
     }
+
+    // Delete Batch Confirmation Dialog
+    if (showConfirmDeleteBatch) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDeleteBatch = false },
+            title = { Text("Delete Selected Items") },
+            text = { Text("Are you sure you want to delete ${selectedBarcodes.size} selected item(s) from your catalog?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteSelectedPieces()
+                        showConfirmDeleteBatch = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Selected")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDeleteBatch = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun PieceItemCard(
     piece: PieceEntity,
+    isSelected: Boolean,
     currencySymbol: String = "$",
+    onToggleSelect: () -> Unit,
     onAdjustStock: (Int) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -270,7 +316,7 @@ private fun PieceItemCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -279,46 +325,56 @@ private fun PieceItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = piece.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = { onToggleSelect() }
                     )
-                    Text(
-                        text = "Barcode: ${piece.barcode}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (piece.location.isNotBlank() && piece.location != "Default Bin") {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column {
                         Text(
-                            text = "Category: ${piece.location}",
+                            text = piece.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Barcode: ${piece.barcode}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                    if (piece.unitPrice > 0) {
-                        Text(
-                            text = String.format(Locale.US, "Price: %s%.2f / unit", currencySymbol, piece.unitPrice),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    if (piece.offerType != "NONE" && piece.offerDescription.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Surface(
-                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
+                        if (piece.location.isNotBlank() && piece.location != "Default Bin") {
                             Text(
-                                text = "🏷️ ${piece.offerDescription}",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                text = "Category: ${piece.location}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                        if (piece.unitPrice > 0) {
+                            Text(
+                                text = String.format(Locale.US, "Price: %s%.2f / unit", currencySymbol, piece.unitPrice),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        if (piece.offerType != "NONE" && piece.offerDescription.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "🏷️ ${piece.offerDescription}",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
                         }
                     }
                 }

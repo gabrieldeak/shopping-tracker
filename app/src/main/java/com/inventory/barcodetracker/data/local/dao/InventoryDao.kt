@@ -11,6 +11,8 @@ import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.data.local.entity.ProductOfferHistoryEntity
 import com.inventory.barcodetracker.data.local.entity.ProductPieceCrossRef
+import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
+import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 import com.inventory.barcodetracker.data.local.model.BomItem
 import kotlinx.coroutines.flow.Flow
@@ -36,6 +38,9 @@ abstract class InventoryDao {
 
     @Delete
     abstract suspend fun deletePiece(piece: PieceEntity)
+
+    @Query("DELETE FROM pieces WHERE barcode IN (:barcodes)")
+    abstract suspend fun deletePiecesByBarcodes(barcodes: List<String>)
 
     @Query("UPDATE pieces SET stockQuantity = MAX(0, stockQuantity + :delta) WHERE barcode = :barcode")
     abstract suspend fun adjustPieceStock(barcode: String, delta: Int)
@@ -140,6 +145,9 @@ abstract class InventoryDao {
     @Delete
     abstract suspend fun deleteShoppingTrip(trip: ShoppingTripEntity)
 
+    @Query("DELETE FROM shopping_trips WHERE id IN (:ids)")
+    abstract suspend fun deleteShoppingTripsByIds(ids: List<Long>)
+
     @Query("DELETE FROM shopping_trips")
     abstract suspend fun clearShoppingTrips()
 
@@ -162,6 +170,8 @@ abstract class InventoryDao {
         clearProducts()
         clearShoppingTrips()
         clearOffers()
+        clearShoppingLists()
+        clearAllShoppingListItems()
     }
 
     // --- Saved Offers ---
@@ -203,4 +213,68 @@ abstract class InventoryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertOfferHistories(history: List<ProductOfferHistoryEntity>)
+
+    // --- Shopping Lists ---
+    @Query("SELECT * FROM shopping_lists WHERE isArchived = 0 ORDER BY createdAt DESC")
+    abstract fun getAllShoppingLists(): Flow<List<ShoppingListEntity>>
+
+    @Query("SELECT * FROM shopping_lists WHERE isArchived = 0 ORDER BY createdAt DESC")
+    abstract suspend fun getAllShoppingListsSync(): List<ShoppingListEntity>
+
+    @Query("SELECT * FROM shopping_lists WHERE id = :id LIMIT 1")
+    abstract suspend fun getShoppingListById(id: Long): ShoppingListEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertShoppingList(list: ShoppingListEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertShoppingLists(lists: List<ShoppingListEntity>)
+
+    @Delete
+    abstract suspend fun deleteShoppingList(list: ShoppingListEntity)
+
+    @Query("DELETE FROM shopping_lists WHERE id IN (:ids)")
+    abstract suspend fun deleteShoppingListsByIds(ids: List<Long>)
+
+    @Query("DELETE FROM shopping_lists")
+    abstract suspend fun clearShoppingLists()
+
+    // --- Shopping List Items ---
+    @Query("SELECT * FROM shopping_list_items WHERE listId = :listId")
+    abstract fun getItemsForList(listId: Long): Flow<List<ShoppingListItemEntity>>
+
+    @Query("SELECT * FROM shopping_list_items WHERE listId = :listId")
+    abstract suspend fun getItemsForListSync(listId: Long): List<ShoppingListItemEntity>
+
+    @Query("SELECT * FROM shopping_list_items")
+    abstract fun getAllShoppingListItems(): Flow<List<ShoppingListItemEntity>>
+
+    @Query("SELECT * FROM shopping_list_items")
+    abstract suspend fun getAllShoppingListItemsSync(): List<ShoppingListItemEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertShoppingListItem(item: ShoppingListItemEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun upsertShoppingListItems(items: List<ShoppingListItemEntity>)
+
+    @Query("DELETE FROM shopping_list_items WHERE listId = :listId AND barcode = :barcode")
+    abstract suspend fun removeShoppingListItem(listId: Long, barcode: String)
+
+    @Query("DELETE FROM shopping_list_items WHERE listId = :listId")
+    abstract suspend fun clearShoppingListItems(listId: Long)
+
+    @Query("DELETE FROM shopping_list_items")
+    abstract suspend fun clearAllShoppingListItems()
+
+    @Transaction
+    open suspend fun copyShoppingList(sourceListId: Long, newName: String): Long {
+        val newListId = upsertShoppingList(ShoppingListEntity(name = newName))
+        val sourceItems = getItemsForListSync(sourceListId)
+        val newItems = sourceItems.map { item ->
+            item.copy(listId = newListId, addedAt = System.currentTimeMillis())
+        }
+        upsertShoppingListItems(newItems)
+        return newListId
+    }
 }
