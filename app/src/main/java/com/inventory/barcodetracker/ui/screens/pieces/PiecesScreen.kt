@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
+import com.inventory.barcodetracker.ui.components.AddItemsToBasketDialog
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,11 +37,13 @@ fun PiecesScreen(
     val piecesList by viewModel.piecesList.collectAsStateWithLifecycle()
     val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
     val selectedBarcodes by viewModel.selectedBarcodes.collectAsStateWithLifecycle()
+    val allShoppingLists by viewModel.allShoppingLists.collectAsStateWithLifecycle()
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingPiece by remember { mutableStateOf<PieceEntity?>(null) }
     var pieceToDelete by remember { mutableStateOf<PieceEntity?>(null) }
     var showConfirmDeleteBatch by remember { mutableStateOf(false) }
+    var showAddToBasketDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.snackbarMessages.collect { msg ->
@@ -73,14 +76,28 @@ fun PiecesScreen(
                 },
                 actions = {
                     if (selectedBarcodes.isNotEmpty()) {
-                        Button(
-                            onClick = { showConfirmDeleteBatch = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Delete Selected (${selectedBarcodes.size})", fontWeight = FontWeight.Bold)
+                            Button(
+                                onClick = { showAddToBasketDialog = true },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Add (${selectedBarcodes.size}) to Basket", fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { showConfirmDeleteBatch = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Delete (${selectedBarcodes.size})", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -133,10 +150,7 @@ fun PiecesScreen(
                 }
             }
 
-            // Total Inventory / Basket Value Banner
-            val cartTotalValue = piecesList.sumOf { it.calculatedTotal }
-            val cartTotalSavings = piecesList.sumOf { it.savings }
-            val cartTotalCount = piecesList.sumOf { it.stockQuantity }
+            // Master Catalog Summary Banner
             val catalogCount = piecesList.size
 
             Card(
@@ -157,38 +171,23 @@ fun PiecesScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Active Basket Total",
+                            text = "Saved Items Catalog",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = String.format(Locale.US, "%s%.2f", currencySymbol, cartTotalValue),
+                            text = "$catalogCount Saved Products",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        if (cartTotalSavings > 0) {
-                            Text(
-                                text = String.format(Locale.US, "Saved %s%.2f with deals", currencySymbol, cartTotalSavings),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = "$cartTotalCount items in cart",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "$catalogCount saved products in list",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                        )
-                    }
+                    Text(
+                        text = "Check items to add to basket",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 }
             }
 
@@ -300,6 +299,19 @@ fun PiecesScreen(
             }
         )
     }
+
+    // Add Items to Basket(s) Dialog
+    if (showAddToBasketDialog) {
+        AddItemsToBasketDialog(
+            shoppingLists = allShoppingLists,
+            selectedCount = selectedBarcodes.size,
+            onDismiss = { showAddToBasketDialog = false },
+            onConfirmAdd = { targetListIds ->
+                viewModel.addSelectedPiecesToShoppingLists(targetListIds)
+                showAddToBasketDialog = false
+            }
+        )
+    }
 }
 
 @Composable
@@ -402,7 +414,7 @@ private fun PieceItemCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Cart Quantity & Stepper
+            // Quantity Stepper
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -410,27 +422,11 @@ private fun PieceItemCard(
             ) {
                 Column {
                     Text(
-                        text = "${piece.stockQuantity} in cart",
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "Default Quantity: ${piece.stockQuantity}",
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    if (piece.unitPrice > 0) {
-                        Text(
-                            text = String.format(Locale.US, "Subtotal: %s%.2f", currencySymbol, piece.calculatedTotal),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (piece.savings > 0) {
-                            Text(
-                                text = String.format(Locale.US, "Saved %s%.2f", currencySymbol, piece.savings),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
-                    }
                 }
 
                 // Inline count stepper

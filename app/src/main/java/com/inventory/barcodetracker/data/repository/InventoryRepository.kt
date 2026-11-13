@@ -163,6 +163,10 @@ class InventoryRepository(
         inventoryDao.deleteOffer(offer)
     }
 
+    suspend fun deleteOffersByIds(ids: List<Long>) {
+        inventoryDao.deleteOffersByIds(ids)
+    }
+
     fun getOfferHistoryForPiece(barcode: String): Flow<List<OfferEntity>> {
         return inventoryDao.getOfferHistoryForPiece(barcode)
     }

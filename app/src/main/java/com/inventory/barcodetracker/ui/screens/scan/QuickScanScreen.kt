@@ -44,6 +44,7 @@ fun QuickScanScreen(
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
     val scannedItemState by viewModel.scannedItemState.collectAsStateWithLifecycle()
     val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
+    val budgetLimit by viewModel.budgetLimit.collectAsStateWithLifecycle()
     val savedOffers by viewModel.savedOffers.collectAsStateWithLifecycle()
 
     val allShoppingLists by viewModel.allShoppingLists.collectAsStateWithLifecycle()
@@ -61,11 +62,13 @@ fun QuickScanScreen(
     var listToRename by remember { mutableStateOf<ShoppingListEntity?>(null) }
     var listToCopy by remember { mutableStateOf<ShoppingListEntity?>(null) }
     var listToDelete by remember { mutableStateOf<ShoppingListEntity?>(null) }
+    var listForBudgetDialog by remember { mutableStateOf<ShoppingListEntity?>(null) }
 
     var manualBarcodeText by remember { mutableStateOf("") }
     var newListNameText by remember { mutableStateOf("") }
     var renameListNameText by remember { mutableStateOf("") }
     var copyListNameText by remember { mutableStateOf("") }
+    var budgetInputText by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         viewModel.snackbarMessages.collect { msg ->
@@ -223,6 +226,7 @@ fun QuickScanScreen(
                         itemsInList = itemsInList,
                         pieceMap = allPiecesMap,
                         currencySymbol = currencySymbol,
+                        defaultBudgetLimit = budgetLimit,
                         onToggleSelect = { viewModel.toggleSelectList(list.id) },
                         onRename = {
                             listToRename = list
@@ -235,7 +239,11 @@ fun QuickScanScreen(
                         onDelete = { listToDelete = list },
                         onFinishAndSave = { viewModel.finishAndSaveBasketForList(list) },
                         onClearBasket = { viewModel.clearListBasket(list) },
-                        onApplyVoucher = { showVoucherDialog = true }
+                        onApplyVoucher = { showVoucherDialog = true },
+                        onSetBudget = {
+                            listForBudgetDialog = list
+                            budgetInputText = if (list.budgetLimit > 0) String.format(Locale.US, "%.2f", list.budgetLimit) else if (budgetLimit > 0) String.format(Locale.US, "%.2f", budgetLimit) else ""
+                        }
                     )
                 }
             }
@@ -513,6 +521,60 @@ fun QuickScanScreen(
             dismissButton = {
                 TextButton(onClick = { listToDelete = null }) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Set Basket Budget Dialog
+    listForBudgetDialog?.let { list ->
+        AlertDialog(
+            onDismissRequest = { listForBudgetDialog = null },
+            title = { Text("Set Target Budget Limit (${list.name})") },
+            text = {
+                Column {
+                    Text(
+                        "Enter a target limit for \"${list.name}\". The card will notify you when total items reach or exceed this limit.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = budgetInputText,
+                        onValueChange = { budgetInputText = it },
+                        label = { Text("Budget Limit ($currencySymbol)") },
+                        prefix = { Text(currencySymbol) },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val limit = budgetInputText.toDoubleOrNull() ?: 0.0
+                        viewModel.setBasketBudgetLimit(list.id, limit)
+                        listForBudgetDialog = null
+                    }
+                ) {
+                    Text("Save Budget")
+                }
+            },
+            dismissButton = {
+                Row {
+                    if (list.budgetLimit > 0) {
+                        TextButton(
+                            onClick = {
+                                viewModel.setBasketBudgetLimit(list.id, 0.0)
+                                listForBudgetDialog = null
+                            }
+                        ) {
+                            Text("Clear")
+                        }
+                    }
+                    TextButton(onClick = { listForBudgetDialog = null }) {
+                        Text("Cancel")
+                    }
                 }
             }
         )

@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
-import com.inventory.barcodetracker.data.local.entity.PieceEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,11 +35,13 @@ fun OffersScreen(
     val offersList by viewModel.offersList.collectAsStateWithLifecycle()
     val allPieces by viewModel.allPieces.collectAsStateWithLifecycle()
     val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
+    val selectedOfferIds by viewModel.selectedOfferIds.collectAsStateWithLifecycle()
 
     var showAddOfferDialog by remember { mutableStateOf(false) }
     var editingOffer by remember { mutableStateOf<OfferEntity?>(null) }
     var offerToDelete by remember { mutableStateOf<OfferEntity?>(null) }
     var offerToApplyToItem by remember { mutableStateOf<OfferEntity?>(null) }
+    var showConfirmDeleteBatch by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.snackbarMessages.collect { msg ->
@@ -70,6 +71,19 @@ fun OffersScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("Store Offers & Deals")
                     }
+                },
+                actions = {
+                    if (selectedOfferIds.isNotEmpty()) {
+                        Button(
+                            onClick = { showConfirmDeleteBatch = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Delete Selected (${selectedOfferIds.size})", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             )
         },
@@ -89,25 +103,36 @@ fun OffersScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            // Search Input
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = viewModel::onSearchQueryChanged,
-                placeholder = { Text("Search offers by name, store, deal type...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+            // Search Input & Select All Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = viewModel::onSearchQueryChanged,
+                    placeholder = { Text("Search offers by name, store, deal type...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            }
                         }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (offersList.isNotEmpty()) {
+                    TextButton(
+                        onClick = { viewModel.selectAllOffers(offersList.map { it.id }) }
+                    ) {
+                        Text(if (selectedOfferIds.size == offersList.size) "Deselect All" else "Select All")
                     }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            )
+                }
+            }
 
             // Summary Header Card
             Card(
@@ -184,7 +209,9 @@ fun OffersScreen(
                     items(offersList, key = { it.id }) { offer ->
                         OfferCardItem(
                             offer = offer,
+                            isSelected = selectedOfferIds.contains(offer.id),
                             currencySymbol = currencySymbol,
+                            onToggleSelect = { viewModel.toggleSelectOffer(offer.id) },
                             onApplyToItem = { offerToApplyToItem = offer },
                             onEdit = { editingOffer = offer },
                             onDelete = { offerToDelete = offer }
@@ -221,7 +248,7 @@ fun OffersScreen(
         )
     }
 
-    // Delete Offer Confirmation Dialog
+    // Delete Single Offer Confirmation Dialog
     offerToDelete?.let { offer ->
         AlertDialog(
             onDismissRequest = { offerToDelete = null },
@@ -246,6 +273,31 @@ fun OffersScreen(
         )
     }
 
+    // Delete Batch Confirmation Dialog
+    if (showConfirmDeleteBatch) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDeleteBatch = false },
+            title = { Text("Delete Selected Offers") },
+            text = { Text("Are you sure you want to delete ${selectedOfferIds.size} selected store offer(s)?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteSelectedOffers()
+                        showConfirmDeleteBatch = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Selected")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDeleteBatch = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // Apply Offer to Item Dialog
     offerToApplyToItem?.let { offer ->
         ApplyOfferToItemDialog(
@@ -264,7 +316,9 @@ fun OffersScreen(
 @Composable
 private fun OfferCardItem(
     offer: OfferEntity,
+    isSelected: Boolean,
     currencySymbol: String = "$",
+    onToggleSelect: () -> Unit,
     onApplyToItem: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -273,7 +327,7 @@ private fun OfferCardItem(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -282,44 +336,54 @@ private fun OfferCardItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "🏷️ ${offer.displayBadge}",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = offer.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = { onToggleSelect() }
                     )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column {
+                        Surface(
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "🏷️ ${offer.displayBadge}",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
 
-                    if (offer.storeName.isNotBlank()) {
-                        Text(
-                            text = "Store: ${offer.storeName}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                        Spacer(modifier = Modifier.height(6.dp))
 
-                    if (offer.notes.isNotBlank()) {
                         Text(
-                            text = offer.notes,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = offer.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
+
+                        if (offer.storeName.isNotBlank()) {
+                            Text(
+                                text = "Store: ${offer.storeName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        if (offer.notes.isNotBlank()) {
+                            Text(
+                                text = offer.notes,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
 

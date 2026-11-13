@@ -3,6 +3,8 @@ package com.inventory.barcodetracker.ui.screens.pieces
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
+import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
+import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
 import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
 import com.inventory.barcodetracker.data.repository.InventoryRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -34,6 +36,9 @@ class PiecesViewModel(
 
     private val _selectedBarcodes = MutableStateFlow<Set<String>>(emptySet())
     val selectedBarcodes: StateFlow<Set<String>> = _selectedBarcodes.asStateFlow()
+
+    val allShoppingLists: StateFlow<List<ShoppingListEntity>> = repository.allShoppingLists
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val piecesList = combine(
         repository.allPieces,
@@ -122,6 +127,38 @@ class PiecesViewModel(
                     _snackbarMessages.emit("Could not delete some items linked to product BOMs")
                 }
             }
+        }
+    }
+
+    fun addSelectedPiecesToShoppingLists(targetListIds: List<Long>) {
+        viewModelScope.launch {
+            val selectedBarcodesList = _selectedBarcodes.value.toList()
+            if (selectedBarcodesList.isEmpty() || targetListIds.isEmpty()) return@launch
+
+            val piecesMap = repository.getAllPiecesSync().associateBy { it.barcode }
+
+            for (listId in targetListIds) {
+                for (barcode in selectedBarcodesList) {
+                    val piece = piecesMap[barcode] ?: continue
+                    val qty = if (piece.stockQuantity > 0) piece.stockQuantity else 1
+                    repository.upsertShoppingListItem(
+                        ShoppingListItemEntity(
+                            listId = listId,
+                            barcode = piece.barcode,
+                            quantity = qty,
+                            unitPrice = piece.unitPrice,
+                            offerType = piece.offerType,
+                            offerBuyQty = piece.offerBuyQty,
+                            offerPayQty = piece.offerPayQty,
+                            offerFixedPrice = piece.offerFixedPrice,
+                            offerPercentOff = piece.offerPercentOff
+                        )
+                    )
+                }
+            }
+            val totalAdded = selectedBarcodesList.size
+            _selectedBarcodes.value = emptySet()
+            _snackbarMessages.emit("Added $totalAdded item(s) to selected shopping basket(s)!")
         }
     }
 }

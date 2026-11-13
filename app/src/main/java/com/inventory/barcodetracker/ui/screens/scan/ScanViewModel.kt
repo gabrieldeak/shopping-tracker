@@ -138,6 +138,32 @@ class ScanViewModel(
         }
     }
 
+    fun setBasketBudgetLimit(listId: Long, limit: Double) {
+        viewModelScope.launch {
+            val existing = repository.getAllShoppingListsSync().firstOrNull { it.id == listId }
+            if (existing != null) {
+                repository.upsertShoppingList(existing.copy(budgetLimit = limit))
+                val msg = if (limit > 0) "Budget limit set to ${currencySymbol.value}${String.format(Locale.US, "%.2f", limit)} for \"${existing.name}\"" else "Budget cleared for \"${existing.name}\""
+                _snackbarMessages.emit(msg)
+            }
+        }
+    }
+
+    fun setBudgetLimitForSelectedLists(limit: Double) {
+        viewModelScope.launch {
+            val selected = _selectedListIds.value.toList()
+            if (selected.isNotEmpty()) {
+                val lists = repository.getAllShoppingListsSync().filter { selected.contains(it.id) }
+                for (list in lists) {
+                    repository.upsertShoppingList(list.copy(budgetLimit = limit))
+                }
+                val symbol = currencySymbol.value
+                val msg = if (limit > 0) "Set ${symbol}${String.format(Locale.US, "%.2f", limit)} budget limit for ${lists.size} selected basket(s)" else "Cleared budget for ${lists.size} selected basket(s)"
+                _snackbarMessages.emit(msg)
+            }
+        }
+    }
+
     fun deleteShoppingList(list: ShoppingListEntity) {
         viewModelScope.launch {
             repository.deleteShoppingList(list)

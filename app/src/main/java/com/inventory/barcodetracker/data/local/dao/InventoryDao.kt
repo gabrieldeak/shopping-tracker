@@ -193,6 +193,9 @@ abstract class InventoryDao {
     @Delete
     abstract suspend fun deleteOffer(offer: OfferEntity)
 
+    @Query("DELETE FROM offers WHERE id IN (:ids)")
+    abstract suspend fun deleteOffersByIds(ids: List<Long>)
+
     @Query("DELETE FROM offers")
     abstract suspend fun clearOffers()
 

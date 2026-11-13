@@ -20,7 +20,7 @@ import java.util.Locale
 
 class OffersViewModel(
     private val repository: InventoryRepository,
-    private val currencyPreferences: CurrencyPreferences,
+    currencyPreferences: CurrencyPreferences,
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -47,11 +47,34 @@ class OffersViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val _selectedOfferIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedOfferIds: StateFlow<Set<Long>> = _selectedOfferIds.asStateFlow()
+
     private val _snackbarMessages = MutableSharedFlow<String>()
     val snackbarMessages: SharedFlow<String> = _snackbarMessages.asSharedFlow()
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+    }
+
+    fun toggleSelectOffer(offerId: Long) {
+        if (_selectedOfferIds.value.contains(offerId)) {
+            _selectedOfferIds.value = _selectedOfferIds.value - offerId
+        } else {
+            _selectedOfferIds.value = _selectedOfferIds.value + offerId
+        }
+    }
+
+    fun selectAllOffers(offerIds: List<Long>) {
+        if (_selectedOfferIds.value.size == offerIds.size && offerIds.isNotEmpty()) {
+            _selectedOfferIds.value = emptySet()
+        } else {
+            _selectedOfferIds.value = offerIds.toSet()
+        }
+    }
+
+    fun clearOfferSelections() {
+        _selectedOfferIds.value = emptySet()
     }
 
     fun saveOffer(offer: OfferEntity) {
@@ -64,7 +87,19 @@ class OffersViewModel(
     fun deleteOffer(offer: OfferEntity) {
         viewModelScope.launch {
             repository.deleteOffer(offer)
+            _selectedOfferIds.value = _selectedOfferIds.value - offer.id
             _snackbarMessages.emit("Offer \"${offer.title}\" deleted.")
+        }
+    }
+
+    fun deleteSelectedOffers() {
+        viewModelScope.launch {
+            val selected = _selectedOfferIds.value.toList()
+            if (selected.isNotEmpty()) {
+                repository.deleteOffersByIds(selected)
+                _selectedOfferIds.value = emptySet()
+                _snackbarMessages.emit("Deleted ${selected.size} selected offer(s).")
+            }
         }
     }
 
