@@ -1,17 +1,13 @@
 package com.inventory.barcodetracker.ui.navigation
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import com.inventory.barcodetracker.di.AppContainer
 import com.inventory.barcodetracker.ui.AppViewModelFactory
 import com.inventory.barcodetracker.ui.screens.offers.OffersScreen
@@ -24,122 +20,98 @@ import com.inventory.barcodetracker.ui.screens.settings.SettingsScreen
 import com.inventory.barcodetracker.ui.screens.settings.SettingsViewModel
 import com.inventory.barcodetracker.ui.screens.trips.TripsScreen
 import com.inventory.barcodetracker.ui.screens.trips.TripsViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavHost(
     appContainer: AppContainer,
     modifier: Modifier = Modifier,
 ) {
-    val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
 
-    val showBottomBar = bottomNavScreens.any { it.route == currentRoute }
+    // Instantiating ViewModels
+    val scanViewModel: ScanViewModel = viewModel(
+        factory = AppViewModelFactory(
+            repository = appContainer.inventoryRepository,
+            currencyPreferences = appContainer.currencyPreferences,
+            scannerService = appContainer.barcodeScannerService
+        )
+    )
+    val piecesViewModel: PiecesViewModel = viewModel(
+        factory = AppViewModelFactory(
+            repository = appContainer.inventoryRepository,
+            currencyPreferences = appContainer.currencyPreferences
+        )
+    )
+    val offersViewModel: OffersViewModel = viewModel(
+        factory = AppViewModelFactory(
+            repository = appContainer.inventoryRepository,
+            currencyPreferences = appContainer.currencyPreferences
+        )
+    )
+    val tripsViewModel: TripsViewModel = viewModel(
+        factory = AppViewModelFactory(
+            repository = appContainer.inventoryRepository,
+            currencyPreferences = appContainer.currencyPreferences
+        )
+    )
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = AppViewModelFactory(
+            repository = appContainer.inventoryRepository,
+            currencyPreferences = appContainer.currencyPreferences
+        )
+    )
 
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    bottomNavScreens.forEach { screen ->
-                        val selected = currentRoute == screen.route
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                if (currentRoute != screen.route) {
-                                    navController.navigate(screen.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
+            NavigationBar {
+                bottomNavScreens.forEachIndexed { index, screen ->
+                    val selected = pagerState.currentPage == index
+                    NavigationBarItem(
+                        selected = selected,
+                        onClick = {
+                            if (pagerState.currentPage != index) {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
                                 }
-                            },
-                            icon = { Icon(screen.icon, contentDescription = screen.title) },
-                            label = { Text(screen.title) }
-                        )
-                    }
+                            }
+                        },
+                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                        label = { Text(screen.title) }
+                    )
                 }
             }
         }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Scan.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            // Dashboard / Quick Scan
-            composable(Screen.Scan.route) {
-                val scanViewModel: ScanViewModel = viewModel(
-                    factory = AppViewModelFactory(
-                        repository = appContainer.inventoryRepository,
-                        currencyPreferences = appContainer.currencyPreferences,
-                        scannerService = appContainer.barcodeScannerService
-                    )
-                )
-                QuickScanScreen(
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) { page ->
+            when (page) {
+                0 -> QuickScanScreen(
                     viewModel = scanViewModel,
-                    onNavigateToProductBom = { sku ->
-                        navController.navigate("products/$sku")
-                    },
+                    onNavigateToProductBom = { _ -> },
                     snackbarHostState = snackbarHostState
                 )
-            }
-
-            // My Items Catalog
-            composable(Screen.Items.route) {
-                val piecesViewModel: PiecesViewModel = viewModel(
-                    factory = AppViewModelFactory(
-                        repository = appContainer.inventoryRepository,
-                        currencyPreferences = appContainer.currencyPreferences
-                    )
-                )
-                PiecesScreen(
+                1 -> PiecesScreen(
                     viewModel = piecesViewModel,
                     snackbarHostState = snackbarHostState
                 )
-            }
-
-            // Store Offers & Multi-Buys
-            composable(Screen.Offers.route) {
-                val offersViewModel: OffersViewModel = viewModel(
-                    factory = AppViewModelFactory(
-                        repository = appContainer.inventoryRepository,
-                        currencyPreferences = appContainer.currencyPreferences
-                    )
-                )
-                OffersScreen(
+                2 -> OffersScreen(
                     viewModel = offersViewModel,
                     snackbarHostState = snackbarHostState
                 )
-            }
-
-            // Shopping Trips History
-            composable(Screen.Trips.route) {
-                val tripsViewModel: TripsViewModel = viewModel(
-                    factory = AppViewModelFactory(
-                        repository = appContainer.inventoryRepository,
-                        currencyPreferences = appContainer.currencyPreferences
-                    )
-                )
-                TripsScreen(
+                3 -> TripsScreen(
                     viewModel = tripsViewModel,
                     snackbarHostState = snackbarHostState
                 )
-            }
-
-            // Settings & Data Management
-            composable(Screen.Settings.route) {
-                val settingsViewModel: SettingsViewModel = viewModel(
-                    factory = AppViewModelFactory(
-                        repository = appContainer.inventoryRepository,
-                        currencyPreferences = appContainer.currencyPreferences
-                    )
-                )
-                SettingsScreen(
+                4 -> SettingsScreen(
                     viewModel = settingsViewModel,
                     snackbarHostState = snackbarHostState
                 )

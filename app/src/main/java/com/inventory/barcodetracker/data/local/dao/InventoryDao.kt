@@ -258,6 +258,9 @@ abstract class InventoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertShoppingListItem(item: ShoppingListItemEntity)
 
+    @Query("UPDATE shopping_list_items SET unitPrice = :newPrice WHERE barcode = :barcode")
+    abstract suspend fun updateShoppingListItemPrice(barcode: String, newPrice: Double)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertShoppingListItems(items: List<ShoppingListItemEntity>)
 

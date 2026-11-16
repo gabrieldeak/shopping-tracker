@@ -25,7 +25,7 @@ object OpenFoodFactsService {
             connection.requestMethod = "GET"
             connection.connectTimeout = 4000
             connection.readTimeout = 4000
-            connection.setRequestProperty("User-Agent", "BarcodeInventoryTracker - Android - Version 1.0")
+            connection.setRequestProperty("User-Agent", "BarcodeInventoryTracker - Android - Version ${UpdateCheckService.CURRENT_VERSION}")
 
             if (connection.responseCode == 200) {
                 val responseText = connection.inputStream.bufferedReader().use { it.readText() }

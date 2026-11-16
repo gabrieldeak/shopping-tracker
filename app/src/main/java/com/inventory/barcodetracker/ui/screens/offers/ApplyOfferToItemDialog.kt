@@ -52,7 +52,7 @@ fun ApplyOfferToItemDialog(
             Column {
                 Text("Apply Offer to Product")
                 Text(
-                    text = "${offer.title} (${offer.displayBadge})",
+                    text = "${offer.title} (${offer.getDisplayBadge(currencySymbol)})",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
@@ -63,7 +63,8 @@ fun ApplyOfferToItemDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp)
+                    .heightIn(max = 380.dp)
+                    .imePadding()
             ) {
                 OutlinedTextField(
                     value = searchQuery,

@@ -28,7 +28,9 @@ fun OcrTextEditDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
+                    .heightIn(max = 380.dp)
+                    .verticalScroll(rememberScrollState())
+                    .imePadding(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(

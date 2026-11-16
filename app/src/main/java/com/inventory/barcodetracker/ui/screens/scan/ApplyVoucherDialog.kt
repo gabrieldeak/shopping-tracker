@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocalOffer
@@ -44,7 +45,9 @@ fun ApplyVoucherDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp),
+                    .heightIn(max = 380.dp)
+                    .verticalScroll(rememberScrollState())
+                    .imePadding(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
@@ -69,49 +72,49 @@ fun ApplyVoucherDialog(
                         onClick = {
                             onApplyVoucher(
                                 OfferEntity(
-                                    title = "$currencySymbol 5 Voucher",
+                                    title = "${currencySymbol}5 Voucher",
                                     offerType = "VOUCHER",
                                     fixedPrice = 5.0
                                 )
                             )
                         },
-                        label = { Text("$currencySymbol 5 Off") }
+                        label = { Text("${currencySymbol}5 Off") }
                     )
                     AssistChip(
                         onClick = {
                             onApplyVoucher(
                                 OfferEntity(
-                                    title = "$currencySymbol 10 Voucher",
+                                    title = "${currencySymbol}10 Voucher",
                                     offerType = "VOUCHER",
                                     fixedPrice = 10.0
                                 )
                             )
                         },
-                        label = { Text("$currencySymbol 10 Off") }
+                        label = { Text("${currencySymbol}10 Off") }
                     )
                     AssistChip(
                         onClick = {
                             onApplyVoucher(
                                 OfferEntity(
-                                    title = "$currencySymbol 15 Voucher",
+                                    title = "${currencySymbol}15 Voucher",
                                     offerType = "VOUCHER",
                                     fixedPrice = 15.0
                                 )
                             )
                         },
-                        label = { Text("$currencySymbol 15 Off") }
+                        label = { Text("${currencySymbol}15 Off") }
                     )
                     AssistChip(
                         onClick = {
                             onApplyVoucher(
                                 OfferEntity(
-                                    title = "$currencySymbol 20 Voucher",
+                                    title = "${currencySymbol}20 Voucher",
                                     offerType = "VOUCHER",
                                     fixedPrice = 20.0
                                 )
                             )
                         },
-                        label = { Text("$currencySymbol 20 Off") }
+                        label = { Text("${currencySymbol}20 Off") }
                     )
                 }
 
@@ -198,7 +201,7 @@ fun ApplyVoucherDialog(
                         onClick = {
                             val amount = customAmountText.toDoubleOrNull() ?: 0.0
                             if (amount > 0.0) {
-                                val name = customNameText.trim().ifEmpty { "$currencySymbol${String.format(Locale.US, "%.2f", amount)} Voucher" }
+                                val name = customNameText.trim().ifEmpty { "${currencySymbol}${String.format(Locale.US, "%.2f", amount)} Voucher" }
                                 onApplyVoucher(
                                     OfferEntity(
                                         title = name,

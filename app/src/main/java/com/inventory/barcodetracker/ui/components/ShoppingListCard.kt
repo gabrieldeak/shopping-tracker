@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
+import com.inventory.barcodetracker.data.local.entity.calculateItemSavings
+import com.inventory.barcodetracker.data.local.entity.calculateItemTotal
 import java.util.Locale
 
 @Suppress("DEPRECATION")
@@ -48,13 +50,63 @@ fun ShoppingListCard(
     onClearBasket: () -> Unit,
     onApplyVoucher: () -> Unit = {},
     onSetBudget: () -> Unit = {},
+    onRemoveItem: (String) -> Unit = {},
 ) {
     var isExpanded by remember { mutableStateOf(false) }
 
-    val totalCount = itemsInList.sumOf { it.quantity }
-    val itemsSubtotal = itemsInList.sumOf { item ->
-        val unitPrice = if (item.unitPrice > 0) item.unitPrice else (pieceMap[item.barcode]?.unitPrice ?: 0.0)
-        item.quantity * unitPrice
+    val totalCount = itemsInList.filter { it.offerType != "VOUCHER" && it.unitPrice >= 0 }.sumOf { it.quantity }
+
+    val itemsSubtotal = maxOf(
+        0.0,
+        itemsInList.sumOf { item ->
+            if (item.offerType == "VOUCHER" || item.unitPrice < 0) {
+                item.unitPrice
+            } else {
+                val piece = pieceMap[item.barcode]
+                if (piece != null) {
+                    val effOfferType = if (item.offerType != "NONE") item.offerType else piece.offerType
+                    val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else piece.offerBuyQty
+                    val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else piece.offerPayQty
+                    val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else piece.offerFixedPrice
+                    val effPercentOff = if (item.offerPercentOff > 0.0) item.offerPercentOff else piece.offerPercentOff
+
+                    piece.copy(
+                        stockQuantity = item.quantity,
+                        unitPrice = if (item.unitPrice > 0) item.unitPrice else piece.unitPrice,
+                        offerType = effOfferType,
+                        offerBuyQty = effBuyQty,
+                        offerPayQty = effPayQty,
+                        offerFixedPrice = effFixedPrice,
+                        offerPercentOff = effPercentOff
+                    ).calculatedTotal
+                } else {
+                    item.calculateItemTotal(null)
+                }
+            }
+        }
+    )
+
+    val totalSavings = itemsInList.filter { it.offerType != "VOUCHER" && it.unitPrice >= 0 }.sumOf { item ->
+        val piece = pieceMap[item.barcode]
+        if (piece != null) {
+            val effOfferType = if (item.offerType != "NONE") item.offerType else piece.offerType
+            val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else piece.offerBuyQty
+            val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else piece.offerPayQty
+            val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else piece.offerFixedPrice
+            val effPercentOff = if (item.offerPercentOff > 0.0) item.offerPercentOff else piece.offerPercentOff
+
+            piece.copy(
+                stockQuantity = item.quantity,
+                unitPrice = if (item.unitPrice > 0) item.unitPrice else piece.unitPrice,
+                offerType = effOfferType,
+                offerBuyQty = effBuyQty,
+                offerPayQty = effPayQty,
+                offerFixedPrice = effFixedPrice,
+                offerPercentOff = effPercentOff
+            ).savings
+        } else {
+            item.calculateItemSavings(null)
+        }
     }
 
     val effectiveBudgetLimit = if (list.budgetLimit > 0) list.budgetLimit else defaultBudgetLimit
@@ -161,6 +213,14 @@ fun ShoppingListCard(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
                             )
+                            if (totalSavings > 0) {
+                                Text(
+                                    text = String.format(Locale.US, "Saved %s%.2f with deals", currencySymbol, totalSavings),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
                         }
                     }
 
@@ -239,46 +299,121 @@ fun ShoppingListCard(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        if (itemsInList.isEmpty()) {
+                        val sortedItems = remember(itemsInList) {
+                            val regularItems = itemsInList.filter { it.offerType != "VOUCHER" && it.unitPrice >= 0 }
+                            val voucherItems = itemsInList.filter { it.offerType == "VOUCHER" || it.unitPrice < 0 }
+                            regularItems + voucherItems
+                        }
+
+                        if (sortedItems.isEmpty()) {
                             Text(
                                 "No items in this basket yet. Check box above and scan barcodes or search items to populate!",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
-                            itemsInList.forEach { item ->
-                                val piece = pieceMap[item.barcode]
-                                val displayName = piece?.name ?: item.barcode
-                                val unitPrice = if (item.unitPrice > 0) item.unitPrice else (piece?.unitPrice ?: 0.0)
-                                val lineTotal = item.quantity * unitPrice
+                            sortedItems.forEach { item ->
+                                if (item.offerType == "VOUCHER" || item.unitPrice < 0) {
+                                    val rawName = item.barcode
+                                        .removePrefix("VOUCHER_")
+                                        .replace(Regex("""^\d+_"""), "")
+                                        .replace("_", " ")
+                                        .replace(Regex("""(\$|£|€|RON)\s+"""), "$1")
+                                        .trim()
 
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 3.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            "• $displayName (x${item.quantity})",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        if (piece != null && piece.offerType != "NONE" && piece.offerDescription.isNotBlank()) {
+                                    val voucherName = if (rawName.contains("Voucher", ignoreCase = true) || rawName.contains("Coupon", ignoreCase = true)) {
+                                        rawName
+                                    } else {
+                                        "Voucher ($rawName)"
+                                    }
+
+                                    val discountVal = kotlin.math.abs(item.unitPrice)
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 3.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
                                             Text(
-                                                "  [${piece.offerDescription}]",
-                                                style = MaterialTheme.typography.labelSmall,
+                                                "🎟️ $voucherName",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.ExtraBold,
                                                 color = MaterialTheme.colorScheme.tertiary
                                             )
                                         }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                "-$currencySymbol${String.format(Locale.US, "%.2f", discountVal)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = MaterialTheme.colorScheme.tertiary
+                                            )
+                                            IconButton(
+                                                onClick = { onRemoveItem(item.barcode) },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(Icons.Default.Clear, contentDescription = "Remove Voucher", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
+                                            }
+                                        }
                                     }
-                                    if (lineTotal > 0) {
-                                        Text(
-                                            "$currencySymbol${String.format(Locale.US, "%.2f", lineTotal)}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                } else {
+                                    val piece = pieceMap[item.barcode]
+                                    val effOfferType = if (item.offerType != "NONE") item.offerType else (piece?.offerType ?: "NONE")
+                                    val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else (piece?.offerBuyQty ?: 0)
+                                    val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else (piece?.offerPayQty ?: 0)
+                                    val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else (piece?.offerFixedPrice ?: 0.0)
+                                    val effPercentOff = if (item.offerPercentOff > 0.0) item.offerPercentOff else (piece?.offerPercentOff ?: 0.0)
+
+                                    val mergedPiece = piece?.copy(
+                                        stockQuantity = item.quantity,
+                                        unitPrice = if (item.unitPrice > 0) item.unitPrice else piece.unitPrice,
+                                        offerType = effOfferType,
+                                        offerBuyQty = effBuyQty,
+                                        offerPayQty = effPayQty,
+                                        offerFixedPrice = effFixedPrice,
+                                        offerPercentOff = effPercentOff
+                                    )
+
+                                    val displayName = piece?.name ?: item.barcode
+                                    val lineTotal = mergedPiece?.calculatedTotal ?: item.calculateItemTotal(null)
+                                    val lineSavings = mergedPiece?.savings ?: item.calculateItemSavings(null)
+                                    val offerDesc = mergedPiece?.getOfferDescription(currencySymbol) ?: ""
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 3.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                "• $displayName (x${item.quantity})",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            if (offerDesc.isNotBlank()) {
+                                                val savingTag = if (lineSavings > 0) " — saved $currencySymbol${String.format(Locale.US, "%.2f", lineSavings)}" else ""
+                                                Text(
+                                                    "  [$offerDesc$savingTag]",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.tertiary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                        if (lineTotal > 0) {
+                                            Text(
+                                                "$currencySymbol${String.format(Locale.US, "%.2f", lineTotal)}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }

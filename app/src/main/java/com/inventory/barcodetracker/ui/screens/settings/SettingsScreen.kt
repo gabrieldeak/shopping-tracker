@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -28,6 +29,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.inventory.barcodetracker.service.UpdateCheckService
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -48,6 +50,7 @@ fun SettingsScreen(
     val currentCurrency by viewModel.currencySymbol.collectAsStateWithLifecycle()
     val budgetLimit by viewModel.budgetLimit.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val capitalizationMode by viewModel.capitalizationMode.collectAsStateWithLifecycle()
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     var showCustomCurrencyDialog by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
@@ -280,6 +283,52 @@ fun SettingsScreen(
                         ) {
                             Text("Dark 🌙")
                         }
+                    }
+                }
+            }
+
+            // Text Capitalization Mode Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Text Capitalization Mode",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Automatically format basket names, items, and store offer titles when typing or creating records.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = capitalizationMode == "TITLE_CASE",
+                            onClick = { viewModel.setCapitalizationMode("TITLE_CASE") },
+                            label = { Text("Capitalize Every Word (Title Case)") }
+                        )
+                        FilterChip(
+                            selected = capitalizationMode == "FIRST_LETTER",
+                            onClick = { viewModel.setCapitalizationMode("FIRST_LETTER") },
+                            label = { Text("Capitalize First Letter Only") }
+                        )
+                        FilterChip(
+                            selected = capitalizationMode == "NONE",
+                            onClick = { viewModel.setCapitalizationMode("NONE") },
+                            label = { Text("As Typed (Manual)") }
+                        )
                     }
                 }
             }
@@ -529,7 +578,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Shopping Tracker v1.0",
+                                "Shopping Tracker v${UpdateCheckService.CURRENT_VERSION}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )

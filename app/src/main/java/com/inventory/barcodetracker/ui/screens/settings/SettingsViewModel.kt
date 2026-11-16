@@ -31,6 +31,7 @@ class SettingsViewModel(
     val currencySymbol: StateFlow<String> = currencyPreferences.currencySymbol
     val budgetLimit: StateFlow<Double> = currencyPreferences.budgetLimit
     val themeMode: StateFlow<String> = currencyPreferences.themeMode
+    val capitalizationMode: StateFlow<String> = currencyPreferences.capitalizationMode
 
     fun setCurrencySymbol(symbol: String) {
         currencyPreferences.setCurrencySymbol(symbol)
@@ -50,6 +51,13 @@ class SettingsViewModel(
         currencyPreferences.setThemeMode(mode)
         viewModelScope.launch {
             _snackbarMessages.emit("App theme updated to $mode")
+        }
+    }
+
+    fun setCapitalizationMode(mode: String) {
+        currencyPreferences.setCapitalizationMode(mode)
+        viewModelScope.launch {
+            _snackbarMessages.emit("Text capitalization mode updated")
         }
     }
 

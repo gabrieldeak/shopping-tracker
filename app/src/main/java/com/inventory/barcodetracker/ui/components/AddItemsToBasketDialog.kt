@@ -41,7 +41,8 @@ fun AddItemsToBasketDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 360.dp),
+                    .heightIn(max = 380.dp)
+                    .imePadding(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(

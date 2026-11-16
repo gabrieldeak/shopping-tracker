@@ -1,11 +1,15 @@
 package com.inventory.barcodetracker.ui.screens.pieces
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
@@ -38,6 +42,7 @@ fun PiecesScreen(
     val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
     val selectedBarcodes by viewModel.selectedBarcodes.collectAsStateWithLifecycle()
     val allShoppingLists by viewModel.allShoppingLists.collectAsStateWithLifecycle()
+    val savedOffers by viewModel.savedOffers.collectAsStateWithLifecycle()
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingPiece by remember { mutableStateOf<PieceEntity?>(null) }
@@ -73,33 +78,6 @@ fun PiecesScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("My Items Catalog")
                     }
-                },
-                actions = {
-                    if (selectedBarcodes.isNotEmpty()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Button(
-                                onClick = { showAddToBasketDialog = true },
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Add (${selectedBarcodes.size}) to Basket", fontWeight = FontWeight.Bold)
-                            }
-
-                            Button(
-                                onClick = { showConfirmDeleteBatch = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Delete (${selectedBarcodes.size})", fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
                 }
             )
         },
@@ -119,33 +97,71 @@ fun PiecesScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            // Search Input & Select All Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = searchFilter,
-                    onValueChange = viewModel::onSearchFilterChanged,
-                    placeholder = { Text("Filter by name, barcode, location...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchFilter.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.onSearchFilterChanged("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear")
-                            }
+            // 1. Full-Width Search Input
+            OutlinedTextField(
+                value = searchFilter,
+                onValueChange = viewModel::onSearchFilterChanged,
+                placeholder = { Text("Search catalog by name or barcode...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchFilter.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.onSearchFilterChanged("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear")
                         }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                )
+                    }
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp)
+            )
 
-                if (piecesList.isNotEmpty()) {
+            // 2. Control Action Row
+            if (piecesList.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     TextButton(
                         onClick = { viewModel.selectAllPieces(piecesList.map { it.barcode }) }
                     ) {
-                        Text(if (selectedBarcodes.size == piecesList.size) "Deselect All" else "Select All")
+                        Text(
+                            text = if (selectedBarcodes.size == piecesList.size) "Deselect All (${piecesList.size})" else "Select All (${piecesList.size})",
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+
+                    if (selectedBarcodes.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Button(
+                                onClick = { showAddToBasketDialog = true },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Add (${selectedBarcodes.size})", fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
+
+                            Button(
+                                onClick = { showConfirmDeleteBatch = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Delete (${selectedBarcodes.size})", fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
+                        }
                     }
                 }
             }
@@ -162,32 +178,61 @@ fun PiecesScreen(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
                             text = "Saved Items Catalog",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        Text(
-                            text = "$catalogCount Saved Products",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "$catalogCount Saved Products",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                     }
-                    Text(
-                        text = "Check items to add to basket",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.ShoppingCart,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Check items below, then tap 'Add to Basket' above to route them to your shopping lists.",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
@@ -229,9 +274,10 @@ fun PiecesScreen(
         PieceDialog(
             initialPiece = null,
             currencySymbol = currencySymbol,
+            savedOffers = savedOffers,
             onDismiss = { showAddDialog = false },
-            onSave = { newPiece ->
-                viewModel.savePiece(newPiece)
+            onSave = { newPiece, updateBasketsPrice ->
+                viewModel.savePiece(newPiece, updateBasketsPrice)
                 showAddDialog = false
             }
         )
@@ -242,9 +288,10 @@ fun PiecesScreen(
         PieceDialog(
             initialPiece = piece,
             currencySymbol = currencySymbol,
+            savedOffers = savedOffers,
             onDismiss = { editingPiece = null },
-            onSave = { updated ->
-                viewModel.savePiece(updated)
+            onSave = { updated, updateBasketsPrice ->
+                viewModel.savePiece(updated, updateBasketsPrice)
                 editingPiece = null
             }
         )
@@ -380,7 +427,7 @@ private fun PieceItemCard(
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text(
-                                    text = "🏷️ ${piece.offerDescription}",
+                                    text = "🏷️ ${piece.getOfferDescription(currencySymbol)}",
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,

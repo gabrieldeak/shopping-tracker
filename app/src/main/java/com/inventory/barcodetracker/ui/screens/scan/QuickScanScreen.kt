@@ -7,7 +7,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
@@ -63,12 +66,16 @@ fun QuickScanScreen(
     var listToCopy by remember { mutableStateOf<ShoppingListEntity?>(null) }
     var listToDelete by remember { mutableStateOf<ShoppingListEntity?>(null) }
     var listForBudgetDialog by remember { mutableStateOf<ShoppingListEntity?>(null) }
+    var listForVoucherDialog by remember { mutableStateOf<ShoppingListEntity?>(null) }
 
     var manualBarcodeText by remember { mutableStateOf("") }
     var newListNameText by remember { mutableStateOf("") }
     var renameListNameText by remember { mutableStateOf("") }
     var copyListNameText by remember { mutableStateOf("") }
     var budgetInputText by remember { mutableStateOf("") }
+    var includeDateInName by remember { mutableStateOf(true) }
+    var selectedBasketDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showDatePickerModal by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.snackbarMessages.collect { msg ->
@@ -139,58 +146,76 @@ fun QuickScanScreen(
         ) {
             // 1. Header & New Basket Button
             item {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Shopping Baskets",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "Check boxes below to select scan targets. Swipe left/right to copy or delete.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Shopping Baskets",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
 
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (selectedListIds.isNotEmpty()) {
-                            Button(
-                                onClick = { showConfirmDeleteBatch = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Delete (${selectedListIds.size})", fontWeight = FontWeight.Bold)
-                            }
-                        }
-
                         Button(
                             onClick = {
                                 newListNameText = ""
                                 showCreateListDialog = true
                             },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("New Basket", fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("New Basket", fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+
+                        if (selectedListIds.isNotEmpty()) {
+                            Button(
+                                onClick = { showConfirmDeleteBatch = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Delete Selected (${selectedListIds.size})", fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
+                        }
+                    }
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.ShoppingCart,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Check boxes to select scan targets. Swipe cards left (delete) or right (duplicate).",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
             }
-
             // 2. Shopping Basket Cards List
             if (allShoppingLists.isEmpty()) {
                 item {
@@ -239,10 +264,16 @@ fun QuickScanScreen(
                         onDelete = { listToDelete = list },
                         onFinishAndSave = { viewModel.finishAndSaveBasketForList(list) },
                         onClearBasket = { viewModel.clearListBasket(list) },
-                        onApplyVoucher = { showVoucherDialog = true },
+                        onApplyVoucher = {
+                            listForVoucherDialog = list
+                            showVoucherDialog = true
+                        },
                         onSetBudget = {
                             listForBudgetDialog = list
                             budgetInputText = if (list.budgetLimit > 0) String.format(Locale.US, "%.2f", list.budgetLimit) else if (budgetLimit > 0) String.format(Locale.US, "%.2f", budgetLimit) else ""
+                        },
+                        onRemoveItem = { barcode ->
+                            viewModel.removeShoppingListItem(list.id, barcode)
                         }
                     )
                 }
@@ -263,6 +294,7 @@ fun QuickScanScreen(
                             }
                         }
                     },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -387,40 +419,102 @@ fun QuickScanScreen(
         ApplyVoucherDialog(
             savedVouchers = savedVoucherList,
             currencySymbol = currencySymbol,
-            onDismiss = { showVoucherDialog = false },
-            onApplyVoucher = { voucher ->
-                viewModel.applyCartVoucher(voucher)
+            onDismiss = {
                 showVoucherDialog = false
+                listForVoucherDialog = null
+            },
+            onApplyVoucher = { voucher ->
+                val targetList = listForVoucherDialog ?: allShoppingLists.firstOrNull()
+                if (targetList != null) {
+                    viewModel.applyVoucherToShoppingList(targetList.id, voucher)
+                }
+                showVoucherDialog = false
+                listForVoucherDialog = null
             }
         )
     }
 
     // Create List Dialog
     if (showCreateListDialog) {
+        val dateFormat = remember { java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()) }
+        val dateStr = dateFormat.format(java.util.Date(selectedBasketDateMillis))
+
+        val generatedName = remember(newListNameText, includeDateInName, selectedBasketDateMillis) {
+            val base = newListNameText.trim().ifEmpty { "Shopping Basket" }
+            if (includeDateInName) "$base - $dateStr" else base
+        }
+
         AlertDialog(
             onDismissRequest = { showCreateListDialog = false },
             title = { Text("Create New Shopping Basket") },
             text = {
-                OutlinedTextField(
-                    value = newListNameText,
-                    onValueChange = { newListNameText = it },
-                    label = { Text("Basket Name") },
-                    placeholder = { Text("e.g. Tesco Weekly, BBQ Party") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = newListNameText,
+                        onValueChange = { newListNameText = it },
+                        label = { Text("Basket Name / Store") },
+                        placeholder = { Text("e.g. Tesco Weekly, BBQ Party") },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { includeDateInName = !includeDateInName }
+                        ) {
+                            Checkbox(
+                                checked = includeDateInName,
+                                onCheckedChange = { includeDateInName = it }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Append Date", style = MaterialTheme.typography.bodyMedium)
+                        }
+
+                        AssistChip(
+                            onClick = { showDatePickerModal = true },
+                            label = { Text("📅 $dateStr") }
+                        )
+                    }
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Preview: ",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                generatedName,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (newListNameText.isNotBlank()) {
-                            viewModel.createShoppingList(newListNameText.trim())
-                            showCreateListDialog = false
-                        }
-                    },
-                    enabled = newListNameText.isNotBlank()
+                        viewModel.createShoppingList(generatedName)
+                        showCreateListDialog = false
+                    }
                 ) {
-                    Text("Create")
+                    Text("Create Basket")
                 }
             },
             dismissButton = {
@@ -429,6 +523,35 @@ fun QuickScanScreen(
                 }
             }
         )
+    }
+
+    // Material 3 Date Picker Dialog
+    if (showDatePickerModal) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedBasketDateMillis
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePickerModal = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let {
+                            selectedBasketDateMillis = it
+                        }
+                        showDatePickerModal = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePickerModal = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 
     // Rename List Dialog
@@ -441,6 +564,7 @@ fun QuickScanScreen(
                     value = renameListNameText,
                     onValueChange = { renameListNameText = it },
                     label = { Text("Basket Name") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -476,6 +600,7 @@ fun QuickScanScreen(
                     value = copyListNameText,
                     onValueChange = { copyListNameText = it },
                     label = { Text("New Basket Name") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -668,6 +793,7 @@ fun QuickScanScreen(
                         value = manualBarcodeText,
                         onValueChange = { manualBarcodeText = it },
                         placeholder = { Text("e.g. PART-001 or 12345678") },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )

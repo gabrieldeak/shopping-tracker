@@ -2,6 +2,7 @@ package com.inventory.barcodetracker.ui.screens.pieces
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
@@ -20,7 +21,7 @@ import kotlinx.coroutines.launch
 
 class PiecesViewModel(
     private val repository: InventoryRepository,
-    currencyPreferences: CurrencyPreferences,
+    private val currencyPreferences: CurrencyPreferences,
 ) : ViewModel() {
 
     val currencySymbol: StateFlow<String> = currencyPreferences.currencySymbol
@@ -38,6 +39,9 @@ class PiecesViewModel(
     val selectedBarcodes: StateFlow<Set<String>> = _selectedBarcodes.asStateFlow()
 
     val allShoppingLists: StateFlow<List<ShoppingListEntity>> = repository.allShoppingLists
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val savedOffers: StateFlow<List<OfferEntity>> = repository.allOffers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val piecesList = combine(
@@ -97,10 +101,19 @@ class PiecesViewModel(
         }
     }
 
-    fun savePiece(piece: PieceEntity) {
+    fun savePiece(piece: PieceEntity, updateBasketsPrice: Boolean = false) {
         viewModelScope.launch {
-            repository.upsertPiece(piece)
-            _snackbarMessages.emit("Saved ${piece.name}")
+            val formattedPiece = piece.copy(
+                name = currencyPreferences.formatText(piece.name),
+                location = currencyPreferences.formatText(piece.location)
+            )
+            repository.upsertPiece(formattedPiece)
+            if (updateBasketsPrice) {
+                repository.updateShoppingListItemPrice(formattedPiece.barcode, formattedPiece.unitPrice)
+                _snackbarMessages.emit("Saved ${formattedPiece.name} & updated price in active baskets")
+            } else {
+                _snackbarMessages.emit("Saved ${formattedPiece.name}")
+            }
         }
     }
 

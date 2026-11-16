@@ -62,8 +62,8 @@ data class PieceEntity(
     val savings: Double
         get() = maxOf(0.0, rawSubtotal - calculatedTotal)
 
-    val offerDescription: String
-        get() = when (offerType) {
+    fun getOfferDescription(currencySymbol: String = "$"): String {
+        return when (offerType) {
             "THREE_FOR_TWO" -> {
                 val buy = if (offerBuyQty > 0) offerBuyQty else 3
                 val pay = if (offerPayQty > 0) offerPayQty else 2
@@ -71,10 +71,14 @@ data class PieceEntity(
             }
             "MULTI_BUY_FIXED" -> {
                 val buy = if (offerBuyQty > 0) offerBuyQty else 2
-                "$buy for ${String.format(Locale.US, "%.2f", offerFixedPrice)}"
+                "$buy for $currencySymbol${String.format(Locale.US, "%.2f", offerFixedPrice)}"
             }
             "PERCENT_OFF" -> "${String.format(Locale.US, "%.0f", offerPercentOff)}% Off"
-            "REDUCED_PRICE" -> "Reduced to ${String.format(Locale.US, "%.2f", offerFixedPrice)}"
+            "REDUCED_PRICE" -> "Reduced to $currencySymbol${String.format(Locale.US, "%.2f", offerFixedPrice)}"
             else -> ""
         }
+    }
+
+    val offerDescription: String
+        get() = getOfferDescription("$")
 }

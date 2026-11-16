@@ -17,8 +17,8 @@ data class OfferEntity(
     val notes: String = "",
     val createdAt: Long = System.currentTimeMillis()
 ) {
-    val displayBadge: String
-        get() = when (offerType) {
+    fun getDisplayBadge(currencySymbol: String = "$"): String {
+        return when (offerType) {
             "THREE_FOR_TWO" -> {
                 val b = if (buyQty > 0) buyQty else 3
                 val p = if (payQty > 0) payQty else 2
@@ -26,11 +26,15 @@ data class OfferEntity(
             }
             "MULTI_BUY_FIXED" -> {
                 val b = if (buyQty > 0) buyQty else 2
-                "$b for ${String.format(Locale.US, "%.2f", fixedPrice)}"
+                "$b for $currencySymbol${String.format(Locale.US, "%.2f", fixedPrice)}"
             }
-            "REDUCED_PRICE" -> "Reduced to ${String.format(Locale.US, "%.2f", fixedPrice)}"
+            "REDUCED_PRICE" -> "Reduced to $currencySymbol${String.format(Locale.US, "%.2f", fixedPrice)}"
             "PERCENT_OFF" -> "${String.format(Locale.US, "%.0f", percentOff)}% Off"
-            "VOUCHER" -> "Voucher (${String.format(Locale.US, "%.2f", fixedPrice)} Off)"
+            "VOUCHER" -> "$currencySymbol${String.format(Locale.US, "%.2f", fixedPrice)} Voucher"
             else -> "Special Offer"
         }
+    }
+
+    val displayBadge: String
+        get() = getDisplayBadge("$")
 }

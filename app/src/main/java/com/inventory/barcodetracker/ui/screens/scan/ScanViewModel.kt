@@ -90,8 +90,9 @@ class ScanViewModel(
     init {
         viewModelScope.launch {
             val lists = repository.getAllShoppingListsSync()
+            val defaultBudget = budgetLimit.value
             if (lists.isEmpty()) {
-                val defaultId = repository.upsertShoppingList(ShoppingListEntity(name = "Main Shopping Basket"))
+                val defaultId = repository.upsertShoppingList(ShoppingListEntity(name = "Main Shopping Basket", budgetLimit = defaultBudget))
                 _activeListId.value = defaultId
                 _selectedListIds.value = setOf(defaultId)
             } else {
@@ -112,19 +113,22 @@ class ScanViewModel(
 
     fun createShoppingList(name: String) {
         viewModelScope.launch {
-            val id = repository.upsertShoppingList(ShoppingListEntity(name = name))
+            val defaultBudget = budgetLimit.value
+            val formattedName = currencyPreferences.formatText(name)
+            val id = repository.upsertShoppingList(ShoppingListEntity(name = formattedName, budgetLimit = defaultBudget))
             _activeListId.value = id
             _selectedListIds.value = _selectedListIds.value + id
-            _snackbarMessages.emit("Created basket \"$name\"")
+            _snackbarMessages.emit("Created basket \"$formattedName\"")
         }
     }
 
     fun copyShoppingList(listId: Long, newName: String) {
         viewModelScope.launch {
-            val newId = repository.copyShoppingList(listId, newName)
+            val formattedName = currencyPreferences.formatText(newName)
+            val newId = repository.copyShoppingList(listId, formattedName)
             _activeListId.value = newId
             _selectedListIds.value = _selectedListIds.value + newId
-            _snackbarMessages.emit("Duplicated basket as \"$newName\"")
+            _snackbarMessages.emit("Duplicated basket as \"$formattedName\"")
         }
     }
 
@@ -132,8 +136,9 @@ class ScanViewModel(
         viewModelScope.launch {
             val existing = repository.getAllShoppingListsSync().firstOrNull { it.id == listId }
             if (existing != null) {
-                repository.upsertShoppingList(existing.copy(name = newName))
-                _snackbarMessages.emit("Renamed basket to \"$newName\"")
+                val formattedName = currencyPreferences.formatText(newName)
+                repository.upsertShoppingList(existing.copy(name = formattedName))
+                _snackbarMessages.emit("Renamed basket to \"$formattedName\"")
             }
         }
     }
@@ -161,6 +166,36 @@ class ScanViewModel(
                 val msg = if (limit > 0) "Set ${symbol}${String.format(Locale.US, "%.2f", limit)} budget limit for ${lists.size} selected basket(s)" else "Cleared budget for ${lists.size} selected basket(s)"
                 _snackbarMessages.emit(msg)
             }
+        }
+    }
+
+    fun applyVoucherToShoppingList(listId: Long, voucher: OfferEntity) {
+        viewModelScope.launch {
+            val titleClean = (if (voucher.title.isNotBlank()) voucher.title else "${currencySymbol.value}${String.format(Locale.US, "%.2f", voucher.fixedPrice)} Off")
+                .replace(Regex("""(\$|£|€|RON)\s+"""), "$1")
+                .trim()
+            val voucherBarcode = "VOUCHER_${titleClean.replace(" ", "_")}"
+            val discountAmount = -kotlin.math.abs(voucher.fixedPrice)
+            repository.upsertShoppingListItem(
+                ShoppingListItemEntity(
+                    listId = listId,
+                    barcode = voucherBarcode,
+                    quantity = 1,
+                    unitPrice = discountAmount,
+                    offerType = "VOUCHER",
+                    offerFixedPrice = voucher.fixedPrice,
+                    addedAt = System.currentTimeMillis()
+                )
+            )
+            val symbol = currencySymbol.value
+            _snackbarMessages.emit("Applied $titleClean (-${symbol}${String.format(Locale.US, "%.2f", voucher.fixedPrice)}) to Basket!")
+        }
+    }
+
+    fun removeShoppingListItem(listId: Long, barcode: String) {
+        viewModelScope.launch {
+            repository.removeShoppingListItem(listId, barcode)
+            _snackbarMessages.emit("Removed item/voucher from basket")
         }
     }
 

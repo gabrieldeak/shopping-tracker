@@ -9,42 +9,32 @@ A local-first, offline-ready Android application built with **Kotlin** and **Jet
 
 ---
 
-## ✨ Key Features
+## ✨ Key Features (Version 2.0.0)
 
-- 🚀 **Version 2.0.0 Feature Upgrades**:
-  - 📋 **Multiple Shopping Baskets Feed**: Main screen presents a unified, scrollable list of expandable **Shopping Basket Cards** (each list card is a full-featured basket with item count, subtotal, vouchers, checkout, clear, duplicate, rename, and delete).
-  - ☑️ **Multi-Select Scan Targets**: Check one or more baskets to receive scanned items directly from camera barcode scanning or item search results!
-  - 🖐️ **Swipe Gestures**: Swipe any shopping basket card Right to **Duplicate** or Left to **Delete**.
-  - 🏷️ **Optional Barcodes & Prices**: Register items without barcodes (auto-generates clean internal IDs for loose produce) or with optional prices.
-  - 🔄 **Reload Historical Baskets**: Reload any previous receipt from History back into an active shopping basket with 1 tap.
-  - 🚀 **GitHub Release Auto-Update Check**: Automatically checks GitHub API on app startup and notifies when a newer version is available.
-  - 💾 **Safe Database Migrations & Backups**: Room Database Migration `5 -> 6` with zero data loss, supported by complete JSON and standalone `.db` file backup/restore.
-- 🔍 **Deep Multi-Field Search**: Search filters across the app (Quick Scan, My Items, Offers, Product Components, and Offer Dialogs) perform exhaustive multi-field matching across:
-  - **Barcode / SKU**
-  - **Item Name**
-  - **Location / Category / Store Section**
-  - **Notes / Brand**
-  - **Active Offer Badge & Offer Type** (e.g. searching *"3 for 2"*, *"2 for £5"*, *"Dairy"*, *"Tesco"*, or *"Angus"* instantly matches all relevant items and deals).
-- 🏷️ **Dedicated Offers Manager Tab**: Create, edit, search, and delete store deals in a central **Offers** library.
-  - **Full Offer CRUD**: Create custom deals (e.g., *"Tesco 3 for 2 Mix & Match"*, *"Sainsbury's 2 for £5 Grill Deal"*, *"50% Off Half Price"*).
-  - **Apply to Product**: Search your items catalog directly from any offer card to assign the deal to a product in 1 tap.
-  - **Product Offer History**: View past offers previously applied to a specific product and re-apply historical deals instantly.
-- 📷 **Instant Barcode Scanning**: Powered by **Google Code Scanner API** to scan standard 1D/2D barcodes and QR codes instantly with zero runtime camera permissions needed. Includes manual barcode entry for emulators and damaged labels.
-- 🏷️ **Store Special Offers & Basket Vouchers Engine**:
-  - **Basket Discount Vouchers**: Apply 1-tap store vouchers/coupons (e.g. *£5 Off*, *£10 Off*, or custom amount) directly to your active shopping list to reduce total basket cost.
-  - **Buy X Pay Y**: e.g. *3 for 2* (1 free) or *2 for 1* (BOGO).
-  - **Multi-Buy Fixed Price**: e.g. *2 for £5.00* or *3 for £10.00*.
-  - **Special Reduced Price**: e.g. *Was £4.00 $\rightarrow$ Reduced to £2.50*, with live savings calculation.
-  - **Percentage Discount**: e.g. *20% Off* or *50% Off*.
-  - **1-Tap Saved Offers Picker**: Pick saved deals directly from your library during camera scan or manual item entry if shop OCR fails to detect the label.
-- 🧾 **ML Kit OCR Camera Text & Offer Recognition**: On-device optical character recognition to extract product names and deal text directly from packaging and store labels.
-- 🌐 **OpenFoodFacts Barcode Lookup**: Automatically fetches product names, brands, and categories from OpenFoodFacts for unrecognized grocery barcodes.
-- 💰 **Cart Total & Target Budget Tracker**: Live shopping cart total with customizable budget limit alerts, visual progress bar, remaining budget calculations, and over-budget warnings.
-- 📦 **My Items Catalog**: Manage inventory items (*Pieces*) with custom barcodes, quantities in cart, unit prices, storage categories/locations, and active offer badges.
-- 🧩 **Product Bundles & Component Assembly**: Define composite products built from multiple sub-components and compute maximum build capacity from current stock.
-- 🛒 **Shopping History & Receipts**: Finish and save completed shopping carts to a historical trip log with total cost, date, item count, and item summaries.
-- 💱 **Multi-Currency & Custom Themes**: Configure preferred currency symbols (`RON`, `€`, `£`, `$`, or Custom) and toggle between Light, Dark, or System themes.
-- 💾 **Data Backup, Restore & CSV Export/Import**: Full JSON backup and restore for all app data and settings, plus Storage Access Framework CSV export/import for items, products, component links, and trip history.
+- ⚙️ **About & Developer Info**:
+  - **Developed & Designed by G.A.D**
+  - **✨ Vibe Coded with AI**
+  - **Version 2.0.0** (Dynamic versioning in Settings and User-Agent headers)
+- 📋 **Multiple Shopping Basket Feed**: Main screen presents a unified, scrollable feed of expandable **Shopping Basket Cards** (each card contains list name, live subtotal, item count, budget limit progress, vouchers, clear, finish & save, duplicate, rename, and delete).
+- ☑️ **Multi-Select Scanning Targets**: Check one or more basket cards to automatically route scanned barcodes or searched items into all checked lists simultaneously!
+- 🗑️ **Multi-Select Batch Delete across All Screens**:
+  - **Quick Scan**: Checkboxes on basket cards + **Delete Selected Baskets** button.
+  - **My Items Catalog**: Checkboxes on item cards + **Delete Selected Items** button + **Select All**.
+  - **Offers Manager**: Checkboxes on offer cards + **Delete Selected Offers** button + **Select All**.
+  - **Shopping History**: Checkboxes on receipt cards + **Delete Selected Receipts** button + **Select All**.
+- 🔠 **Smart Text Capitalization Settings**: Configure auto-capitalization mode in Settings:
+  - **Capitalize Every Word (Title Case)** e.g. *"Fresh Apples"*, *"Tesco Weekly"*.
+  - **Capitalize First Letter Only** e.g. *"Fresh apples"*, *"Tesco weekly"*.
+  - **As Typed (Manual)**.
+  - Applied automatically across basket names, catalog items, and store offer titles!
+- 🏷️ **Optional Barcodes**: Register items without barcodes (auto-generates clean internal IDs for loose produce/bakery items) or with optional prices.
+- 🔄 **1-Tap Receipt Reload**: Reload any historical receipt from **Shopping History** directly back into an active shopping basket with 1 tap.
+- 🚀 **GitHub Release Auto-Update Check**: Asynchronously checks GitHub Releases API on app startup and prompts when a newer version is available.
+- 🖐️ **Horizontal Swipe Navigation & Card Gestures**:
+  - **Horizontal Page Swiping**: Swipe left/right anywhere on the screen to switch smoothly between the 5 main app tabs (*Quick Scan*, *My Items*, *Offers*, *History*, *Settings*).
+  - **Card Swipe Gestures**: Swipe any shopping basket card Right to **Duplicate** or Left to **Delete**.
+- 📐 **Keyboard-Friendly IME Inset Scrolling & Scrollable Dialogs**: Action buttons embedded inside scrollable dialog columns with dynamic bottom scroll padding so all inputs and buttons remain 100% visible above the soft keyboard.
+- 💾 **Safe Database Migration & Backups**: Room Database Migration `6 -> 7` with zero data loss, supported by complete JSON and standalone `.db` file backup/restore.
 
 ---
 
@@ -55,34 +45,13 @@ Built following **MVVM** architecture and a clean **Repository** pattern.
 | Component | Library / Framework | Description |
 |---|---|---|
 | **Language** | Kotlin 2.0+ | Modern Kotlin with Coroutines & `Flow` |
-| **UI Framework** | Jetpack Compose | Declarative Material 3 UI |
-| **Database** | Room Database | SQLite ORM (v5 with `offers` and `product_offer_history`) |
+| **UI Framework** | Jetpack Compose | Declarative Material 3 UI with `HorizontalPager` |
+| **Database** | Room Database | SQLite ORM (v7 with `shopping_lists` budgetLimit) |
 | **DI** | Manual DI (`AppContainer`) | Lightweight, zero-reflection dependency injection |
 | **Barcode Scanner** | Google Code Scanner | Play Services code scanner API |
 | **Text Recognition** | Google ML Kit | On-device OCR for text and deal label parsing |
 | **API Client** | OpenFoodFacts API | Automatic barcode web lookup for grocery items |
-| **Preferences** | DataStore | Key-value reactive preferences for settings |
-
----
-
-## 📁 Project Structure
-
-```
-shopping-tracker/
-├── app/
-│   ├── src/main/
-│   │   ├── java/com/inventory/barcodetracker/
-│   │   │   ├── data/             # Room Entities (Piece, Product, Offer, ProductOfferHistory, Trip), DAOs, AppDatabase, Repository
-│   │   │   ├── di/               # AppContainer manual DI
-│   │   │   ├── scanner/          # Google Code Scanner Service
-│   │   │   ├── service/          # CsvService, TextRecognitionService, OfferRecognitionService, OpenFoodFactsService, BackupRestoreService
-│   │   │   └── ui/               # Jetpack Compose Screens (QuickScan, Items, Offers, Trips, Settings), ViewModels, Theme, Navigation
-│   │   └── AndroidManifest.xml
-│   └── build.gradle.kts
-├── gradle/libs.versions.toml     # Version Catalog
-├── build.gradle.kts
-└── settings.gradle.kts
-```
+| **Preferences** | DataStore / SharedPreferences | Reactive preferences for currency, budget, theme, and capitalization |
 
 ---
 

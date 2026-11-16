@@ -242,6 +242,10 @@ class InventoryRepository(
         inventoryDao.upsertShoppingListItem(item)
     }
 
+    suspend fun updateShoppingListItemPrice(barcode: String, newPrice: Double) {
+        inventoryDao.updateShoppingListItemPrice(barcode, newPrice)
+    }
+
     suspend fun importShoppingListItems(items: List<ShoppingListItemEntity>) {
         inventoryDao.upsertShoppingListItems(items)
     }

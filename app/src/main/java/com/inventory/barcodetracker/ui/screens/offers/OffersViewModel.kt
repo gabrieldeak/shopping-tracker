@@ -20,7 +20,7 @@ import java.util.Locale
 
 class OffersViewModel(
     private val repository: InventoryRepository,
-    currencyPreferences: CurrencyPreferences,
+    private val currencyPreferences: CurrencyPreferences,
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -79,8 +79,12 @@ class OffersViewModel(
 
     fun saveOffer(offer: OfferEntity) {
         viewModelScope.launch {
-            repository.upsertOffer(offer)
-            _snackbarMessages.emit("Offer \"${offer.title}\" saved successfully.")
+            val formattedOffer = offer.copy(
+                title = currencyPreferences.formatText(offer.title),
+                storeName = currencyPreferences.formatText(offer.storeName)
+            )
+            repository.upsertOffer(formattedOffer)
+            _snackbarMessages.emit("Offer \"${formattedOffer.title}\" saved successfully.")
         }
     }
 
