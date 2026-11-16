@@ -17,6 +17,10 @@ import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppFilledTonalButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -444,7 +448,7 @@ private fun PieceResolutionContent(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedTextField(
+                            AppOutlinedTextField(
                                 value = offerBuyQty,
                                 onValueChange = { offerBuyQty = it },
                                 label = { Text("Buy Qty") },
@@ -453,7 +457,7 @@ private fun PieceResolutionContent(
                                 modifier = Modifier.weight(1f),
                                 singleLine = true
                             )
-                            OutlinedTextField(
+                            AppOutlinedTextField(
                                 value = offerPayQty,
                                 onValueChange = { offerPayQty = it },
                                 label = { Text("Pay Qty") },
@@ -486,7 +490,7 @@ private fun PieceResolutionContent(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedTextField(
+                            AppOutlinedTextField(
                                 value = offerBuyQty,
                                 onValueChange = { offerBuyQty = it },
                                 label = { Text("Buy Qty") },
@@ -495,7 +499,7 @@ private fun PieceResolutionContent(
                                 modifier = Modifier.weight(1f),
                                 singleLine = true
                             )
-                            OutlinedTextField(
+                            AppOutlinedTextField(
                                 value = offerFixedPrice,
                                 onValueChange = { offerFixedPrice = it },
                                 label = { Text("Bundle Price") },
@@ -509,7 +513,7 @@ private fun PieceResolutionContent(
                 }
 
                 if (offerType == "REDUCED_PRICE") {
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = offerFixedPrice,
                         onValueChange = { offerFixedPrice = it },
                         label = { Text("Special Reduced Price") },
@@ -540,7 +544,7 @@ private fun PieceResolutionContent(
                                 label = { Text("25% Off") }
                             )
                         }
-                        OutlinedTextField(
+                        AppOutlinedTextField(
                             value = offerPercentOff,
                             onValueChange = { offerPercentOff = it },
                             label = { Text("Discount Percentage") },
@@ -554,7 +558,7 @@ private fun PieceResolutionContent(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Button(
+                AppButton(
                     onClick = {
                         val updatedPiece = piece.copy(
                             offerType = offerType,
@@ -589,7 +593,7 @@ private fun PieceResolutionContent(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        OutlinedButton(
+        AppOutlinedButton(
             onClick = { onAdjustStock(-1) },
             modifier = Modifier.weight(1f),
             enabled = piece.stockQuantity > 0
@@ -597,7 +601,7 @@ private fun PieceResolutionContent(
             Text("- 1", fontWeight = FontWeight.Bold)
         }
 
-        OutlinedButton(
+        AppOutlinedButton(
             onClick = { onAdjustStock(-5) },
             modifier = Modifier.weight(1f),
             enabled = piece.stockQuantity >= 5
@@ -605,14 +609,14 @@ private fun PieceResolutionContent(
             Text("- 5", fontWeight = FontWeight.Bold)
         }
 
-        Button(
+        AppButton(
             onClick = { onAdjustStock(+1) },
             modifier = Modifier.weight(1f)
         ) {
             Text("+ 1", fontWeight = FontWeight.Bold)
         }
 
-        Button(
+        AppButton(
             onClick = { onAdjustStock(+5) },
             modifier = Modifier.weight(1f)
         ) {
@@ -687,7 +691,7 @@ private fun ProductResolutionContent(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OutlinedButton(
+        AppOutlinedButton(
             onClick = { onAdjustStock(-1) },
             modifier = Modifier.weight(1f),
             enabled = product.stockQuantity > 0
@@ -695,7 +699,7 @@ private fun ProductResolutionContent(
             Text("- 1", fontWeight = FontWeight.Bold)
         }
 
-        Button(
+        AppButton(
             onClick = { onAdjustStock(+1) },
             modifier = Modifier.weight(1f)
         ) {
@@ -705,7 +709,7 @@ private fun ProductResolutionContent(
 
     Spacer(modifier = Modifier.height(16.dp))
 
-    FilledTonalButton(
+    AppFilledTonalButton(
         onClick = {
             onDismiss()
             onViewBom()
@@ -809,7 +813,7 @@ private fun NotFoundResolutionContent(
 
     Spacer(modifier = Modifier.height(16.dp))
 
-    OutlinedTextField(
+    AppOutlinedTextField(
         value = name,
         onValueChange = { name = it },
         label = { Text("Item Name *") },
@@ -833,7 +837,7 @@ private fun NotFoundResolutionContent(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        OutlinedTextField(
+        AppOutlinedTextField(
             value = unitPriceText,
             onValueChange = { unitPriceText = it },
             label = { Text("Price ($currencySymbol)") },
@@ -843,7 +847,7 @@ private fun NotFoundResolutionContent(
             singleLine = true
         )
 
-        OutlinedTextField(
+        AppOutlinedTextField(
             value = initialQuantity,
             onValueChange = { initialQuantity = it },
             label = { Text("Quantity in Cart") },
@@ -855,7 +859,7 @@ private fun NotFoundResolutionContent(
 
     Spacer(modifier = Modifier.height(8.dp))
 
-    OutlinedTextField(
+    AppOutlinedTextField(
         value = category,
         onValueChange = { category = it },
         label = { Text("Category / Store Section") },
@@ -866,7 +870,7 @@ private fun NotFoundResolutionContent(
 
     Spacer(modifier = Modifier.height(8.dp))
 
-    OutlinedTextField(
+    AppOutlinedTextField(
         value = notes,
         onValueChange = { notes = it },
         label = { Text("Notes / Brand") },
@@ -968,7 +972,7 @@ private fun NotFoundResolutionContent(
                         )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
+                        AppOutlinedTextField(
                             value = offerBuyQty,
                             onValueChange = { offerBuyQty = it },
                             label = { Text("Buy Qty (X)") },
@@ -977,7 +981,7 @@ private fun NotFoundResolutionContent(
                             modifier = Modifier.weight(1f),
                             singleLine = true
                         )
-                        OutlinedTextField(
+                        AppOutlinedTextField(
                             value = offerPayQty,
                             onValueChange = { offerPayQty = it },
                             label = { Text("Pay Qty (Y)") },
@@ -1003,7 +1007,7 @@ private fun NotFoundResolutionContent(
                         )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
+                        AppOutlinedTextField(
                             value = offerBuyQty,
                             onValueChange = { offerBuyQty = it },
                             label = { Text("Buy Qty (X)") },
@@ -1012,7 +1016,7 @@ private fun NotFoundResolutionContent(
                             modifier = Modifier.weight(1f),
                             singleLine = true
                         )
-                        OutlinedTextField(
+                        AppOutlinedTextField(
                             value = offerFixedPrice,
                             onValueChange = { offerFixedPrice = it },
                             label = { Text("Bundle Price ($currencySymbol Y)") },
@@ -1026,7 +1030,7 @@ private fun NotFoundResolutionContent(
             }
 
             if (offerType == "REDUCED_PRICE") {
-                OutlinedTextField(
+                AppOutlinedTextField(
                     value = offerFixedPrice,
                     onValueChange = { offerFixedPrice = it },
                     label = { Text("Special Reduced Price ($currencySymbol)") },
@@ -1054,7 +1058,7 @@ private fun NotFoundResolutionContent(
                             label = { Text("25% Off") }
                         )
                     }
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = offerPercentOff,
                         onValueChange = { offerPercentOff = it },
                         label = { Text("Discount Percentage (%)") },
@@ -1070,9 +1074,9 @@ private fun NotFoundResolutionContent(
 
     Spacer(modifier = Modifier.height(20.dp))
 
-    Button(
+    AppButton(
         onClick = {
-            if (name.isBlank()) return@Button
+            if (name.isBlank()) return@AppButton
             val qty = initialQuantity.toIntOrNull() ?: 1
             val price = unitPriceText.toDoubleOrNull() ?: 0.0
             onCreatePiece(

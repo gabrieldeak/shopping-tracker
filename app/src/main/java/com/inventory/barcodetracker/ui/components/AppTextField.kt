@@ -1,0 +1,162 @@
+package com.inventory.barcodetracker.ui.components
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.dp
+
+/**
+ * Unified, modern search bar matching the Search & Scan bar look and feel.
+ */
+@Composable
+fun AppSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    textFieldModifier: Modifier = Modifier,
+    trailingContent: @Composable (RowScope.() -> Unit)? = null,
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 54.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+        ),
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 16.dp,
+                    end = if (trailingContent != null) 6.dp else 10.dp,
+                    top = 6.dp,
+                    bottom = 6.dp
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (query.isEmpty()) {
+                    Text(
+                        text = placeholder,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        maxLines = 1
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                    modifier = textFieldModifier.fillMaxWidth()
+                )
+            }
+            if (query.isNotEmpty()) {
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Clear search",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            trailingContent?.invoke(this)
+        }
+    }
+}
+
+/**
+ * Unified text field matching the surfaceContainerHigh + 12.dp rounded look and feel.
+ */
+@Composable
+fun AppOutlinedTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    readOnly: Boolean = false,
+    label: @Composable (() -> Unit)? = null,
+    placeholder: @Composable (() -> Unit)? = null,
+    leadingIcon: @Composable (() -> Unit)? = null,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    prefix: @Composable (() -> Unit)? = null,
+    suffix: @Composable (() -> Unit)? = null,
+    supportingText: @Composable (() -> Unit)? = null,
+    isError: Boolean = false,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    singleLine: Boolean = false,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    minLines: Int = 1,
+    textStyle: TextStyle = LocalTextStyle.current,
+    shape: Shape = RoundedCornerShape(12.dp),
+    colors: TextFieldColors? = null,
+) {
+    val defaultColors = OutlinedTextFieldDefaults.colors(
+        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        errorContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        disabledBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+    )
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        enabled = enabled,
+        readOnly = readOnly,
+        label = label,
+        placeholder = placeholder,
+        leadingIcon = leadingIcon,
+        trailingIcon = trailingIcon,
+        prefix = prefix,
+        suffix = suffix,
+        supportingText = supportingText,
+        isError = isError,
+        keyboardOptions = keyboardOptions,
+        singleLine = singleLine,
+        maxLines = maxLines,
+        minLines = minLines,
+        textStyle = textStyle,
+        shape = shape,
+        colors = colors ?: defaultColors
+    )
+}

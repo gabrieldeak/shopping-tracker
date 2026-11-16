@@ -7,6 +7,8 @@ import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
+import com.inventory.barcodetracker.data.local.entity.calculateItemSavings
+import com.inventory.barcodetracker.data.local.entity.calculateItemTotal
 import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
 import com.inventory.barcodetracker.data.repository.InventoryRepository
 import com.inventory.barcodetracker.scanner.BarcodeScannerService
@@ -333,11 +335,32 @@ class ScanViewModel(
             // 1. First check local SQLite database
             val piece = repository.getPieceByBarcode(trimmed)
             if (piece != null) {
-                // Auto-add +1 to basket when scanned
                 repository.adjustPieceStock(piece.barcode, 1)
                 val updated = repository.getPieceByBarcode(piece.barcode) ?: piece
+
+                val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
+                for (listId in targetLists) {
+                    val existing = repository.getItemsForListSync(listId).firstOrNull { it.barcode == piece.barcode }
+                    val newQty = (existing?.quantity ?: 0) + 1
+                    repository.upsertShoppingListItem(
+                        ShoppingListItemEntity(
+                            listId = listId,
+                            barcode = piece.barcode,
+                            quantity = newQty,
+                            unitPrice = piece.unitPrice,
+                            offerType = piece.offerType,
+                            offerBuyQty = piece.offerBuyQty,
+                            offerPayQty = piece.offerPayQty,
+                            offerFixedPrice = piece.offerFixedPrice,
+                            offerPercentOff = piece.offerPercentOff
+                        )
+                    )
+                }
+
                 val priceInfo = if (updated.unitPrice > 0) String.format(Locale.US, " (%s%.2f)", symbol, updated.unitPrice) else ""
-                _snackbarMessages.emit("✓ Added ${updated.name}$priceInfo to Basket (In cart: ${updated.stockQuantity})")
+                val basketCount = targetLists.size
+                val basketMsg = if (basketCount > 1) " to $basketCount selected baskets" else " to Basket"
+                _snackbarMessages.emit("✓ Added ${updated.name}$priceInfo$basketMsg")
                 return@launch
             }
             // 2. Check product table
@@ -465,28 +488,85 @@ class ScanViewModel(
             val pieceMap = repository.getAllPiecesSync().associateBy { it.barcode }
 
             val itemLines = listItems.map { item ->
-                val p = pieceMap[item.barcode]
-                val name = p?.name ?: item.barcode
-                val total = item.quantity * item.unitPrice
-                if (item.unitPrice > 0) {
-                    "• $name (x${item.quantity}) — $symbol${String.format(Locale.US, "%.2f", total)}"
+                if (item.offerType == "VOUCHER" || item.unitPrice < 0) {
+                    val voucherName = item.barcode
+                        .removePrefix("VOUCHER_")
+                        .replace(Regex("""^\d+_"""), "")
+                        .replace("_", " ")
+                        .replace(Regex("""(\$|£|€|RON)\s+"""), "$1")
+                        .trim()
+                    val discountVal = kotlin.math.abs(item.unitPrice)
+                    "• 🎟️ Voucher ($voucherName) — -$symbol${String.format(Locale.US, "%.2f", discountVal)}"
                 } else {
-                    "• $name (x${item.quantity})"
+                    val piece = pieceMap[item.barcode]
+                    val effOfferType = if (item.offerType != "NONE") item.offerType else (piece?.offerType ?: "NONE")
+                    val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else (piece?.offerBuyQty ?: 0)
+                    val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else (piece?.offerPayQty ?: 0)
+                    val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else (piece?.offerFixedPrice ?: 0.0)
+                    val effPercentOff = if (item.offerPercentOff > 0.0) item.offerPercentOff else (piece?.offerPercentOff ?: 0.0)
+
+                    val mergedPiece = piece?.copy(
+                        stockQuantity = item.quantity,
+                        unitPrice = if (item.unitPrice > 0) item.unitPrice else piece.unitPrice,
+                        offerType = effOfferType,
+                        offerBuyQty = effBuyQty,
+                        offerPayQty = effPayQty,
+                        offerFixedPrice = effFixedPrice,
+                        offerPercentOff = effPercentOff
+                    )
+
+                    val displayName = piece?.name ?: item.barcode
+                    val lineTotal = mergedPiece?.calculatedTotal ?: item.calculateItemTotal(null)
+                    val lineSavings = mergedPiece?.savings ?: item.calculateItemSavings(null)
+                    val offerDesc = mergedPiece?.getOfferDescription(symbol) ?: ""
+
+                    val savingTag = if (offerDesc.isNotBlank()) " [$offerDesc" + (if (lineSavings > 0) " — saved $symbol${String.format(Locale.US, "%.2f", lineSavings)}" else "") + "]" else ""
+                    "• $displayName (x${item.quantity})$savingTag — $symbol${String.format(Locale.US, "%.2f", lineTotal)}"
                 }
             }
 
             val summaryText = "Basket: ${list.name}\n" + itemLines.joinToString("\n")
-            val totalCost = listItems.sumOf { it.quantity * it.unitPrice }
-            val itemCount = listItems.sumOf { it.quantity }
+
+            val netTotalCost = maxOf(
+                0.0,
+                listItems.sumOf { item ->
+                    if (item.offerType == "VOUCHER" || item.unitPrice < 0) {
+                        item.unitPrice
+                    } else {
+                        val piece = pieceMap[item.barcode]
+                        if (piece != null) {
+                            val effOfferType = if (item.offerType != "NONE") item.offerType else piece.offerType
+                            val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else piece.offerBuyQty
+                            val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else piece.offerPayQty
+                            val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else piece.offerFixedPrice
+                            val effPercentOff = if (item.offerPercentOff > 0.0) item.offerPercentOff else piece.offerPercentOff
+
+                            piece.copy(
+                                stockQuantity = item.quantity,
+                                unitPrice = if (item.unitPrice > 0) item.unitPrice else piece.unitPrice,
+                                offerType = effOfferType,
+                                offerBuyQty = effBuyQty,
+                                offerPayQty = effPayQty,
+                                offerFixedPrice = effFixedPrice,
+                                offerPercentOff = effPercentOff
+                            ).calculatedTotal
+                        } else {
+                            item.calculateItemTotal(null)
+                        }
+                    }
+                }
+            )
+
+            val itemCount = listItems.filter { it.offerType != "VOUCHER" && it.unitPrice >= 0 }.sumOf { it.quantity }
 
             repository.checkoutCartAndSaveTrip(
-                totalCost = totalCost,
+                totalCost = netTotalCost,
                 itemCount = itemCount,
                 itemsSummary = summaryText,
                 currencySymbol = symbol,
             )
             repository.clearShoppingListItems(list.id)
-            _snackbarMessages.emit("Saved \"${list.name}\" to History and cleared basket!")
+            _snackbarMessages.emit("Saved \"${list.name}\" ($symbol${String.format(Locale.US, "%.2f", netTotalCost)}) to History!")
         }
     }
 
@@ -494,6 +574,38 @@ class ScanViewModel(
         viewModelScope.launch {
             repository.clearShoppingListItems(list.id)
             _snackbarMessages.emit("Cleared basket \"${list.name}\"")
+        }
+    }
+
+    fun finishAndSaveSelectedBaskets() {
+        viewModelScope.launch {
+            val selectedIds = _selectedListIds.value.toList()
+            if (selectedIds.isEmpty()) return@launch
+
+            val allLists = repository.getAllShoppingListsSync().filter { selectedIds.contains(it.id) }
+            var count = 0
+            for (list in allLists) {
+                val listItems = repository.getItemsForListSync(list.id)
+                if (listItems.isNotEmpty()) {
+                    finishAndSaveBasketForList(list)
+                    count++
+                }
+            }
+            if (count == 0) {
+                _snackbarMessages.emit("Selected basket(s) are empty!")
+            }
+        }
+    }
+
+    fun clearSelectedBaskets() {
+        viewModelScope.launch {
+            val selectedIds = _selectedListIds.value.toList()
+            if (selectedIds.isEmpty()) return@launch
+
+            for (id in selectedIds) {
+                repository.clearShoppingListItems(id)
+            }
+            _snackbarMessages.emit("Cleared items from ${selectedIds.size} selected basket(s)")
         }
     }
 

@@ -1,5 +1,6 @@
 package com.inventory.barcodetracker.ui.screens.trips
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,6 +16,8 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppFilledTonalButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,7 +73,7 @@ fun TripsScreen(
                 },
                 actions = {
                     if (selectedTripIds.isNotEmpty()) {
-                        Button(
+                        AppButton(
                             onClick = { showConfirmDeleteBatch = true },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
@@ -160,7 +163,7 @@ fun TripsScreen(
             title = { Text("Delete Saved Basket") },
             text = { Text("Are you sure you want to delete the saved basket from ${formatDate(trip.tripDate)}?") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.deleteTrip(trip)
                         tripToDelete = null
@@ -185,7 +188,7 @@ fun TripsScreen(
             title = { Text("Delete Selected Receipts") },
             text = { Text("Are you sure you want to delete ${selectedTripIds.size} selected receipt(s) from your history?") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.deleteSelectedTrips()
                         showConfirmDeleteBatch = false
@@ -257,21 +260,6 @@ private fun TripItemCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (isExpanded) "Hide itemized list" else "Tap to view itemized list",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Icon(
-                                imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
                     }
                 }
 
@@ -288,24 +276,60 @@ private fun TripItemCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Button(
-                    onClick = onReload,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                AppFilledTonalButton(
+                    onClick = { isExpanded = !isExpanded },
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Reload Basket into Cart", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (isExpanded) "Hide Items" else "View Items",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                }
+
+                AppButton(
+                    onClick = onReload,
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Reload Basket",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
                 }
             }
 
-            if (isExpanded && trip.itemsSummary.isNotBlank()) {
+            AnimatedVisibility(visible = isExpanded && trip.itemsSummary.isNotBlank()) {
+                Column {
                 Spacer(modifier = Modifier.height(10.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 Spacer(modifier = Modifier.height(10.dp))
@@ -324,6 +348,7 @@ private fun TripItemCard(
                             )
                         }
                     }
+                }
                 }
             }
         }

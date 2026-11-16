@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocalOffer
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,8 +45,6 @@ fun ShoppingListCard(
     onRename: () -> Unit,
     onCopy: () -> Unit,
     onDelete: () -> Unit,
-    onFinishAndSave: () -> Unit,
-    onClearBasket: () -> Unit,
     onApplyVoucher: () -> Unit = {},
     onSetBudget: () -> Unit = {},
     onRemoveItem: (String) -> Unit = {},
@@ -276,7 +273,7 @@ fun ShoppingListCard(
                         Text(
                             text = String.format(Locale.US, "%s%.2f spent", currencySymbol, itemsSubtotal),
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                            color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                         )
                         val remaining = effectiveBudgetLimit - itemsSubtotal
                         Text(
@@ -284,7 +281,7 @@ fun ShoppingListCard(
                             else String.format(Locale.US, "Exceeded by %s%.2f", currencySymbol, -remaining),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer
+                            color = if (isOverBudget) MaterialTheme.colorScheme.error else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -419,41 +416,9 @@ fun ShoppingListCard(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                        // High-Contrast Main Action Row: Clear Basket & Finish & Save
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedButton(
-                                onClick = onClearBasket,
-                                modifier = Modifier.weight(1f),
-                                enabled = itemsInList.isNotEmpty(),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                )
-                            ) {
-                                Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Clear Basket", fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-
-                            Button(
-                                onClick = onFinishAndSave,
-                                modifier = Modifier.weight(1f),
-                                enabled = itemsInList.isNotEmpty()
-                            ) {
-                                Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Finish & Save", fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        // Secondary Actions Row
+                        // Streamlined Actions Row
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

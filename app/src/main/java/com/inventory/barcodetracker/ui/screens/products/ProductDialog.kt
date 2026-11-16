@@ -10,6 +10,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -69,7 +71,7 @@ fun ProductDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
+                AppOutlinedTextField(
                     value = sku,
                     onValueChange = {
                         sku = it
@@ -83,7 +85,7 @@ fun ProductDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                OutlinedTextField(
+                AppOutlinedTextField(
                     value = name,
                     onValueChange = {
                         name = it
@@ -105,7 +107,7 @@ fun ProductDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                OutlinedTextField(
+                AppOutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Description") },
@@ -113,7 +115,7 @@ fun ProductDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                OutlinedTextField(
+                AppOutlinedTextField(
                     value = unitPrice,
                     onValueChange = { unitPrice = it },
                     label = { Text("Selling Price ($currencySymbol)") },
@@ -127,7 +129,7 @@ fun ProductDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = stockQuantity,
                         onValueChange = { stockQuantity = it },
                         label = { Text("Built Stock") },
@@ -135,7 +137,7 @@ fun ProductDialog(
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = targetCount,
                         onValueChange = { targetCount = it },
                         label = { Text("Target Count") },
@@ -147,7 +149,7 @@ fun ProductDialog(
             }
         },
         confirmButton = {
-            Button(
+            AppButton(
                 onClick = {
                     var hasError = false
                     if (sku.isBlank()) {
@@ -158,7 +160,7 @@ fun ProductDialog(
                         nameError = "Name is required"
                         hasError = true
                     }
-                    if (hasError) return@Button
+                    if (hasError) return@AppButton
 
                     val product = ProductEntity(
                         productSku = sku.trim(),

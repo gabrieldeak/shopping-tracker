@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppFilledTonalButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
+import com.inventory.barcodetracker.ui.components.AppSearchBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,23 +67,11 @@ fun ProductsScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = viewModel::onSearchQueryChanged,
-                placeholder = { Text("Search products by SKU or name...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
+            AppSearchBar(
+                query = searchQuery,
+                onQueryChange = viewModel::onSearchQueryChanged,
+                placeholder = "Search products by SKU or name...",
+                modifier = Modifier.padding(vertical = 8.dp)
             )
 
             if (productsList.isEmpty()) {
@@ -95,7 +86,7 @@ fun ProductsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        Button(onClick = { showAddDialog = true }) {
+                        AppButton(onClick = { showAddDialog = true }) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Create First Product")
@@ -152,7 +143,7 @@ fun ProductsScreen(
             title = { Text("Delete Product") },
             text = { Text("Are you sure you want to delete \"${product.name}\" (${product.productSku})? This will also remove all component links for this product.") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.deleteProduct(product)
                         productToDelete = null
@@ -249,7 +240,7 @@ private fun ProductItemCard(
                     }
                 }
 
-                FilledTonalButton(onClick = onOpenBom) {
+                AppFilledTonalButton(onClick = onOpenBom) {
                     Text("Components & Build")
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))

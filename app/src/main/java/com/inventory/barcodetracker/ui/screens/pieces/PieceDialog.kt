@@ -3,18 +3,35 @@ package com.inventory.barcodetracker.ui.screens.pieces
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -22,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
+import com.inventory.barcodetracker.scanner.BarcodeScannerService
+import com.inventory.barcodetracker.scanner.ScanResult
 import com.inventory.barcodetracker.service.OfferRecognitionService
 import com.inventory.barcodetracker.service.TextRecognitionService
 import com.inventory.barcodetracker.ui.components.OcrTextEditDialog
@@ -29,7 +48,7 @@ import com.inventory.barcodetracker.ui.components.VerticalScrollbarContainer
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PieceDialog(
     initialPiece: PieceEntity? = null,
@@ -39,10 +58,14 @@ fun PieceDialog(
     onSave: (PieceEntity, Boolean) -> Unit,
 ) {
     val isEditing = initialPiece != null
+    val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val barcodeScannerService = remember(context) { BarcodeScannerService(context) }
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
     var barcode by remember { mutableStateOf(initialPiece?.barcode ?: "") }
+    var scanErrorMessage by remember { mutableStateOf<String?>(null) }
     var name by remember { mutableStateOf(initialPiece?.name ?: "") }
     var description by remember { mutableStateOf(initialPiece?.description ?: "") }
     var category by remember { mutableStateOf(initialPiece?.location ?: "Grocery") }
@@ -55,6 +78,32 @@ fun PieceDialog(
     var offerFixedPrice by remember { mutableStateOf(initialPiece?.offerFixedPrice?.let { if (it == 0.0) "" else String.format(Locale.US, "%.2f", it) } ?: "") }
     var offerPercentOff by remember { mutableStateOf(initialPiece?.offerPercentOff?.let { if (it == 0.0) "" else String.format(Locale.US, "%.0f", it) } ?: "") }
     var detectedOfferMessage by remember { mutableStateOf<String?>(null) }
+
+    fun offerTypeDisplayLabel(type: String): String = when (type) {
+        "THREE_FOR_TWO" -> "Buy X Pay Y (e.g. 3 for 2, BOGO)"
+        "MULTI_BUY_FIXED" -> "X for $currencySymbol Y (Multi-Buy Bundle)"
+        "REDUCED_PRICE" -> "Reduced to $currencySymbol Y (Special Price)"
+        "PERCENT_OFF" -> "% Discount"
+        else -> "No Offer"
+    }
+
+    var offerDropdownExpanded by remember { mutableStateOf(false) }
+    var offerSearchText by remember { mutableStateOf(offerTypeDisplayLabel(offerType)) }
+    var isOfferSearching by remember { mutableStateOf(false) }
+    var offerFieldTopPx by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(offerType) {
+        if (!isOfferSearching) {
+            offerSearchText = offerTypeDisplayLabel(offerType)
+        }
+    }
+
+    LaunchedEffect(offerDropdownExpanded) {
+        if (offerDropdownExpanded) {
+            kotlinx.coroutines.delay(120)
+            scrollState.animateScrollTo(offerFieldTopPx)
+        }
+    }
 
     var nameError by remember { mutableStateOf<String?>(null) }
 
@@ -126,17 +175,142 @@ fun PieceDialog(
                     scrollState = scrollState,
                     maxHeight = 380.dp
                 ) {
-                    OutlinedTextField(
-                        value = barcode,
-                        onValueChange = { barcode = it },
-                        label = { Text("Barcode / Item Code (Optional)") },
-                        placeholder = { Text("Auto-generated if left blank") },
-                        enabled = !isEditing,
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (isEditing) {
+                        AppOutlinedTextField(
+                            value = barcode,
+                            onValueChange = {},
+                            label = { Text("Barcode / Item Code") },
+                            enabled = false,
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 54.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                                ),
+                                tonalElevation = 1.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier.weight(1f),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        if (barcode.isEmpty()) {
+                                            Text(
+                                                text = "Barcode / Item Code (Optional)",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                                maxLines = 1
+                                            )
+                                        }
+                                        BasicTextField(
+                                            value = barcode,
+                                            onValueChange = {
+                                                barcode = it
+                                                scanErrorMessage = null
+                                            },
+                                            singleLine = true,
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            ),
+                                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                    if (barcode.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = {
+                                                barcode = ""
+                                                scanErrorMessage = null
+                                            },
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Clear,
+                                                contentDescription = "Clear barcode",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                    Surface(
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                when (val result = barcodeScannerService.startScan()) {
+                                                    is ScanResult.Success -> {
+                                                        barcode = result.barcode
+                                                        scanErrorMessage = null
+                                                    }
+                                                    is ScanResult.Failure -> {
+                                                        scanErrorMessage = result.message
+                                                    }
+                                                    is ScanResult.Cancelled -> Unit
+                                                }
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(
+                                                horizontal = if (barcode.isEmpty()) 14.dp else 10.dp,
+                                                vertical = 10.dp
+                                            ),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.QrCodeScanner,
+                                                contentDescription = "Scan Barcode",
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            AnimatedVisibility(visible = barcode.isEmpty()) {
+                                                Row {
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "Scan",
+                                                        style = MaterialTheme.typography.labelLarge,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        maxLines = 1
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (scanErrorMessage != null) {
+                                Text(
+                                    text = scanErrorMessage!!,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(start = 12.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = "Auto-generated if left blank",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 12.dp)
+                                )
+                            }
+                        }
+                    }
 
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = name,
                         onValueChange = {
                             name = it
@@ -159,7 +333,7 @@ fun PieceDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = unitPrice,
                         onValueChange = { unitPrice = it },
                         label = { Text("Price ($currencySymbol)") },
@@ -169,7 +343,7 @@ fun PieceDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = stockQuantity,
                         onValueChange = { stockQuantity = it },
                         label = { Text("Quantity in Cart") },
@@ -178,7 +352,7 @@ fun PieceDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = category,
                         onValueChange = { category = it },
                         label = { Text("Category / Store Section") },
@@ -188,7 +362,7 @@ fun PieceDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
                         label = { Text("Notes / Brand") },
@@ -219,34 +393,6 @@ fun PieceDialog(
                         }
                     }
 
-                    if (savedOffers.isNotEmpty()) {
-                        Text(
-                            text = "Pick Saved Offer from Library:",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            savedOffers.filter { it.offerType != "VOUCHER" }.forEach { offer ->
-                                AssistChip(
-                                    onClick = {
-                                        offerType = offer.offerType
-                                        offerBuyQty = if (offer.buyQty > 0) offer.buyQty.toString() else ""
-                                        offerPayQty = if (offer.payQty > 0) offer.payQty.toString() else ""
-                                        offerFixedPrice = if (offer.fixedPrice > 0.0) String.format(Locale.US, "%.2f", offer.fixedPrice) else ""
-                                        offerPercentOff = if (offer.percentOff > 0.0) String.format(Locale.US, "%.0f", offer.percentOff) else ""
-                                        detectedOfferMessage = "Selected deal: \"${offer.title}\""
-                                    },
-                                    label = { Text("🏷️ ${offer.title} (${offer.getDisplayBadge(currencySymbol)})") }
-                                )
-                            }
-                        }
-                    }
-
                     if (detectedOfferMessage != null) {
                         Text(
                             text = detectedOfferMessage!!,
@@ -256,61 +402,199 @@ fun PieceDialog(
                         )
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = offerType == "NONE",
-                            onClick = { offerType = "NONE" },
-                            label = { Text("No Offer") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        FilterChip(
-                            selected = offerType == "THREE_FOR_TWO",
-                            onClick = {
-                                offerType = "THREE_FOR_TWO"
-                                if (offerBuyQty.isBlank()) offerBuyQty = "3"
-                                if (offerPayQty.isBlank()) offerPayQty = "2"
-                            },
-                            label = { Text("Buy X Pay Y") },
-                            modifier = Modifier.weight(1f)
+                    val builtInOfferOptions = remember(currencySymbol) {
+                        listOf(
+                            "NONE" to "No Offer",
+                            "THREE_FOR_TWO" to "Buy X Pay Y (e.g. 3 for 2, BOGO)",
+                            "MULTI_BUY_FIXED" to "X for $currencySymbol Y (Multi-Buy Bundle)",
+                            "REDUCED_PRICE" to "Reduced to $currencySymbol Y (Special Price)",
+                            "PERCENT_OFF" to "% Discount"
                         )
                     }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = offerType == "MULTI_BUY_FIXED",
-                            onClick = {
-                                offerType = "MULTI_BUY_FIXED"
-                                if (offerBuyQty.isBlank()) offerBuyQty = "2"
-                            },
-                            label = { Text("X for $currencySymbol Y") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        FilterChip(
-                            selected = offerType == "REDUCED_PRICE",
-                            onClick = { offerType = "REDUCED_PRICE" },
-                            label = { Text("Reduced to $currencySymbol Y") },
-                            modifier = Modifier.weight(1f)
-                        )
+                    val libraryOffers = remember(savedOffers) {
+                        savedOffers.filter { it.offerType != "VOUCHER" }
+                    }
+                    val filterQuery = if (isOfferSearching) offerSearchText.trim() else ""
+                    val filteredBuiltIn = builtInOfferOptions.filter { (_, label) ->
+                        filterQuery.isEmpty() || label.contains(filterQuery, ignoreCase = true)
+                    }
+                    val filteredLibrary = libraryOffers.filter { offer ->
+                        filterQuery.isEmpty() ||
+                            offer.title.contains(filterQuery, ignoreCase = true) ||
+                            offer.getDisplayBadge(currencySymbol).contains(filterQuery, ignoreCase = true) ||
+                            offer.offerType.contains(filterQuery, ignoreCase = true)
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        FilterChip(
-                            selected = offerType == "PERCENT_OFF",
-                            onClick = {
-                                offerType = "PERCENT_OFF"
-                                if (offerPercentOff.isBlank()) offerPercentOff = "20"
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { coords ->
+                                offerFieldTopPx = coords.positionInParent().y.toInt()
                             },
-                            label = { Text("% Discount") },
-                            modifier = Modifier.weight(1f)
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        AppOutlinedTextField(
+                            value = offerSearchText,
+                            onValueChange = {
+                                offerSearchText = it
+                                isOfferSearching = true
+                                if (!offerDropdownExpanded) offerDropdownExpanded = true
+                            },
+                            label = { Text("Offer Type or Saved Deal") },
+                            placeholder = { Text("Search offer or saved deal...") },
+                            singleLine = true,
+                            trailingIcon = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (offerSearchText.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = {
+                                                offerSearchText = ""
+                                                isOfferSearching = true
+                                                offerDropdownExpanded = true
+                                            },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Clear,
+                                                contentDescription = "Clear offer search",
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            val next = !offerDropdownExpanded
+                                            offerDropdownExpanded = next
+                                            if (!next) {
+                                                isOfferSearching = false
+                                                offerSearchText = offerTypeDisplayLabel(offerType)
+                                                focusManager.clearFocus()
+                                            }
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (offerDropdownExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                            contentDescription = if (offerDropdownExpanded) "Collapse offers" else "Expand offers"
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { focusState ->
+                                    if (focusState.isFocused) {
+                                        offerDropdownExpanded = true
+                                    }
+                                }
                         )
+
+                        AnimatedVisibility(visible = offerDropdownExpanded) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 200.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                border = BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                                ),
+                                tonalElevation = 2.dp
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(vertical = 4.dp)
+                                ) {
+                                    if (filteredLibrary.isNotEmpty()) {
+                                        Text(
+                                            text = "Saved Offers Library",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                        )
+                                        filteredLibrary.forEach { offer ->
+                                            val badge = offer.getDisplayBadge(currencySymbol)
+                                            Text(
+                                                text = "🏷️ ${offer.title} ($badge)",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        offerType = offer.offerType
+                                                        offerBuyQty = if (offer.buyQty > 0) offer.buyQty.toString() else ""
+                                                        offerPayQty = if (offer.payQty > 0) offer.payQty.toString() else ""
+                                                        offerFixedPrice = if (offer.fixedPrice > 0.0) String.format(Locale.US, "%.2f", offer.fixedPrice) else ""
+                                                        offerPercentOff = if (offer.percentOff > 0.0) String.format(Locale.US, "%.0f", offer.percentOff) else ""
+                                                        detectedOfferMessage = "Selected deal: \"${offer.title}\""
+                                                        isOfferSearching = false
+                                                        offerSearchText = "${offer.title} ($badge)"
+                                                        offerDropdownExpanded = false
+                                                        focusManager.clearFocus()
+                                                    }
+                                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                                            )
+                                        }
+                                        if (filteredBuiltIn.isNotEmpty()) {
+                                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                        }
+                                    }
+
+                                    if (filteredBuiltIn.isNotEmpty()) {
+                                        Text(
+                                            text = "Offer Types",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                        )
+                                        filteredBuiltIn.forEach { (typeKey, label) ->
+                                            Text(
+                                                text = label,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = if (offerType == typeKey) FontWeight.SemiBold else FontWeight.Normal,
+                                                color = if (offerType == typeKey) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        offerType = typeKey
+                                                        when (typeKey) {
+                                                            "THREE_FOR_TWO" -> {
+                                                                if (offerBuyQty.isBlank()) offerBuyQty = "3"
+                                                                if (offerPayQty.isBlank()) offerPayQty = "2"
+                                                            }
+                                                            "MULTI_BUY_FIXED" -> {
+                                                                if (offerBuyQty.isBlank()) offerBuyQty = "2"
+                                                            }
+                                                            "PERCENT_OFF" -> {
+                                                                if (offerPercentOff.isBlank()) offerPercentOff = "20"
+                                                            }
+                                                        }
+                                                        detectedOfferMessage = null
+                                                        isOfferSearching = false
+                                                        offerSearchText = label
+                                                        offerDropdownExpanded = false
+                                                        focusManager.clearFocus()
+                                                    }
+                                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                                            )
+                                        }
+                                    }
+
+                                    if (filteredLibrary.isEmpty() && filteredBuiltIn.isEmpty()) {
+                                        Text(
+                                            text = "No matching offers",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     if (offerType == "THREE_FOR_TWO") {
@@ -333,7 +617,7 @@ fun PieceDialog(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                OutlinedTextField(
+                                AppOutlinedTextField(
                                     value = offerBuyQty,
                                     onValueChange = { offerBuyQty = it },
                                     label = { Text("Buy Qty") },
@@ -342,7 +626,7 @@ fun PieceDialog(
                                     modifier = Modifier.weight(1f),
                                     singleLine = true
                                 )
-                                OutlinedTextField(
+                                AppOutlinedTextField(
                                     value = offerPayQty,
                                     onValueChange = { offerPayQty = it },
                                     label = { Text("Pay Qty") },
@@ -375,7 +659,7 @@ fun PieceDialog(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                OutlinedTextField(
+                                AppOutlinedTextField(
                                     value = offerBuyQty,
                                     onValueChange = { offerBuyQty = it },
                                     label = { Text("Buy Qty") },
@@ -384,7 +668,7 @@ fun PieceDialog(
                                     modifier = Modifier.weight(1f),
                                     singleLine = true
                                 )
-                                OutlinedTextField(
+                                AppOutlinedTextField(
                                     value = offerFixedPrice,
                                     onValueChange = { offerFixedPrice = it },
                                     label = { Text("Bundle Price") },
@@ -398,7 +682,7 @@ fun PieceDialog(
                     }
 
                     if (offerType == "REDUCED_PRICE") {
-                        OutlinedTextField(
+                        AppOutlinedTextField(
                             value = offerFixedPrice,
                             onValueChange = { offerFixedPrice = it },
                             label = { Text("Special Reduced Price") },
@@ -439,7 +723,7 @@ fun PieceDialog(
                                     label = { Text("25% Off") }
                                 )
                             }
-                            OutlinedTextField(
+                            AppOutlinedTextField(
                                 value = offerPercentOff,
                                 onValueChange = { offerPercentOff = it },
                                 label = { Text("Discount Percentage") },
@@ -464,11 +748,11 @@ fun PieceDialog(
                         Text("Cancel")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(
+                    AppButton(
                         onClick = {
                             if (name.isBlank()) {
                                 nameError = "Item name is required"
-                                return@Button
+                                return@AppButton
                             }
 
                             val finalBarcode = if (barcode.isBlank()) "ITEM_${System.currentTimeMillis()}" else barcode.trim()
@@ -527,7 +811,7 @@ fun PieceDialog(
                 )
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         onSave(piece, true)
                         pendingPieceToSave = null

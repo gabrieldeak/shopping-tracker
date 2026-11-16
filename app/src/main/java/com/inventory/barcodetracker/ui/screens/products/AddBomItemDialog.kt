@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,7 +63,7 @@ fun AddBomItemDialog(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         placeholder = { Text("Search parts...") },
@@ -130,7 +132,7 @@ fun AddBomItemDialog(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = quantityText,
                         onValueChange = { quantityText = it },
                         label = { Text("Quantity Required Per Product") },
@@ -148,9 +150,9 @@ fun AddBomItemDialog(
             }
         },
         confirmButton = {
-            Button(
+            AppButton(
                 onClick = {
-                    val piece = selectedPiece ?: return@Button
+                    val piece = selectedPiece ?: return@AppButton
                     val qty = quantityText.toIntOrNull() ?: 1
                     onConfirm(piece.barcode, maxOf(1, qty))
                 },

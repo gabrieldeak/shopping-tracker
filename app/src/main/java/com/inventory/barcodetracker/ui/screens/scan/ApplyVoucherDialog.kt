@@ -1,27 +1,30 @@
 package com.inventory.barcodetracker.ui.screens.scan
 
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppFilledTonalButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
+import com.inventory.barcodetracker.ui.components.VerticalScrollbarContainer
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ApplyVoucherDialog(
     savedVouchers: List<OfferEntity>,
@@ -31,200 +34,233 @@ fun ApplyVoucherDialog(
 ) {
     var customNameText by remember { mutableStateOf("") }
     var customAmountText by remember { mutableStateOf("") }
+    val scrollState = rememberScrollState()
+    val customAmount = customAmountText.toDoubleOrNull() ?: 0.0
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.LocalOffer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Apply Discount Voucher")
-            }
-        },
-        text = {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 380.dp)
-                    .verticalScroll(rememberScrollState())
-                    .imePadding(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    "Select a quick voucher or create a custom discount to reduce your basket total:",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                // Quick Presets
-                Text(
-                    "Quick Presets:",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
+                // Header
                 Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    AssistChip(
-                        onClick = {
-                            onApplyVoucher(
-                                OfferEntity(
-                                    title = "${currencySymbol}5 Voucher",
-                                    offerType = "VOUCHER",
-                                    fixedPrice = 5.0
-                                )
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.LocalOffer,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
                             )
-                        },
-                        label = { Text("${currencySymbol}5 Off") }
-                    )
-                    AssistChip(
-                        onClick = {
-                            onApplyVoucher(
-                                OfferEntity(
-                                    title = "${currencySymbol}10 Voucher",
-                                    offerType = "VOUCHER",
-                                    fixedPrice = 10.0
-                                )
-                            )
-                        },
-                        label = { Text("${currencySymbol}10 Off") }
-                    )
-                    AssistChip(
-                        onClick = {
-                            onApplyVoucher(
-                                OfferEntity(
-                                    title = "${currencySymbol}15 Voucher",
-                                    offerType = "VOUCHER",
-                                    fixedPrice = 15.0
-                                )
-                            )
-                        },
-                        label = { Text("${currencySymbol}15 Off") }
-                    )
-                    AssistChip(
-                        onClick = {
-                            onApplyVoucher(
-                                OfferEntity(
-                                    title = "${currencySymbol}20 Voucher",
-                                    offerType = "VOUCHER",
-                                    fixedPrice = 20.0
-                                )
-                            )
-                        },
-                        label = { Text("${currencySymbol}20 Off") }
-                    )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "Apply Discount Voucher",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Reduce your basket total with a voucher",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
-                HorizontalDivider()
-
-                // Saved Vouchers Library
-                if (savedVouchers.isNotEmpty()) {
+                VerticalScrollbarContainer(
+                    scrollState = scrollState,
+                    maxHeight = 380.dp
+                ) {
+                    // Quick Presets
                     Text(
-                        "Pick from Saved Vouchers Library:",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "Quick Presets",
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 120.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(savedVouchers, key = { it.id }) { voucher ->
-                            Card(
-                                onClick = { onApplyVoucher(voucher) },
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        listOf(5, 10, 15, 20).forEach { preset ->
+                            AppFilledTonalButton(
+                                onClick = {
+                                    onApplyVoucher(
+                                        OfferEntity(
+                                            title = "$currencySymbol$preset Voucher",
+                                            offerType = "VOUCHER",
+                                            fixedPrice = preset.toDouble()
+                                        )
+                                    )
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                Text(
+                                    text = "-$currencySymbol$preset",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
+                    // Saved Vouchers Library
+                    if (savedVouchers.isNotEmpty()) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                        Text(
+                            text = "Saved Vouchers Library",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            savedVouchers.forEach { voucher ->
+                                Surface(
+                                    onClick = { onApplyVoucher(voucher) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    border = BorderStroke(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
                                 ) {
-                                    Column {
-                                        Text(voucher.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                        if (voucher.storeName.isNotBlank()) {
-                                            Text("Store: ${voucher.storeName}", style = MaterialTheme.typography.labelSmall)
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = voucher.title,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            if (voucher.storeName.isNotBlank()) {
+                                                Text(
+                                                    text = voucher.storeName,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.primaryContainer
+                                        ) {
+                                            Text(
+                                                text = "-$currencySymbol${String.format(Locale.US, "%.2f", voucher.fixedPrice)}",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                            )
                                         }
                                     }
-                                    Text(
-                                        "-$currencySymbol${String.format(Locale.US, "%.2f", voucher.fixedPrice)}",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
                                 }
                             }
                         }
                     }
-                    HorizontalDivider()
-                }
 
-                // Custom Voucher Input
-                Text(
-                    "Custom Voucher Amount:",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
 
-                OutlinedTextField(
-                    value = customNameText,
-                    onValueChange = { customNameText = it },
-                    label = { Text("Voucher Name (Optional)") },
-                    placeholder = { Text("e.g. Coupon, Clubcard Voucher") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    // Custom Voucher Input
+                    Text(
+                        text = "Custom Voucher",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
+                    AppOutlinedTextField(
+                        value = customNameText,
+                        onValueChange = { customNameText = it },
+                        label = { Text("Voucher Name (Optional)") },
+                        placeholder = { Text("e.g. Coupon, Clubcard Voucher") },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    AppOutlinedTextField(
                         value = customAmountText,
                         onValueChange = { customAmountText = it },
                         label = { Text("Discount Amount") },
                         prefix = { Text(currencySymbol) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
+                }
 
-                    Button(
+                // Bottom Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AppOutlinedButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                    ) {
+                        Text("Cancel", fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    }
+
+                    AppButton(
                         onClick = {
-                            val amount = customAmountText.toDoubleOrNull() ?: 0.0
-                            if (amount > 0.0) {
-                                val name = customNameText.trim().ifEmpty { "${currencySymbol}${String.format(Locale.US, "%.2f", amount)} Voucher" }
+                            if (customAmount > 0.0) {
+                                val name = customNameText.trim().ifEmpty {
+                                    "$currencySymbol${String.format(Locale.US, "%.2f", customAmount)} Voucher"
+                                }
                                 onApplyVoucher(
                                     OfferEntity(
                                         title = name,
                                         offerType = "VOUCHER",
-                                        fixedPrice = amount
+                                        fixedPrice = customAmount
                                     )
                                 )
                             }
                         },
-                        enabled = (customAmountText.toDoubleOrNull() ?: 0.0) > 0.0
+                        enabled = customAmount > 0.0,
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Apply")
+                        Text("Apply", fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
         }
-    )
+    }
 }

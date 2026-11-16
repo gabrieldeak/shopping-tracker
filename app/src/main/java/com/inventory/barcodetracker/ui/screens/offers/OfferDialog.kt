@@ -10,6 +10,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -132,7 +134,7 @@ fun OfferDialog(
                         )
                     }
 
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = title,
                         onValueChange = {
                             title = it
@@ -147,7 +149,7 @@ fun OfferDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = storeName,
                         onValueChange = { storeName = it },
                         label = { Text("Store / Supermarket") },
@@ -163,7 +165,7 @@ fun OfferDialog(
                         onExpandedChange = { dropdownExpanded = !dropdownExpanded },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedTextField(
+                        AppOutlinedTextField(
                             value = currentTypeLabel,
                             onValueChange = {},
                             readOnly = true,
@@ -205,7 +207,7 @@ fun OfferDialog(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                OutlinedTextField(
+                                AppOutlinedTextField(
                                     value = offerBuyQty,
                                     onValueChange = { offerBuyQty = it },
                                     label = { Text("Buy Qty") },
@@ -214,7 +216,7 @@ fun OfferDialog(
                                     modifier = Modifier.weight(1f),
                                     singleLine = true
                                 )
-                                OutlinedTextField(
+                                AppOutlinedTextField(
                                     value = offerPayQty,
                                     onValueChange = { offerPayQty = it },
                                     label = { Text("Pay Qty") },
@@ -230,7 +232,7 @@ fun OfferDialog(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                OutlinedTextField(
+                                AppOutlinedTextField(
                                     value = offerBuyQty,
                                     onValueChange = { offerBuyQty = it },
                                     label = { Text("Buy Qty") },
@@ -239,7 +241,7 @@ fun OfferDialog(
                                     modifier = Modifier.weight(1f),
                                     singleLine = true
                                 )
-                                OutlinedTextField(
+                                AppOutlinedTextField(
                                     value = offerFixedPrice,
                                     onValueChange = { offerFixedPrice = it },
                                     label = { Text("Bundle Price") },
@@ -251,7 +253,7 @@ fun OfferDialog(
                             }
                         }
                         "REDUCED_PRICE" -> {
-                            OutlinedTextField(
+                            AppOutlinedTextField(
                                 value = offerFixedPrice,
                                 onValueChange = { offerFixedPrice = it },
                                 label = { Text("Special Reduced Price") },
@@ -263,7 +265,7 @@ fun OfferDialog(
                             )
                         }
                         "PERCENT_OFF" -> {
-                            OutlinedTextField(
+                            AppOutlinedTextField(
                                 value = offerPercentOff,
                                 onValueChange = { offerPercentOff = it },
                                 label = { Text("Discount Percentage") },
@@ -274,7 +276,7 @@ fun OfferDialog(
                             )
                         }
                         "VOUCHER" -> {
-                            OutlinedTextField(
+                            AppOutlinedTextField(
                                 value = offerFixedPrice,
                                 onValueChange = { offerFixedPrice = it },
                                 label = { Text("Basket Voucher Discount Amount") },
@@ -286,7 +288,7 @@ fun OfferDialog(
                         }
                     }
 
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = notes,
                         onValueChange = { notes = it },
                         label = { Text("Notes / Description (Optional)") },
@@ -309,7 +311,7 @@ fun OfferDialog(
                         Text("Cancel")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(
+                    AppButton(
                         onClick = {
                             if (title.isBlank()) {
                                 val badge = when (offerType) {

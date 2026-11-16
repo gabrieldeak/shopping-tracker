@@ -39,7 +39,7 @@ fun OcrTextEditDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                OutlinedTextField(
+                AppOutlinedTextField(
                     value = editableText,
                     onValueChange = { editableText = it },
                     label = { Text("Product Name") },
@@ -80,7 +80,7 @@ fun OcrTextEditDialog(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         linesDetected.forEach { line ->
-                            OutlinedButton(
+                            AppOutlinedButton(
                                 onClick = { editableText = line },
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                             ) {
@@ -92,7 +92,7 @@ fun OcrTextEditDialog(
             }
         },
         confirmButton = {
-            Button(
+            AppButton(
                 onClick = { onConfirm(editableText.trim()) },
                 enabled = editableText.isNotBlank()
             ) {

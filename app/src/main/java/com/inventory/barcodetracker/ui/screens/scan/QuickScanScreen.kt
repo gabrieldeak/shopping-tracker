@@ -1,13 +1,19 @@
 package com.inventory.barcodetracker.ui.screens.scan
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -20,6 +26,7 @@ import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.PrecisionManufacturing
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
@@ -33,6 +40,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppFilledTonalButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
+import com.inventory.barcodetracker.ui.components.AppSearchBar
 import com.inventory.barcodetracker.ui.components.ShoppingListCard
 import java.util.Locale
 
@@ -83,8 +95,17 @@ fun QuickScanScreen(
         }
     }
 
-    val imeBottomPadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
-    val bottomScrollPadding = if (imeBottomPadding > 0.dp) imeBottomPadding + 100.dp else 120.dp
+    val listState = rememberLazyListState()
+    var isSearchFocused by remember { mutableStateOf(false) }
+    val isImeVisible = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp
+    val searchItemIndex = 1 + maxOf(1, allShoppingLists.size)
+
+    LaunchedEffect(isSearchFocused, isImeVisible) {
+        if (isSearchFocused && isImeVisible) {
+            kotlinx.coroutines.delay(150)
+            listState.animateScrollToItem(searchItemIndex)
+        }
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -120,30 +141,26 @@ fun QuickScanScreen(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = {
-                    viewModel.startScanner(
-                        onNeedManualInputFallback = {
-                            showManualInputDialog = true
-                        }
-                    )
-                },
-                icon = { Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan") },
-                text = { Text("Scan Barcode", fontWeight = FontWeight.Bold) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
         }
     ) { innerPadding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = bottomScrollPadding),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(innerPadding)
         ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .imePadding(),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 0.dp,
+                    bottom = if (isSearchFocused && isImeVisible) 320.dp else 24.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
             // 1. Header & New Basket Button
             item {
                 Column(
@@ -152,19 +169,19 @@ fun QuickScanScreen(
                         .padding(top = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "Shopping Baskets",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
+                        Text(
+                            text = "Shopping Baskets",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        AppButton(
                             onClick = {
                                 newListNameText = ""
                                 showCreateListDialog = true
@@ -175,16 +192,49 @@ fun QuickScanScreen(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("New Basket", fontWeight = FontWeight.Bold, maxLines = 1)
                         }
+                    }
 
-                        if (selectedListIds.isNotEmpty()) {
-                            Button(
-                                onClick = { showConfirmDeleteBatch = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    if (selectedListIds.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AppOutlinedButton(
+                                onClick = { viewModel.clearSelectedBaskets() },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Delete Selected (${selectedListIds.size})", fontWeight = FontWeight.Bold, maxLines = 1)
+                                Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Clear (${selectedListIds.size})", fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
+
+                            AppButton(
+                                onClick = { viewModel.finishAndSaveSelectedBaskets() },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Finish & Save (${selectedListIds.size})", fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
+
+                            FilledTonalIconButton(
+                                onClick = { showConfirmDeleteBatch = true },
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                ),
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete Selected Baskets",
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
                     }
@@ -262,8 +312,6 @@ fun QuickScanScreen(
                             copyListNameText = "${list.name} (Copy)"
                         },
                         onDelete = { listToDelete = list },
-                        onFinishAndSave = { viewModel.finishAndSaveBasketForList(list) },
-                        onClearBasket = { viewModel.clearListBasket(list) },
                         onApplyVoucher = {
                             listForVoucherDialog = list
                             showVoucherDialog = true
@@ -279,25 +327,53 @@ fun QuickScanScreen(
                 }
             }
 
-            // 3. Search Bar
+            // 3. Integrated Search & Scan Pill Bar
             item {
                 Spacer(modifier = Modifier.height(4.dp))
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = viewModel::onSearchQueryChanged,
-                    placeholder = { Text("Search items by barcode, name or category...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                AppSearchBar(
+                    query = searchQuery,
+                    onQueryChange = viewModel::onSearchQueryChanged,
+                    placeholder = "Search or scan item...",
+                    textFieldModifier = Modifier.onFocusChanged { isSearchFocused = it.isFocused },
+                    trailingContent = {
+                        Surface(
+                            onClick = {
+                                viewModel.startScanner(
+                                    onNeedManualInputFallback = {
+                                        showManualInputDialog = true
+                                    }
+                                )
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(
+                                    horizontal = if (searchQuery.isEmpty()) 14.dp else 10.dp,
+                                    vertical = 10.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.QrCodeScanner,
+                                    contentDescription = "Scan Barcode",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                AnimatedVisibility(visible = searchQuery.isEmpty()) {
+                                    Row {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Scan",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
                             }
                         }
-                    },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    }
                 )
             }
 
@@ -322,7 +398,7 @@ fun QuickScanScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(modifier = Modifier.height(10.dp))
-                                FilledTonalButton(
+                                AppFilledTonalButton(
                                     onClick = { viewModel.resolveBarcode(searchQuery.trim()) }
                                 ) {
                                     Text("Add \"$searchQuery\" to Catalog")
@@ -383,13 +459,7 @@ fun QuickScanScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "📷 Ready to Scan Barcodes",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Tap 'Scan Barcode' below to scan physical items into your checked shopping baskets.",
+                                text = "Search above or tap 'Scan' to add items into your checked shopping baskets.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -400,8 +470,8 @@ fun QuickScanScreen(
         }
     }
 
-    // Modal Sheet for Scanned / Resolved Item
-    ScanResolutionSheet(
+        // Modal Sheet for Scanned / Resolved Item
+        ScanResolutionSheet(
         state = scannedItemState,
         currencySymbol = currencySymbol,
         savedOffers = savedOffers,
@@ -449,7 +519,7 @@ fun QuickScanScreen(
             title = { Text("Create New Shopping Basket") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = newListNameText,
                         onValueChange = { newListNameText = it },
                         label = { Text("Basket Name / Store") },
@@ -508,7 +578,7 @@ fun QuickScanScreen(
                 }
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.createShoppingList(generatedName)
                         showCreateListDialog = false
@@ -560,7 +630,7 @@ fun QuickScanScreen(
             onDismissRequest = { listToRename = null },
             title = { Text("Rename Shopping Basket") },
             text = {
-                OutlinedTextField(
+                AppOutlinedTextField(
                     value = renameListNameText,
                     onValueChange = { renameListNameText = it },
                     label = { Text("Basket Name") },
@@ -570,7 +640,7 @@ fun QuickScanScreen(
                 )
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         if (renameListNameText.isNotBlank()) {
                             viewModel.renameShoppingList(list.id, renameListNameText.trim())
@@ -596,7 +666,7 @@ fun QuickScanScreen(
             onDismissRequest = { listToCopy = null },
             title = { Text("Duplicate Shopping Basket") },
             text = {
-                OutlinedTextField(
+                AppOutlinedTextField(
                     value = copyListNameText,
                     onValueChange = { copyListNameText = it },
                     label = { Text("New Basket Name") },
@@ -606,7 +676,7 @@ fun QuickScanScreen(
                 )
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         if (copyListNameText.isNotBlank()) {
                             viewModel.copyShoppingList(list.id, copyListNameText.trim())
@@ -633,7 +703,7 @@ fun QuickScanScreen(
             title = { Text("Delete Shopping Basket") },
             text = { Text("Are you sure you want to delete \"${list.name}\"?") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.deleteShoppingList(list)
                         listToDelete = null
@@ -663,7 +733,7 @@ fun QuickScanScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = budgetInputText,
                         onValueChange = { budgetInputText = it },
                         label = { Text("Budget Limit ($currencySymbol)") },
@@ -675,7 +745,7 @@ fun QuickScanScreen(
                 }
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         val limit = budgetInputText.toDoubleOrNull() ?: 0.0
                         viewModel.setBasketBudgetLimit(list.id, limit)
@@ -712,7 +782,7 @@ fun QuickScanScreen(
             title = { Text("Delete Selected Baskets") },
             text = { Text("Are you sure you want to delete ${selectedListIds.size} selected shopping basket(s)?") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.deleteSelectedShoppingLists()
                         showConfirmDeleteBatch = false
@@ -753,7 +823,7 @@ fun QuickScanScreen(
                 }
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         try {
                             val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(update.downloadUrl))
@@ -789,7 +859,7 @@ fun QuickScanScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = manualBarcodeText,
                         onValueChange = { manualBarcodeText = it },
                         placeholder = { Text("e.g. PART-001 or 12345678") },
@@ -800,7 +870,7 @@ fun QuickScanScreen(
                 }
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         val code = manualBarcodeText.trim()
                         if (code.isNotEmpty()) {
@@ -824,6 +894,7 @@ fun QuickScanScreen(
             }
         )
     }
+}
 }
 
 @Composable

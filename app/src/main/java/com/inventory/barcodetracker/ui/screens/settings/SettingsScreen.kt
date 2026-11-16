@@ -25,6 +25,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppFilledTonalButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -221,7 +225,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
+                        AppButton(
                             onClick = {
                                 budgetInputText = if (budgetLimit > 0) String.format(java.util.Locale.US, "%.2f", budgetLimit) else ""
                                 showBudgetDialog = true
@@ -230,7 +234,7 @@ fun SettingsScreen(
                             Text(if (budgetLimit > 0) "Change Budget Limit" else "Set Budget Limit")
                         }
                         if (budgetLimit > 0) {
-                            OutlinedButton(
+                            AppOutlinedButton(
                                 onClick = { viewModel.setBudgetLimit(0.0) }
                             ) {
                                 Text("Clear Limit")
@@ -308,27 +312,56 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    val capitalizationOptions = remember {
+                        listOf(
+                            "TITLE_CASE" to "Title Case (Every Word)",
+                            "FIRST_LETTER" to "First Letter Only",
+                            "NONE" to "As Typed (Manual)"
+                        )
+                    }
+                    var capitalizationExpanded by remember { mutableStateOf(false) }
+                    val selectedCapLabel = capitalizationOptions.firstOrNull { it.first == capitalizationMode }?.second
+                        ?: "Title Case (Every Word)"
+
+                    ExposedDropdownMenuBox(
+                        expanded = capitalizationExpanded,
+                        onExpandedChange = { capitalizationExpanded = it }
                     ) {
-                        FilterChip(
-                            selected = capitalizationMode == "TITLE_CASE",
-                            onClick = { viewModel.setCapitalizationMode("TITLE_CASE") },
-                            label = { Text("Capitalize Every Word (Title Case)") }
+                        AppOutlinedTextField(
+                            value = selectedCapLabel,
+                            onValueChange = {},
+                            readOnly = true,
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium,
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = capitalizationExpanded)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
                         )
-                        FilterChip(
-                            selected = capitalizationMode == "FIRST_LETTER",
-                            onClick = { viewModel.setCapitalizationMode("FIRST_LETTER") },
-                            label = { Text("Capitalize First Letter Only") }
-                        )
-                        FilterChip(
-                            selected = capitalizationMode == "NONE",
-                            onClick = { viewModel.setCapitalizationMode("NONE") },
-                            label = { Text("As Typed (Manual)") }
-                        )
+
+                        ExposedDropdownMenu(
+                            expanded = capitalizationExpanded,
+                            onDismissRequest = { capitalizationExpanded = false }
+                        ) {
+                            capitalizationOptions.forEach { (modeKey, label) ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (capitalizationMode == modeKey) FontWeight.SemiBold else FontWeight.Normal,
+                                            color = if (capitalizationMode == modeKey) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    onClick = {
+                                        viewModel.setCapitalizationMode(modeKey)
+                                        capitalizationExpanded = false
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -365,7 +398,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
+                        AppButton(
                             onClick = { exportFullBackupLauncher.launch("barcode_tracker_backup.json") }
                         ) {
                             Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -373,7 +406,7 @@ fun SettingsScreen(
                             Text("Save JSON")
                         }
 
-                        OutlinedButton(
+                        AppOutlinedButton(
                             onClick = { viewModel.shareFullBackup(context) }
                         ) {
                             Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -381,7 +414,7 @@ fun SettingsScreen(
                             Text("Share / Drive")
                         }
 
-                        FilledTonalButton(
+                        AppFilledTonalButton(
                             onClick = { restoreFullBackupLauncher.launch(arrayOf("application/json", "*/*")) }
                         ) {
                             Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -414,7 +447,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
+                        AppButton(
                             onClick = { exportDatabaseLauncher.launch("shopping_tracker.db") }
                         ) {
                             Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -422,7 +455,7 @@ fun SettingsScreen(
                             Text("Save .db File")
                         }
 
-                        OutlinedButton(
+                        AppOutlinedButton(
                             onClick = { viewModel.shareRawDatabase(context) }
                         ) {
                             Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -430,7 +463,7 @@ fun SettingsScreen(
                             Text("Share / Drive")
                         }
 
-                        FilledTonalButton(
+                        AppFilledTonalButton(
                             onClick = { restoreDatabaseLauncher.launch(arrayOf("*/*")) }
                         ) {
                             Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -495,7 +528,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Button(
+                    AppButton(
                         onClick = viewModel::seedSampleData,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                     ) {
@@ -530,7 +563,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
+                    AppOutlinedButton(
                         onClick = { showClearConfirmDialog = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
@@ -553,89 +586,148 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 80.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // App Header + Version Pill
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
                         ) {
-                            Icon(
-                                Icons.Default.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Shopping Tracker",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Text(
+                                        text = "v${UpdateCheckService.CURRENT_VERSION}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
                             Text(
-                                "Shopping Tracker v${UpdateCheckService.CURRENT_VERSION}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "Offline-first • Jetpack Compose • Room • ML Kit OCR",
-                                style = MaterialTheme.typography.labelSmall,
+                                text = "Offline-first shopping & inventory tracker",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Developed & Designed by G.A.D",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Surface(
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                        shape = RoundedCornerShape(12.dp)
+                    // Tech Stack Pills
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.AutoAwesome,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "✨ Vibe coded with AI",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
+                        listOf("Jetpack Compose", "Room DB", "ML Kit OCR", "Offline-First").forEach { tag ->
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainer
+                            ) {
+                                Text(
+                                    text = tag,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                    Button(
+                    // Developer & AI Badge Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Developed & Designed by",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "G.A.D",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Surface(
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Vibe coded with AI",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
+
+                    // Share App APK Button
+                    AppButton(
                         onClick = { viewModel.shareAppApk(context) },
-                        modifier = Modifier.fillMaxWidth()
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Share App APK (Bluetooth / Drive / Email)")
+                        Text("Share App APK", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -653,7 +745,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = budgetInputText,
                         onValueChange = { budgetInputText = it },
                         label = { Text("Target Budget ($currentCurrency)") },
@@ -665,7 +757,7 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         val limit = budgetInputText.toDoubleOrNull() ?: 0.0
                         viewModel.setBudgetLimit(limit)
@@ -691,7 +783,7 @@ fun SettingsScreen(
                 Column {
                     Text("Enter a custom currency symbol or code (e.g. CAD, AUD, kr, ₪):", style = MaterialTheme.typography.bodySmall)
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
+                    AppOutlinedTextField(
                         value = customCurrencyText,
                         onValueChange = { customCurrencyText = it },
                         label = { Text("Currency Symbol / Code") },
@@ -701,7 +793,7 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         val sym = customCurrencyText.trim()
                         if (sym.isNotEmpty()) {
@@ -728,7 +820,7 @@ fun SettingsScreen(
             title = { Text("Confirm Data Wipe") },
             text = { Text("Are you sure you want to clear your local database? All saved products and shopping history will be deleted.") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.clearAllData()
                         showClearConfirmDialog = false
@@ -774,7 +866,7 @@ private fun DataTransferCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedButton(
+                AppOutlinedButton(
                     onClick = onExport,
                     modifier = Modifier.weight(1f)
                 ) {
@@ -782,7 +874,7 @@ private fun DataTransferCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Export CSV")
                 }
-                FilledTonalButton(
+                AppFilledTonalButton(
                     onClick = onImport,
                     modifier = Modifier.weight(1f)
                 ) {

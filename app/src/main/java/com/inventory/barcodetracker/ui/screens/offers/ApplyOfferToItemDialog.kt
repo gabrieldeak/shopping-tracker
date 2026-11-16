@@ -10,6 +10,8 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
+import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,7 +68,7 @@ fun ApplyOfferToItemDialog(
                     .heightIn(max = 380.dp)
                     .imePadding()
             ) {
-                OutlinedTextField(
+                AppOutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholder = { Text("Search product name, barcode...") },
@@ -142,7 +144,7 @@ fun ApplyOfferToItemDialog(
                                         }
                                     }
 
-                                    Button(
+                                    AppButton(
                                         onClick = { onApplyToItem(piece.barcode) },
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                                     ) {

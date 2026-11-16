@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
+import com.inventory.barcodetracker.ui.components.AppSearchBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +88,7 @@ fun OffersScreen(
             ExtendedFloatingActionButton(
                 onClick = { showAddOfferDialog = true },
                 icon = { Icon(Icons.Default.Add, contentDescription = "Add Offer") },
-                text = { Text("Create Offer", fontWeight = FontWeight.Bold) },
+                text = { Text("Add Offer", fontWeight = FontWeight.Bold) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
@@ -99,24 +101,11 @@ fun OffersScreen(
                 .padding(horizontal = 16.dp)
         ) {
             // 1. Full-Width Search Input
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = viewModel::onSearchQueryChanged,
-                placeholder = { Text("Search offers by name or store...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
-                        }
-                    }
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp)
+            AppSearchBar(
+                query = searchQuery,
+                onQueryChange = viewModel::onSearchQueryChanged,
+                placeholder = "Search offers by name or store...",
+                modifier = Modifier.padding(vertical = 2.dp)
             )
 
             // 2. Control Action Row
@@ -144,7 +133,7 @@ fun OffersScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Button(
+                            AppButton(
                                 onClick = { showConfirmDeleteBatch = true },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
@@ -309,7 +298,7 @@ fun OffersScreen(
             title = { Text("Delete Offer") },
             text = { Text("Are you sure you want to delete offer \"${offer.title}\"?") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.deleteOffer(offer)
                         offerToDelete = null
@@ -334,7 +323,7 @@ fun OffersScreen(
             title = { Text("Delete Selected Offers") },
             text = { Text("Are you sure you want to delete ${selectedOfferIds.size} selected store offer(s)?") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.deleteSelectedOffers()
                         showConfirmDeleteBatch = false
@@ -455,7 +444,7 @@ private fun OfferCardItem(
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
+            AppButton(
                 onClick = onApplyToItem,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(

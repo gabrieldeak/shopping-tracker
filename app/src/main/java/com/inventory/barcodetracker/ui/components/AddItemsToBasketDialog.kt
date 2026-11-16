@@ -95,7 +95,7 @@ fun AddItemsToBasketDialog(
             }
         },
         confirmButton = {
-            Button(
+            AppButton(
                 onClick = {
                     val targetIds = checkedListIds.filterValues { it }.keys.toList()
                     onConfirmAdd(targetIds)

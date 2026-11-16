@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -155,7 +156,7 @@ fun ProductDetailScreen(
                             )
                         }
 
-                        Button(
+                        AppButton(
                             onClick = {
                                 buildQuantity = 1
                                 showBuildDialog = true
@@ -196,7 +197,7 @@ fun ProductDetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        Button(onClick = { showAddBomDialog = true }) {
+                        AppButton(onClick = { showAddBomDialog = true }) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Add First Component")
@@ -279,7 +280,7 @@ fun ProductDetailScreen(
             title = { Text("Remove Component") },
             text = { Text("Remove \"${item.pieceName}\" from the recipe components for this product?") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.removePieceFromBom(item.barcode)
                         itemToRemove = null
@@ -347,7 +348,7 @@ fun ProductDetailScreen(
                 }
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.executeBuild(buildQuantity)
                         showBuildDialog = false

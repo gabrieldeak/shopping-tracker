@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
+import com.inventory.barcodetracker.ui.components.AppButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.ui.components.AddItemsToBasketDialog
+import com.inventory.barcodetracker.ui.components.AppSearchBar
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,13 +84,13 @@ fun PiecesScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
+                icon = { Icon(Icons.Default.Add, contentDescription = "Add Item") },
+                text = { Text("Add Item", fontWeight = FontWeight.Bold) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Piece")
-            }
+            )
         }
     ) { innerPadding ->
         Column(
@@ -98,24 +100,11 @@ fun PiecesScreen(
                 .padding(horizontal = 16.dp)
         ) {
             // 1. Full-Width Search Input
-            OutlinedTextField(
-                value = searchFilter,
-                onValueChange = viewModel::onSearchFilterChanged,
-                placeholder = { Text("Search catalog by name or barcode...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchFilter.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onSearchFilterChanged("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
-                        }
-                    }
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp)
+            AppSearchBar(
+                query = searchFilter,
+                onQueryChange = viewModel::onSearchFilterChanged,
+                placeholder = "Search catalog by name or barcode...",
+                modifier = Modifier.padding(vertical = 2.dp)
             )
 
             // 2. Control Action Row
@@ -143,7 +132,7 @@ fun PiecesScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Button(
+                            AppButton(
                                 onClick = { showAddToBasketDialog = true },
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                             ) {
@@ -152,7 +141,7 @@ fun PiecesScreen(
                                 Text("Add (${selectedBarcodes.size})", fontWeight = FontWeight.Bold, maxLines = 1)
                             }
 
-                            Button(
+                            AppButton(
                                 onClick = { showConfirmDeleteBatch = true },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
@@ -304,7 +293,7 @@ fun PiecesScreen(
             title = { Text("Delete Part") },
             text = { Text("Are you sure you want to delete \"${piece.name}\" (${piece.barcode})? Note: this will fail if it is currently linked to an assembled product.") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.deletePiece(piece)
                         pieceToDelete = null
@@ -329,7 +318,7 @@ fun PiecesScreen(
             title = { Text("Delete Selected Items") },
             text = { Text("Are you sure you want to delete ${selectedBarcodes.size} selected item(s) from your catalog?") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.deleteSelectedPieces()
                         showConfirmDeleteBatch = false

@@ -1,5 +1,6 @@
 package com.inventory.barcodetracker.ui.navigation
 
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -92,6 +93,7 @@ fun AppNavHost(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
         ) { page ->
             when (page) {
                 0 -> QuickScanScreen(
