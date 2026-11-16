@@ -565,13 +565,26 @@ class ScanViewModel(
                 itemsSummary = summaryText,
                 currencySymbol = symbol,
             )
+            resetClearedBasketPieceQuantities(list.id)
             repository.clearShoppingListItems(list.id)
             _snackbarMessages.emit("Saved \"${list.name}\" ($symbol${String.format(Locale.US, "%.2f", netTotalCost)}) to History!")
         }
     }
 
+    private suspend fun resetClearedBasketPieceQuantities(listId: Long) {
+        val listItems = repository.getItemsForListSync(listId)
+        for (item in listItems) {
+            if (item.offerType == "VOUCHER" || item.unitPrice < 0) continue
+            val piece = repository.getPieceByBarcode(item.barcode) ?: continue
+            if (piece.stockQuantity > 0) {
+                repository.upsertPiece(piece.copy(stockQuantity = 0))
+            }
+        }
+    }
+
     fun clearListBasket(list: ShoppingListEntity) {
         viewModelScope.launch {
+            resetClearedBasketPieceQuantities(list.id)
             repository.clearShoppingListItems(list.id)
             _snackbarMessages.emit("Cleared basket \"${list.name}\"")
         }
@@ -603,6 +616,7 @@ class ScanViewModel(
             if (selectedIds.isEmpty()) return@launch
 
             for (id in selectedIds) {
+                resetClearedBasketPieceQuantities(id)
                 repository.clearShoppingListItems(id)
             }
             _snackbarMessages.emit("Cleared items from ${selectedIds.size} selected basket(s)")

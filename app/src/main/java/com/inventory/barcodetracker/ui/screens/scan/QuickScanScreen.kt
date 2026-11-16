@@ -1,5 +1,6 @@
 package com.inventory.barcodetracker.ui.screens.scan
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -16,6 +17,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
@@ -69,6 +71,12 @@ fun QuickScanScreen(
     val appUpdateInfo by viewModel.appUpdateInfo.collectAsStateWithLifecycle()
 
     val context = androidx.compose.ui.platform.LocalContext.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+
+    BackHandler(enabled = searchQuery.isNotBlank()) {
+        viewModel.onSearchQueryChanged("")
+        focusManager.clearFocus()
+    }
 
     var showManualInputDialog by remember { mutableStateOf(false) }
     var showVoucherDialog by remember { mutableStateOf(false) }
@@ -92,18 +100,6 @@ fun QuickScanScreen(
     LaunchedEffect(Unit) {
         viewModel.snackbarMessages.collect { msg ->
             snackbarHostState.showSnackbar(msg)
-        }
-    }
-
-    val listState = rememberLazyListState()
-    var isSearchFocused by remember { mutableStateOf(false) }
-    val isImeVisible = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp
-    val searchItemIndex = 1 + maxOf(1, allShoppingLists.size)
-
-    LaunchedEffect(isSearchFocused, isImeVisible) {
-        if (isSearchFocused && isImeVisible) {
-            kotlinx.coroutines.delay(150)
-            listState.animateScrollToItem(searchItemIndex)
         }
     }
 
@@ -143,242 +139,150 @@ fun QuickScanScreen(
             )
         }
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
         ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .imePadding(),
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 0.dp,
-                    bottom = if (isSearchFocused && isImeVisible) 320.dp else 24.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-            // 1. Header & New Basket Button
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Shopping Baskets",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-
-                        AppButton(
-                            onClick = {
-                                newListNameText = ""
-                                showCreateListDialog = true
-                            },
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("New Basket", fontWeight = FontWeight.Bold, maxLines = 1)
-                        }
+            // Pinned Top Search & Scan Bar
+            AppSearchBar(
+                query = searchQuery,
+                onQueryChange = viewModel::onSearchQueryChanged,
+                placeholder = "Search or scan item...",
+                onBackClick = if (searchQuery.isNotBlank()) {
+                    {
+                        viewModel.onSearchQueryChanged("")
+                        focusManager.clearFocus()
                     }
-
-                    if (selectedListIds.isNotEmpty()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AppOutlinedButton(
-                                onClick = { viewModel.clearSelectedBaskets() },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Clear (${selectedListIds.size})", fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-
-                            AppButton(
-                                onClick = { viewModel.finishAndSaveSelectedBaskets() },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Finish & Save (${selectedListIds.size})", fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-
-                            FilledTonalIconButton(
-                                onClick = { showConfirmDeleteBatch = true },
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                ),
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete Selected Baskets",
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    }
-
+                } else null,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                trailingContent = {
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(8.dp)
+                        onClick = {
+                            viewModel.startScanner(
+                                onNeedManualInputFallback = {
+                                    showManualInputDialog = true
+                                }
+                            )
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(
+                                horizontal = if (searchQuery.isEmpty()) 14.dp else 10.dp,
+                                vertical = 10.dp
+                            ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                Icons.Default.ShoppingCart,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
+                                imageVector = Icons.Default.QrCodeScanner,
+                                contentDescription = "Scan Barcode",
+                                modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Check boxes to select scan targets. Swipe cards left (delete) or right (duplicate).",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-            // 2. Shopping Basket Cards List
-            if (allShoppingLists.isEmpty()) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                "No shopping baskets created yet.",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "Tap '+ New Basket' above to create custom lists (e.g. Main Basket, Tesco Weekly). Checked baskets will automatically receive scanned or added items!",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            } else {
-                items(allShoppingLists, key = { it.id }) { list ->
-                    val itemsInList = allShoppingListItems.filter { it.listId == list.id }
-                    ShoppingListCard(
-                        list = list,
-                        isSelected = selectedListIds.contains(list.id),
-                        itemsInList = itemsInList,
-                        pieceMap = allPiecesMap,
-                        currencySymbol = currencySymbol,
-                        defaultBudgetLimit = budgetLimit,
-                        onToggleSelect = { viewModel.toggleSelectList(list.id) },
-                        onRename = {
-                            listToRename = list
-                            renameListNameText = list.name
-                        },
-                        onCopy = {
-                            listToCopy = list
-                            copyListNameText = "${list.name} (Copy)"
-                        },
-                        onDelete = { listToDelete = list },
-                        onApplyVoucher = {
-                            listForVoucherDialog = list
-                            showVoucherDialog = true
-                        },
-                        onSetBudget = {
-                            listForBudgetDialog = list
-                            budgetInputText = if (list.budgetLimit > 0) String.format(Locale.US, "%.2f", list.budgetLimit) else if (budgetLimit > 0) String.format(Locale.US, "%.2f", budgetLimit) else ""
-                        },
-                        onRemoveItem = { barcode ->
-                            viewModel.removeShoppingListItem(list.id, barcode)
-                        }
-                    )
-                }
-            }
-
-            // 3. Integrated Search & Scan Pill Bar
-            item {
-                Spacer(modifier = Modifier.height(4.dp))
-                AppSearchBar(
-                    query = searchQuery,
-                    onQueryChange = viewModel::onSearchQueryChanged,
-                    placeholder = "Search or scan item...",
-                    textFieldModifier = Modifier.onFocusChanged { isSearchFocused = it.isFocused },
-                    trailingContent = {
-                        Surface(
-                            onClick = {
-                                viewModel.startScanner(
-                                    onNeedManualInputFallback = {
-                                        showManualInputDialog = true
-                                    }
-                                )
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(
-                                    horizontal = if (searchQuery.isEmpty()) 14.dp else 10.dp,
-                                    vertical = 10.dp
-                                ),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.QrCodeScanner,
-                                    contentDescription = "Scan Barcode",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                AnimatedVisibility(visible = searchQuery.isEmpty()) {
-                                    Row {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "Scan",
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1
-                                        )
-                                    }
+                            AnimatedVisibility(visible = searchQuery.isEmpty()) {
+                                Row {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Scan",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1
+                                    )
                                 }
                             }
                         }
                     }
-                )
+                }
+            )
+
+            // Target basket indicator when searching
+            AnimatedVisibility(visible = searchQuery.isNotBlank()) {
+                val selectedBaskets = allShoppingLists.filter { selectedListIds.contains(it.id) }
+                val targetLabel = when {
+                    selectedBaskets.isEmpty() -> "No basket selected — check a basket to add items"
+                    selectedBaskets.size == 1 -> "Adding to: ${selectedBaskets.first().name}"
+                    else -> "Adding to: ${selectedBaskets.first().name} (+${selectedBaskets.size - 1} more)"
+                }
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selectedBaskets.isEmpty()) MaterialTheme.colorScheme.errorContainer
+                    else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingCart,
+                                contentDescription = null,
+                                tint = if (selectedBaskets.isEmpty()) MaterialTheme.colorScheme.onErrorContainer
+                                else MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Text(
+                                text = targetLabel,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (selectedBaskets.isEmpty()) MaterialTheme.colorScheme.onErrorContainer
+                                else MaterialTheme.colorScheme.onPrimaryContainer,
+                                maxLines = 1
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            onClick = {
+                                viewModel.onSearchQueryChanged("")
+                                focusManager.clearFocus()
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.primary
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "Baskets",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
-            // 4. Search Results (if user typed search query)
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
             if (searchQuery.isNotBlank()) {
+                // Focused Search Results
                 val (matchingPieces, matchingProducts) = searchResults
                 if (matchingPieces.isEmpty() && matchingProducts.isEmpty()) {
                     item {
@@ -446,24 +350,167 @@ fun QuickScanScreen(
                     }
                 }
             } else {
-                // Scan Instructions Prompt
+                // 1. Header & New Basket Button
                 item {
-                    Card(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 6.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .padding(top = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(14.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Search above or tap 'Scan' to add items into your checked shopping baskets.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Shopping Baskets",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
+
+                            AppButton(
+                                onClick = {
+                                    newListNameText = ""
+                                    showCreateListDialog = true
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("New Basket", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
                         }
+
+                        AnimatedVisibility(visible = selectedListIds.isNotEmpty()) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${selectedListIds.size} selected",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        AppOutlinedButton(
+                                            onClick = { viewModel.clearSelectedBaskets() },
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(34.dp)
+                                        ) {
+                                            Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(15.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Clear", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                                        }
+
+                                        AppButton(
+                                            onClick = { viewModel.finishAndSaveSelectedBaskets() },
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(34.dp)
+                                        ) {
+                                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(15.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Save", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                                        }
+
+                                        FilledTonalIconButton(
+                                            onClick = { showConfirmDeleteBatch = true },
+                                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                            ),
+                                            modifier = Modifier.size(34.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Delete Selected Baskets",
+                                                modifier = Modifier.size(17.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Shopping Basket Cards List
+                if (allShoppingLists.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    "No shopping baskets created yet.",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "Tap '+ New Basket' above to create custom lists (e.g. Main Basket, Tesco Weekly). Checked baskets will automatically receive scanned or added items!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(allShoppingLists, key = { it.id }) { list ->
+                        val itemsInList = allShoppingListItems.filter { it.listId == list.id }
+                        ShoppingListCard(
+                            list = list,
+                            isSelected = selectedListIds.contains(list.id),
+                            itemsInList = itemsInList,
+                            pieceMap = allPiecesMap,
+                            currencySymbol = currencySymbol,
+                            defaultBudgetLimit = budgetLimit,
+                            onToggleSelect = { viewModel.toggleSelectList(list.id) },
+                            onRename = {
+                                listToRename = list
+                                renameListNameText = list.name
+                            },
+                            onCopy = {
+                                listToCopy = list
+                                copyListNameText = "${list.name} (Copy)"
+                            },
+                            onDelete = { listToDelete = list },
+                            onApplyVoucher = {
+                                listForVoucherDialog = list
+                                showVoucherDialog = true
+                            },
+                            onSetBudget = {
+                                listForBudgetDialog = list
+                                budgetInputText = if (list.budgetLimit > 0) String.format(Locale.US, "%.2f", list.budgetLimit) else if (budgetLimit > 0) String.format(Locale.US, "%.2f", budgetLimit) else ""
+                            },
+                            onRemoveItem = { barcode ->
+                                viewModel.removeShoppingListItem(list.id, barcode)
+                            }
+                        )
                     }
                 }
             }
@@ -747,7 +794,8 @@ fun QuickScanScreen(
             confirmButton = {
                 AppButton(
                     onClick = {
-                        val limit = budgetInputText.toDoubleOrNull() ?: 0.0
+                        val parsed = budgetInputText.toDoubleOrNull() ?: 0.0
+                        val limit = if (parsed > 0.0) parsed else -1.0
                         viewModel.setBasketBudgetLimit(list.id, limit)
                         listForBudgetDialog = null
                     }
@@ -757,10 +805,10 @@ fun QuickScanScreen(
             },
             dismissButton = {
                 Row {
-                    if (list.budgetLimit > 0) {
+                    if (list.budgetLimit > 0 || (list.budgetLimit == 0.0 && budgetLimit > 0)) {
                         TextButton(
                             onClick = {
-                                viewModel.setBasketBudgetLimit(list.id, 0.0)
+                                viewModel.setBasketBudgetLimit(list.id, -1.0)
                                 listForBudgetDialog = null
                             }
                         ) {

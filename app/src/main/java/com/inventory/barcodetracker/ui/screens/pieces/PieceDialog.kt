@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import com.inventory.barcodetracker.ui.components.AppButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
+import com.inventory.barcodetracker.ui.components.OfferSelectorDropdown
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,7 +60,6 @@ fun PieceDialog(
 ) {
     val isEditing = initialPiece != null
     val context = LocalContext.current
-    val focusManager = LocalFocusManager.current
     val barcodeScannerService = remember(context) { BarcodeScannerService(context) }
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
@@ -78,32 +78,7 @@ fun PieceDialog(
     var offerFixedPrice by remember { mutableStateOf(initialPiece?.offerFixedPrice?.let { if (it == 0.0) "" else String.format(Locale.US, "%.2f", it) } ?: "") }
     var offerPercentOff by remember { mutableStateOf(initialPiece?.offerPercentOff?.let { if (it == 0.0) "" else String.format(Locale.US, "%.0f", it) } ?: "") }
     var detectedOfferMessage by remember { mutableStateOf<String?>(null) }
-
-    fun offerTypeDisplayLabel(type: String): String = when (type) {
-        "THREE_FOR_TWO" -> "Buy X Pay Y (e.g. 3 for 2, BOGO)"
-        "MULTI_BUY_FIXED" -> "X for $currencySymbol Y (Multi-Buy Bundle)"
-        "REDUCED_PRICE" -> "Reduced to $currencySymbol Y (Special Price)"
-        "PERCENT_OFF" -> "% Discount"
-        else -> "No Offer"
-    }
-
-    var offerDropdownExpanded by remember { mutableStateOf(false) }
-    var offerSearchText by remember { mutableStateOf(offerTypeDisplayLabel(offerType)) }
-    var isOfferSearching by remember { mutableStateOf(false) }
     var offerFieldTopPx by remember { mutableIntStateOf(0) }
-
-    LaunchedEffect(offerType) {
-        if (!isOfferSearching) {
-            offerSearchText = offerTypeDisplayLabel(offerType)
-        }
-    }
-
-    LaunchedEffect(offerDropdownExpanded) {
-        if (offerDropdownExpanded) {
-            kotlinx.coroutines.delay(120)
-            scrollState.animateScrollTo(offerFieldTopPx)
-        }
-    }
 
     var nameError by remember { mutableStateOf<String?>(null) }
 
@@ -402,200 +377,44 @@ fun PieceDialog(
                         )
                     }
 
-                    val builtInOfferOptions = remember(currencySymbol) {
-                        listOf(
-                            "NONE" to "No Offer",
-                            "THREE_FOR_TWO" to "Buy X Pay Y (e.g. 3 for 2, BOGO)",
-                            "MULTI_BUY_FIXED" to "X for $currencySymbol Y (Multi-Buy Bundle)",
-                            "REDUCED_PRICE" to "Reduced to $currencySymbol Y (Special Price)",
-                            "PERCENT_OFF" to "% Discount"
-                        )
-                    }
-                    val libraryOffers = remember(savedOffers) {
-                        savedOffers.filter { it.offerType != "VOUCHER" }
-                    }
-                    val filterQuery = if (isOfferSearching) offerSearchText.trim() else ""
-                    val filteredBuiltIn = builtInOfferOptions.filter { (_, label) ->
-                        filterQuery.isEmpty() || label.contains(filterQuery, ignoreCase = true)
-                    }
-                    val filteredLibrary = libraryOffers.filter { offer ->
-                        filterQuery.isEmpty() ||
-                            offer.title.contains(filterQuery, ignoreCase = true) ||
-                            offer.getDisplayBadge(currencySymbol).contains(filterQuery, ignoreCase = true) ||
-                            offer.offerType.contains(filterQuery, ignoreCase = true)
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onGloballyPositioned { coords ->
-                                offerFieldTopPx = coords.positionInParent().y.toInt()
-                            },
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        AppOutlinedTextField(
-                            value = offerSearchText,
-                            onValueChange = {
-                                offerSearchText = it
-                                isOfferSearching = true
-                                if (!offerDropdownExpanded) offerDropdownExpanded = true
-                            },
-                            label = { Text("Offer Type or Saved Deal") },
-                            placeholder = { Text("Search offer or saved deal...") },
-                            singleLine = true,
-                            trailingIcon = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (offerSearchText.isNotEmpty()) {
-                                        IconButton(
-                                            onClick = {
-                                                offerSearchText = ""
-                                                isOfferSearching = true
-                                                offerDropdownExpanded = true
-                                            },
-                                            modifier = Modifier.size(32.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Clear,
-                                                contentDescription = "Clear offer search",
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-                                    IconButton(
-                                        onClick = {
-                                            val next = !offerDropdownExpanded
-                                            offerDropdownExpanded = next
-                                            if (!next) {
-                                                isOfferSearching = false
-                                                offerSearchText = offerTypeDisplayLabel(offerType)
-                                                focusManager.clearFocus()
-                                            }
-                                        },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (offerDropdownExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                            contentDescription = if (offerDropdownExpanded) "Collapse offers" else "Expand offers"
-                                        )
-                                    }
+                    OfferSelectorDropdown(
+                        offerType = offerType,
+                        currencySymbol = currencySymbol,
+                        savedOffers = savedOffers,
+                        onSelectBuiltInType = { typeKey ->
+                            offerType = typeKey
+                            when (typeKey) {
+                                "THREE_FOR_TWO" -> {
+                                    if (offerBuyQty.isBlank()) offerBuyQty = "3"
+                                    if (offerPayQty.isBlank()) offerPayQty = "2"
                                 }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .onFocusChanged { focusState ->
-                                    if (focusState.isFocused) {
-                                        offerDropdownExpanded = true
-                                    }
+                                "MULTI_BUY_FIXED" -> {
+                                    if (offerBuyQty.isBlank()) offerBuyQty = "2"
                                 }
-                        )
-
-                        AnimatedVisibility(visible = offerDropdownExpanded) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 200.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainer,
-                                border = BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
-                                ),
-                                tonalElevation = 2.dp
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .verticalScroll(rememberScrollState())
-                                        .padding(vertical = 4.dp)
-                                ) {
-                                    if (filteredLibrary.isNotEmpty()) {
-                                        Text(
-                                            text = "Saved Offers Library",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                                        )
-                                        filteredLibrary.forEach { offer ->
-                                            val badge = offer.getDisplayBadge(currencySymbol)
-                                            Text(
-                                                text = "🏷️ ${offer.title} ($badge)",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clickable {
-                                                        offerType = offer.offerType
-                                                        offerBuyQty = if (offer.buyQty > 0) offer.buyQty.toString() else ""
-                                                        offerPayQty = if (offer.payQty > 0) offer.payQty.toString() else ""
-                                                        offerFixedPrice = if (offer.fixedPrice > 0.0) String.format(Locale.US, "%.2f", offer.fixedPrice) else ""
-                                                        offerPercentOff = if (offer.percentOff > 0.0) String.format(Locale.US, "%.0f", offer.percentOff) else ""
-                                                        detectedOfferMessage = "Selected deal: \"${offer.title}\""
-                                                        isOfferSearching = false
-                                                        offerSearchText = "${offer.title} ($badge)"
-                                                        offerDropdownExpanded = false
-                                                        focusManager.clearFocus()
-                                                    }
-                                                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                                            )
-                                        }
-                                        if (filteredBuiltIn.isNotEmpty()) {
-                                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                                        }
-                                    }
-
-                                    if (filteredBuiltIn.isNotEmpty()) {
-                                        Text(
-                                            text = "Offer Types",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                                        )
-                                        filteredBuiltIn.forEach { (typeKey, label) ->
-                                            Text(
-                                                text = label,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = if (offerType == typeKey) FontWeight.SemiBold else FontWeight.Normal,
-                                                color = if (offerType == typeKey) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clickable {
-                                                        offerType = typeKey
-                                                        when (typeKey) {
-                                                            "THREE_FOR_TWO" -> {
-                                                                if (offerBuyQty.isBlank()) offerBuyQty = "3"
-                                                                if (offerPayQty.isBlank()) offerPayQty = "2"
-                                                            }
-                                                            "MULTI_BUY_FIXED" -> {
-                                                                if (offerBuyQty.isBlank()) offerBuyQty = "2"
-                                                            }
-                                                            "PERCENT_OFF" -> {
-                                                                if (offerPercentOff.isBlank()) offerPercentOff = "20"
-                                                            }
-                                                        }
-                                                        detectedOfferMessage = null
-                                                        isOfferSearching = false
-                                                        offerSearchText = label
-                                                        offerDropdownExpanded = false
-                                                        focusManager.clearFocus()
-                                                    }
-                                                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                                            )
-                                        }
-                                    }
-
-                                    if (filteredLibrary.isEmpty() && filteredBuiltIn.isEmpty()) {
-                                        Text(
-                                            text = "No matching offers",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
-                                        )
-                                    }
+                                "PERCENT_OFF" -> {
+                                    if (offerPercentOff.isBlank()) offerPercentOff = "20"
                                 }
                             }
+                            detectedOfferMessage = null
+                        },
+                        onSelectSavedOffer = { offer ->
+                            offerType = offer.offerType
+                            offerBuyQty = if (offer.buyQty > 0) offer.buyQty.toString() else ""
+                            offerPayQty = if (offer.payQty > 0) offer.payQty.toString() else ""
+                            offerFixedPrice = if (offer.fixedPrice > 0.0) String.format(Locale.US, "%.2f", offer.fixedPrice) else ""
+                            offerPercentOff = if (offer.percentOff > 0.0) String.format(Locale.US, "%.0f", offer.percentOff) else ""
+                            detectedOfferMessage = "Selected deal: \"${offer.title}\""
+                        },
+                        onExpanded = {
+                            coroutineScope.launch {
+                                kotlinx.coroutines.delay(120)
+                                scrollState.animateScrollTo(offerFieldTopPx)
+                            }
+                        },
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            offerFieldTopPx = coords.positionInParent().y.toInt()
                         }
-                    }
+                    )
 
                     if (offerType == "THREE_FOR_TWO") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

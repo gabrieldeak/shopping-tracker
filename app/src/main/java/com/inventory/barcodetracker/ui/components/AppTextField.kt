@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -28,6 +29,7 @@ fun AppSearchBar(
     placeholder: String,
     modifier: Modifier = Modifier,
     textFieldModifier: Modifier = Modifier,
+    onBackClick: (() -> Unit)? = null,
     trailingContent: @Composable (RowScope.() -> Unit)? = null,
 ) {
     Surface(
@@ -46,20 +48,39 @@ fun AppSearchBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    start = 16.dp,
+                    start = if (onBackClick != null) 6.dp else 16.dp,
                     end = if (trailingContent != null) 6.dp else 10.dp,
                     top = 6.dp,
                     bottom = 6.dp
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
+            if (onBackClick != null) {
+                Surface(
+                    onClick = onBackClick,
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Baskets",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+            }
             Box(
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.CenterStart

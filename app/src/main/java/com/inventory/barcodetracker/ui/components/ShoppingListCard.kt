@@ -1,6 +1,7 @@
 package com.inventory.barcodetracker.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -106,7 +107,11 @@ fun ShoppingListCard(
         }
     }
 
-    val effectiveBudgetLimit = if (list.budgetLimit > 0) list.budgetLimit else defaultBudgetLimit
+    val effectiveBudgetLimit = when {
+        list.budgetLimit < 0.0 -> 0.0
+        list.budgetLimit > 0.0 -> list.budgetLimit
+        else -> defaultBudgetLimit
+    }
     val isOverBudget = effectiveBudgetLimit > 0 && itemsSubtotal >= effectiveBudgetLimit
     val budgetProgress = if (effectiveBudgetLimit > 0) (itemsSubtotal / effectiveBudgetLimit).coerceIn(0.0, 1.0).toFloat() else 0f
 
@@ -162,127 +167,131 @@ fun ShoppingListCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { isExpanded = !isExpanded },
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = if (isOverBudget) MaterialTheme.colorScheme.errorContainer else if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
             )
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                // Collapsed Header Row
+            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                // Compact Primary Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Checkbox(
-                            checked = isSelected,
-                            onCheckedChange = { onToggleSelect() }
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clickable { onRename() }
-                            ) {
-                                Text(
-                                    text = if (isOverBudget) "${list.name} (Budget Reached!)" else list.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Rename Basket",
-                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = { onToggleSelect() },
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             Text(
-                                text = String.format(Locale.US, "%s%.2f", currencySymbol, itemsSubtotal),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
+                                text = list.name,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (isOverBudget) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.error,
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Over Budget",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onError,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = if (totalCount == 1) "1 item" else "$totalCount items",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
                             )
                             if (totalSavings > 0) {
                                 Text(
-                                    text = String.format(Locale.US, "Saved %s%.2f with deals", currencySymbol, totalSavings),
+                                    text = String.format(Locale.US, "• Saved %s%.2f", currencySymbol, totalSavings),
                                     style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.tertiary
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    maxLines = 1
                                 )
                             }
                         }
                     }
 
-                    Column(horizontalAlignment = Alignment.End) {
-                        Surface(
-                            color = if (isOverBudget) MaterialTheme.colorScheme.error else if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text(
-                                text = "$totalCount items in cart",
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isOverBudget) MaterialTheme.colorScheme.onError else if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                        if (effectiveBudgetLimit > 0) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = String.format(Locale.US, "Limit: %s%.2f", currencySymbol, effectiveBudgetLimit),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        IconButton(onClick = { isExpanded = !isExpanded }, modifier = Modifier.size(28.dp)) {
-                            Icon(
-                                imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = if (isExpanded) "Collapse" else "Expand",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = String.format(Locale.US, "%s%.2f", currencySymbol, itemsSubtotal),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
+                    )
+
+                    IconButton(
+                        onClick = { isExpanded = !isExpanded },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            tint = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
 
-                // Budget Limit Visual Progress Bar
+                // Compact Budget Meter (always visible when a budget is set)
                 if (effectiveBudgetLimit > 0) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    LinearProgressIndicator(
-                        progress = { budgetProgress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
-                        color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val remaining = effectiveBudgetLimit - itemsSubtotal
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = String.format(Locale.US, "%s%.2f spent", currencySymbol, itemsSubtotal),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                        LinearProgressIndicator(
+                            progress = { budgetProgress },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
                         )
-                        val remaining = effectiveBudgetLimit - itemsSubtotal
-                        Text(
-                            text = if (remaining >= 0) String.format(Locale.US, "%s%.2f remaining", currencySymbol, remaining)
-                            else String.format(Locale.US, "Exceeded by %s%.2f", currencySymbol, -remaining),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isOverBudget) MaterialTheme.colorScheme.error else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isOverBudget) MaterialTheme.colorScheme.error.copy(alpha = 0.14f)
+                            else MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
+                        ) {
+                            Text(
+                                text = if (remaining >= 0) String.format(Locale.US, "%s%.2f left", currencySymbol, remaining)
+                                else String.format(Locale.US, "+%s%.2f over", currencySymbol, -remaining),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
 
@@ -418,36 +427,60 @@ fun ShoppingListCard(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Streamlined Actions Row
+                        // Streamlined Full-Width Actions Row
+                        val actionColors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                        val actionBorder = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                        )
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            TextButton(onClick = onSetBudget) {
-                                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(16.dp))
+                            AppOutlinedButton(
+                                onClick = onSetBudget,
+                                colors = actionColors,
+                                border = actionBorder,
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp)
+                            ) {
+                                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Set Budget", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text("Budget", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
 
-                            TextButton(onClick = onApplyVoucher) {
-                                Icon(Icons.Default.LocalOffer, contentDescription = null, modifier = Modifier.size(16.dp))
+                            AppOutlinedButton(
+                                onClick = onApplyVoucher,
+                                colors = actionColors,
+                                border = actionBorder,
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp)
+                            ) {
+                                Icon(Icons.Default.LocalOffer, contentDescription = null, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("+ Apply Voucher", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text("Voucher", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
 
-                            TextButton(onClick = onRename) {
-                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                            AppOutlinedButton(
+                                onClick = onRename,
+                                colors = actionColors,
+                                border = actionBorder,
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp)
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Rename", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-
-                            TextButton(onClick = onDelete) {
-                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Delete", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error, maxLines = 1)
                             }
                         }
 
@@ -460,14 +493,14 @@ fun ShoppingListCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = RoundedCornerShape(12.dp)
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
                                     text = "↔ Swipe card: Right to Duplicate • Left to Delete",
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }

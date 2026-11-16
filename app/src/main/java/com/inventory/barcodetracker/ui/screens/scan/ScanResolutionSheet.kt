@@ -21,6 +21,7 @@ import com.inventory.barcodetracker.ui.components.AppButton
 import com.inventory.barcodetracker.ui.components.AppFilledTonalButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
+import com.inventory.barcodetracker.ui.components.OfferSelectorDropdown
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -314,40 +315,16 @@ private fun PieceResolutionContent(
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
 
-                if (savedOffers.isNotEmpty()) {
-                    Text(
-                        "Pick from Saved Offers Library:",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        savedOffers.forEach { offer ->
-                            AssistChip(
-                                onClick = {
-                                    offerType = offer.offerType
-                                    offerBuyQty = if (offer.buyQty > 0) offer.buyQty.toString() else ""
-                                    offerPayQty = if (offer.payQty > 0) offer.payQty.toString() else ""
-                                    offerFixedPrice = if (offer.fixedPrice > 0.0) String.format(Locale.US, "%.2f", offer.fixedPrice) else ""
-                                    offerPercentOff = if (offer.percentOff > 0.0) String.format(Locale.US, "%.0f", offer.percentOff) else ""
-                                },
-                                label = { Text("${offer.title} (${offer.displayBadge})") }
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Select Offer Type:",
+                        "Store Special Offer / Multi-Buy",
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                     IconButton(onClick = { cameraOfferLauncher.launch(null) }) {
                         Icon(
@@ -368,63 +345,35 @@ private fun PieceResolutionContent(
                     Spacer(modifier = Modifier.height(6.dp))
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = offerType == "NONE",
-                        onClick = { offerType = "NONE" },
-                        label = { Text("No Offer") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    FilterChip(
-                        selected = offerType == "THREE_FOR_TWO",
-                        onClick = {
-                            offerType = "THREE_FOR_TWO"
-                            if (offerBuyQty.isBlank()) offerBuyQty = "3"
-                            if (offerPayQty.isBlank()) offerPayQty = "2"
-                        },
-                        label = { Text("Buy X Pay Y") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = offerType == "MULTI_BUY_FIXED",
-                        onClick = {
-                            offerType = "MULTI_BUY_FIXED"
-                            if (offerBuyQty.isBlank()) offerBuyQty = "2"
-                        },
-                        label = { Text("X for $currencySymbol Y") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    FilterChip(
-                        selected = offerType == "REDUCED_PRICE",
-                        onClick = { offerType = "REDUCED_PRICE" },
-                        label = { Text("Reduced to $currencySymbol Y") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = offerType == "PERCENT_OFF",
-                        onClick = {
-                            offerType = "PERCENT_OFF"
-                            if (offerPercentOff.isBlank()) offerPercentOff = "20"
-                        },
-                        label = { Text("% Discount") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                OfferSelectorDropdown(
+                    offerType = offerType,
+                    currencySymbol = currencySymbol,
+                    savedOffers = savedOffers,
+                    onSelectBuiltInType = { typeKey ->
+                        offerType = typeKey
+                        when (typeKey) {
+                            "THREE_FOR_TWO" -> {
+                                if (offerBuyQty.isBlank()) offerBuyQty = "3"
+                                if (offerPayQty.isBlank()) offerPayQty = "2"
+                            }
+                            "MULTI_BUY_FIXED" -> {
+                                if (offerBuyQty.isBlank()) offerBuyQty = "2"
+                            }
+                            "PERCENT_OFF" -> {
+                                if (offerPercentOff.isBlank()) offerPercentOff = "20"
+                            }
+                        }
+                        detectedOfferMessage = null
+                    },
+                    onSelectSavedOffer = { offer ->
+                        offerType = offer.offerType
+                        offerBuyQty = if (offer.buyQty > 0) offer.buyQty.toString() else ""
+                        offerPayQty = if (offer.payQty > 0) offer.payQty.toString() else ""
+                        offerFixedPrice = if (offer.fixedPrice > 0.0) String.format(Locale.US, "%.2f", offer.fixedPrice) else ""
+                        offerPercentOff = if (offer.percentOff > 0.0) String.format(Locale.US, "%.0f", offer.percentOff) else ""
+                        detectedOfferMessage = "Selected deal: \"${offer.title}\""
+                    }
+                )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -919,43 +868,35 @@ private fun NotFoundResolutionContent(
                 Spacer(modifier = Modifier.height(4.dp))
             }
 
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(
-                    selected = offerType == "NONE",
-                    onClick = { offerType = "NONE" },
-                    label = { Text("No Offer") }
-                )
-                FilterChip(
-                    selected = offerType == "THREE_FOR_TWO",
-                    onClick = {
-                        offerType = "THREE_FOR_TWO"
-                        if (offerBuyQty.isBlank()) offerBuyQty = "3"
-                        if (offerPayQty.isBlank()) offerPayQty = "2"
-                    },
-                    label = { Text("Buy X Pay Y (3 for 2)") }
-                )
-                FilterChip(
-                    selected = offerType == "MULTI_BUY_FIXED",
-                    onClick = {
-                        offerType = "MULTI_BUY_FIXED"
-                        if (offerBuyQty.isBlank()) offerBuyQty = "2"
-                    },
-                    label = { Text("X for $currencySymbol Y (2 for ${currencySymbol}5)") }
-                )
-                FilterChip(
-                    selected = offerType == "REDUCED_PRICE",
-                    onClick = { offerType = "REDUCED_PRICE" },
-                    label = { Text("Reduced to $currencySymbol Y") }
-                )
-                FilterChip(
-                    selected = offerType == "PERCENT_OFF",
-                    onClick = {
-                        offerType = "PERCENT_OFF"
-                        if (offerPercentOff.isBlank()) offerPercentOff = "20"
-                    },
-                    label = { Text("% Off / Half Price") }
-                )
-            }
+            OfferSelectorDropdown(
+                offerType = offerType,
+                currencySymbol = currencySymbol,
+                savedOffers = savedOffers,
+                onSelectBuiltInType = { typeKey ->
+                    offerType = typeKey
+                    when (typeKey) {
+                        "THREE_FOR_TWO" -> {
+                            if (offerBuyQty.isBlank()) offerBuyQty = "3"
+                            if (offerPayQty.isBlank()) offerPayQty = "2"
+                        }
+                        "MULTI_BUY_FIXED" -> {
+                            if (offerBuyQty.isBlank()) offerBuyQty = "2"
+                        }
+                        "PERCENT_OFF" -> {
+                            if (offerPercentOff.isBlank()) offerPercentOff = "20"
+                        }
+                    }
+                    detectedOfferMessage = null
+                },
+                onSelectSavedOffer = { offer ->
+                    offerType = offer.offerType
+                    offerBuyQty = if (offer.buyQty > 0) offer.buyQty.toString() else ""
+                    offerPayQty = if (offer.payQty > 0) offer.payQty.toString() else ""
+                    offerFixedPrice = if (offer.fixedPrice > 0.0) String.format(Locale.US, "%.2f", offer.fixedPrice) else ""
+                    offerPercentOff = if (offer.percentOff > 0.0) String.format(Locale.US, "%.0f", offer.percentOff) else ""
+                    detectedOfferMessage = "Selected deal: \"${offer.title}\""
+                }
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
