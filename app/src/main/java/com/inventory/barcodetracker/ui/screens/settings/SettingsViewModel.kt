@@ -90,7 +90,7 @@ class SettingsViewModel(
                         pieces.size
                     } ?: 0
                 }
-                _snackbarMessages.emit("Imported $count shopping item(s) into My Items.")
+                _snackbarMessages.emit("Imported $count shopping item(s) into Items.")
             } catch (e: Exception) {
                 _snackbarMessages.emit("Failed to import items: ${e.message}")
             }

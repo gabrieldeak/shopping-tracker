@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Scan : Screen("scan", "Quick Scan", Icons.Default.QrCodeScanner)
-    object Items : Screen("items", "My Items", Icons.Default.Inventory2)
+    object Items : Screen("items", "Items", Icons.Default.Inventory2)
     object Offers : Screen("offers", "Offers", Icons.Default.LocalOffer)
     object Trips : Screen("trips", "History", Icons.AutoMirrored.Filled.ReceiptLong)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)

@@ -12,8 +12,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class TripsViewModel(
     private val repository: InventoryRepository,
@@ -22,12 +26,33 @@ class TripsViewModel(
 
     val currencySymbol: StateFlow<String> = currencyPreferences.currencySymbol
 
-    val shoppingTrips: StateFlow<List<ShoppingTripEntity>> = repository.allShoppingTrips
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
-        )
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    val shoppingTrips: StateFlow<List<ShoppingTripEntity>> = combine(
+        repository.allShoppingTrips,
+        _searchQuery
+    ) { trips, query ->
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            trips
+        } else {
+            val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+            trips.filter { trip ->
+                trip.itemsSummary.contains(trimmed, ignoreCase = true) ||
+                    sdf.format(Date(trip.tripDate)).contains(trimmed, ignoreCase = true) ||
+                    String.format(Locale.US, "%.2f", trip.totalCost).contains(trimmed)
+            }
+        }
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        emptyList()
+    )
+
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+    }
 
     private val _selectedTripIds = MutableStateFlow<Set<Long>>(emptySet())
     val selectedTripIds: StateFlow<Set<Long>> = _selectedTripIds.asStateFlow()

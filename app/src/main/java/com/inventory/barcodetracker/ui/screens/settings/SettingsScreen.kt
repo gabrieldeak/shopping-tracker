@@ -486,7 +486,7 @@ fun SettingsScreen(
 
             // My Items Catalog Card
             DataTransferCard(
-                title = "My Items Catalog",
+                title = "Items Catalog",
                 subtitle = "shopping_items.csv (Barcode, Name, Price, Category, Notes)",
                 icon = Icons.Default.Inventory2,
                 onExport = { exportItemsLauncher.launch("shopping_items.csv") },

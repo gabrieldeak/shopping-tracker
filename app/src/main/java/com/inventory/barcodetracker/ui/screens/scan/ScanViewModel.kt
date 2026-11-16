@@ -660,7 +660,7 @@ class ScanViewModel(
                 currencySymbol = symbol,
             )
             _appliedCartVouchers.value = emptyList()
-            _snackbarMessages.emit("Basket saved to History! Items remain in My Items.")
+            _snackbarMessages.emit("Basket saved to History! Items remain in Items.")
         }
     }
 
@@ -668,7 +668,7 @@ class ScanViewModel(
         viewModelScope.launch {
             repository.resetCartQuantities()
             _appliedCartVouchers.value = emptyList()
-            _snackbarMessages.emit("Basket cleared. Items remain saved in My Items.")
+            _snackbarMessages.emit("Basket cleared. Items remain saved in Items.")
         }
     }
 }
