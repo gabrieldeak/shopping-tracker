@@ -36,7 +36,9 @@ class PiecesViewModel(
     val snackbarMessages: SharedFlow<String> = _snackbarMessages.asSharedFlow()
 
     private val _selectedBarcodes = MutableStateFlow<Set<String>>(emptySet())
-    val selectedBarcodes: StateFlow<Set<String>> = _selectedBarcodes.asStateFlow()
+    val selectedBarcodes: StateFlow<Set<String>> = combine(_selectedBarcodes, repository.allPieces) { selected, pieces ->
+        selected.intersect(pieces.map { it.barcode }.toSet())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     val allShoppingLists: StateFlow<List<ShoppingListEntity>> = repository.allShoppingLists
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

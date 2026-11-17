@@ -8,6 +8,8 @@ import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.data.local.entity.ProductOfferHistoryEntity
 import com.inventory.barcodetracker.data.local.entity.ProductPieceCrossRef
+import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
+import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 import org.json.JSONArray
 import org.json.JSONObject
@@ -23,9 +25,12 @@ data class FullBackupPayload(
     val shoppingTrips: List<ShoppingTripEntity>,
     val offers: List<OfferEntity> = emptyList(),
     val offerHistory: List<ProductOfferHistoryEntity> = emptyList(),
+    val shoppingLists: List<ShoppingListEntity> = emptyList(),
+    val shoppingListItems: List<ShoppingListItemEntity> = emptyList(),
     val currencySymbol: String,
     val budgetLimit: Double,
     val themeMode: String,
+    val capitalizationMode: String = "TITLE_CASE",
 )
 
 object BackupRestoreService {
@@ -38,16 +43,20 @@ object BackupRestoreService {
         shoppingTrips: List<ShoppingTripEntity>,
         offers: List<OfferEntity> = emptyList(),
         offerHistory: List<ProductOfferHistoryEntity> = emptyList(),
+        shoppingLists: List<ShoppingListEntity> = emptyList(),
+        shoppingListItems: List<ShoppingListItemEntity> = emptyList(),
         currencySymbol: String,
         budgetLimit: Double,
         themeMode: String,
+        capitalizationMode: String = "TITLE_CASE",
     ) {
         val rootJson = JSONObject()
-        rootJson.put("version", 1)
+        rootJson.put("version", 2)
         rootJson.put("timestamp", System.currentTimeMillis())
         rootJson.put("currencySymbol", currencySymbol)
         rootJson.put("budgetLimit", budgetLimit)
         rootJson.put("themeMode", themeMode)
+        rootJson.put("capitalizationMode", capitalizationMode)
 
         // 1. Pieces Array
         val piecesArr = JSONArray()
@@ -140,6 +149,38 @@ object BackupRestoreService {
         }
         rootJson.put("offerHistory", historyArr)
 
+        // 7. Shopping Lists (Baskets)
+        val listsArr = JSONArray()
+        for (list in shoppingLists) {
+            val obj = JSONObject()
+            obj.put("id", list.id)
+            obj.put("name", list.name)
+            obj.put("budgetLimit", list.budgetLimit)
+            obj.put("isArchived", list.isArchived)
+            obj.put("createdAt", list.createdAt)
+            listsArr.put(obj)
+        }
+        rootJson.put("shoppingLists", listsArr)
+
+        // 8. Shopping List Items
+        val listItemsArr = JSONArray()
+        for (item in shoppingListItems) {
+            val obj = JSONObject()
+            obj.put("listId", item.listId)
+            obj.put("barcode", item.barcode)
+            obj.put("quantity", item.quantity)
+            obj.put("unitPrice", item.unitPrice)
+            obj.put("offerType", item.offerType)
+            obj.put("offerBuyQty", item.offerBuyQty)
+            obj.put("offerPayQty", item.offerPayQty)
+            obj.put("offerFixedPrice", item.offerFixedPrice)
+            obj.put("offerPercentOff", item.offerPercentOff)
+            obj.put("addedAt", item.addedAt)
+            obj.put("isChecked", item.isChecked)
+            listItemsArr.put(obj)
+        }
+        rootJson.put("shoppingListItems", listItemsArr)
+
         outputStream.write(rootJson.toString(2).toByteArray(StandardCharsets.UTF_8))
         outputStream.flush()
     }
@@ -163,6 +204,7 @@ object BackupRestoreService {
         val currencySymbol = root.optString("currencySymbol", "$")
         val budgetLimit = root.optDouble("budgetLimit", 0.0)
         val themeMode = root.optString("themeMode", "system")
+        val capitalizationMode = root.optString("capitalizationMode", "TITLE_CASE")
 
         // Parse Pieces
         val piecesList = mutableListOf<PieceEntity>()
@@ -285,6 +327,50 @@ object BackupRestoreService {
             }
         }
 
+        // Parse Shopping Lists
+        val shoppingLists = mutableListOf<ShoppingListEntity>()
+        val listsArr = root.optJSONArray("shoppingLists")
+        if (listsArr != null) {
+            for (i in 0 until listsArr.length()) {
+                val obj = listsArr.getJSONObject(i)
+                shoppingLists.add(
+                    ShoppingListEntity(
+                        id = obj.optLong("id", 0),
+                        name = obj.optString("name", "Shopping Basket"),
+                        budgetLimit = obj.optDouble("budgetLimit", 0.0),
+                        isArchived = obj.optBoolean("isArchived", false),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    )
+                )
+            }
+        }
+
+        // Parse Shopping List Items
+        val shoppingListItems = mutableListOf<ShoppingListItemEntity>()
+        val listItemsArr = root.optJSONArray("shoppingListItems")
+        if (listItemsArr != null) {
+            for (i in 0 until listItemsArr.length()) {
+                val obj = listItemsArr.getJSONObject(i)
+                val barcode = obj.optString("barcode", "")
+                if (barcode.isBlank()) continue
+                shoppingListItems.add(
+                    ShoppingListItemEntity(
+                        listId = obj.optLong("listId", 0),
+                        barcode = barcode,
+                        quantity = obj.optInt("quantity", 1),
+                        unitPrice = obj.optDouble("unitPrice", 0.0),
+                        offerType = obj.optString("offerType", "NONE"),
+                        offerBuyQty = obj.optInt("offerBuyQty", 0),
+                        offerPayQty = obj.optInt("offerPayQty", 0),
+                        offerFixedPrice = obj.optDouble("offerFixedPrice", 0.0),
+                        offerPercentOff = obj.optDouble("offerPercentOff", 0.0),
+                        addedAt = obj.optLong("addedAt", System.currentTimeMillis()),
+                        isChecked = obj.optBoolean("isChecked", false)
+                    )
+                )
+            }
+        }
+
         return FullBackupPayload(
             pieces = piecesList,
             products = productsList,
@@ -292,9 +378,12 @@ object BackupRestoreService {
             shoppingTrips = tripsList,
             offers = offersList,
             offerHistory = historyList,
+            shoppingLists = shoppingLists,
+            shoppingListItems = shoppingListItems,
             currencySymbol = currencySymbol,
             budgetLimit = budgetLimit,
             themeMode = themeMode,
+            capitalizationMode = capitalizationMode,
         )
     }
 
@@ -306,7 +395,9 @@ object BackupRestoreService {
         productPieces: List<ProductPieceCrossRef>,
         shoppingTrips: List<ShoppingTripEntity>,
         offers: List<OfferEntity>,
-        offerHistory: List<ProductOfferHistoryEntity>
+        offerHistory: List<ProductOfferHistoryEntity>,
+        shoppingLists: List<ShoppingListEntity> = emptyList(),
+        shoppingListItems: List<ShoppingListItemEntity> = emptyList()
     ) {
         val tempFile = File.createTempFile("export_db", ".db", context.cacheDir)
         if (tempFile.exists()) tempFile.delete()
@@ -482,6 +573,65 @@ object BackupRestoreService {
                 stmtHist.executeInsert()
             }
 
+            // 7. Shopping Lists Table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `shopping_lists` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `budgetLimit` REAL NOT NULL,
+                    `isArchived` INTEGER NOT NULL,
+                    `createdAt` INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            val stmtList = db.compileStatement("INSERT OR REPLACE INTO `shopping_lists` VALUES (?, ?, ?, ?, ?)")
+            for (list in shoppingLists) {
+                stmtList.clearBindings()
+                if (list.id != 0L) stmtList.bindLong(1, list.id) else stmtList.bindNull(1)
+                stmtList.bindString(2, list.name)
+                stmtList.bindDouble(3, list.budgetLimit)
+                stmtList.bindLong(4, if (list.isArchived) 1L else 0L)
+                stmtList.bindLong(5, list.createdAt)
+                stmtList.executeInsert()
+            }
+
+            // 8. Shopping List Items Table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `shopping_list_items` (
+                    `listId` INTEGER NOT NULL,
+                    `barcode` TEXT NOT NULL,
+                    `quantity` INTEGER NOT NULL,
+                    `unitPrice` REAL NOT NULL,
+                    `offerType` TEXT NOT NULL,
+                    `offerBuyQty` INTEGER NOT NULL,
+                    `offerPayQty` INTEGER NOT NULL,
+                    `offerFixedPrice` REAL NOT NULL,
+                    `offerPercentOff` REAL NOT NULL,
+                    `addedAt` INTEGER NOT NULL,
+                    `isChecked` INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(`listId`, `barcode`)
+                )
+                """.trimIndent()
+            )
+            val stmtListItem = db.compileStatement("INSERT OR REPLACE INTO `shopping_list_items` VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            for (item in shoppingListItems) {
+                stmtListItem.clearBindings()
+                stmtListItem.bindLong(1, item.listId)
+                stmtListItem.bindString(2, item.barcode)
+                stmtListItem.bindLong(3, item.quantity.toLong())
+                stmtListItem.bindDouble(4, item.unitPrice)
+                stmtListItem.bindString(5, item.offerType)
+                stmtListItem.bindLong(6, item.offerBuyQty.toLong())
+                stmtListItem.bindLong(7, item.offerPayQty.toLong())
+                stmtListItem.bindDouble(8, item.offerFixedPrice)
+                stmtListItem.bindDouble(9, item.offerPercentOff)
+                stmtListItem.bindLong(10, item.addedAt)
+                stmtListItem.bindLong(11, if (item.isChecked) 1L else 0L)
+                stmtListItem.executeInsert()
+            }
+
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -620,7 +770,6 @@ object BackupRestoreService {
             val cursor = db.rawQuery("SELECT * FROM offers", null)
             while (cursor.moveToNext()) {
                 val title = cursor.optStr("title")
-                if (title.isBlank()) continue
                 offersList.add(
                     OfferEntity(
                         id = 0,
@@ -657,6 +806,48 @@ object BackupRestoreService {
             cursor.close()
         } catch (_: Exception) {}
 
+        val shoppingLists = mutableListOf<ShoppingListEntity>()
+        try {
+            val cursor = db.rawQuery("SELECT * FROM shopping_lists", null)
+            while (cursor.moveToNext()) {
+                shoppingLists.add(
+                    ShoppingListEntity(
+                        id = cursor.optLong("id", 0),
+                        name = cursor.optStr("name", "Shopping Basket"),
+                        budgetLimit = cursor.optDbl("budgetLimit"),
+                        isArchived = cursor.optInt("isArchived") != 0,
+                        createdAt = cursor.optLong("createdAt", System.currentTimeMillis())
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+
+        val shoppingListItems = mutableListOf<ShoppingListItemEntity>()
+        try {
+            val cursor = db.rawQuery("SELECT * FROM shopping_list_items", null)
+            while (cursor.moveToNext()) {
+                val barcode = cursor.optStr("barcode")
+                if (barcode.isBlank()) continue
+                shoppingListItems.add(
+                    ShoppingListItemEntity(
+                        listId = cursor.optLong("listId"),
+                        barcode = barcode,
+                        quantity = cursor.optInt("quantity", 1),
+                        unitPrice = cursor.optDbl("unitPrice"),
+                        offerType = cursor.optStr("offerType", "NONE"),
+                        offerBuyQty = cursor.optInt("offerBuyQty"),
+                        offerPayQty = cursor.optInt("offerPayQty"),
+                        offerFixedPrice = cursor.optDbl("offerFixedPrice"),
+                        offerPercentOff = cursor.optDbl("offerPercentOff"),
+                        addedAt = cursor.optLong("addedAt", System.currentTimeMillis()),
+                        isChecked = cursor.optInt("isChecked") != 0
+                    )
+                )
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+
         db.close()
         tempFile.delete()
 
@@ -667,6 +858,8 @@ object BackupRestoreService {
             shoppingTrips = tripsList,
             offers = offersList,
             offerHistory = historyList,
+            shoppingLists = shoppingLists,
+            shoppingListItems = shoppingListItems,
             currencySymbol = "$",
             budgetLimit = 0.0,
             themeMode = "system"

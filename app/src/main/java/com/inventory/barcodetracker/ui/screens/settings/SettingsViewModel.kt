@@ -140,6 +140,8 @@ class SettingsViewModel(
                     val trips = repository.allShoppingTrips.firstOrNull() ?: emptyList()
                     val offers = repository.getAllOffersSync()
                     val history = repository.getAllOfferHistorySync()
+                    val shoppingLists = repository.getAllShoppingListsSync()
+                    val shoppingListItems = repository.getAllShoppingListItemsSync()
 
                     contentResolver.openOutputStream(uri)?.use { outputStream ->
                         BackupRestoreService.exportFullBackup(
@@ -150,9 +152,12 @@ class SettingsViewModel(
                             shoppingTrips = trips,
                             offers = offers,
                             offerHistory = history,
+                            shoppingLists = shoppingLists,
+                            shoppingListItems = shoppingListItems,
                             currencySymbol = currencySymbol.value,
                             budgetLimit = budgetLimit.value,
                             themeMode = themeMode.value,
+                            capitalizationMode = capitalizationMode.value,
                         )
                     }
                 }
@@ -178,6 +183,9 @@ class SettingsViewModel(
                         if (payload.themeMode in listOf("light", "dark", "system")) {
                             currencyPreferences.setThemeMode(payload.themeMode)
                         }
+                        if (payload.capitalizationMode in listOf("TITLE_CASE", "FIRST_LETTER", "NONE")) {
+                            currencyPreferences.setCapitalizationMode(payload.capitalizationMode)
+                        }
 
                         repository.importPieces(payload.pieces)
                         repository.importProducts(payload.products)
@@ -185,7 +193,9 @@ class SettingsViewModel(
                         repository.importOffers(payload.offers)
                         repository.importShoppingTrips(payload.shoppingTrips)
                         repository.importOfferHistory(payload.offerHistory)
-                        "Restored ${payload.pieces.size} items, ${payload.products.size} products, ${payload.offers.size} offers & ${payload.shoppingTrips.size} receipts!"
+                        repository.importShoppingLists(payload.shoppingLists)
+                        repository.importShoppingListItems(payload.shoppingListItems)
+                        "Restored ${payload.pieces.size} items, ${payload.shoppingLists.size} baskets, ${payload.offers.size} offers & ${payload.shoppingTrips.size} receipts!"
                     }
                 }
                 _snackbarMessages.emit(summary ?: "Could not parse backup file.")
@@ -205,6 +215,8 @@ class SettingsViewModel(
                     val trips = repository.allShoppingTrips.firstOrNull() ?: emptyList()
                     val offers = repository.getAllOffersSync()
                     val history = repository.getAllOfferHistorySync()
+                    val shoppingLists = repository.getAllShoppingListsSync()
+                    val shoppingListItems = repository.getAllShoppingListItemsSync()
 
                     contentResolver.openOutputStream(uri)?.use { outputStream ->
                         BackupRestoreService.exportDatabaseFile(
@@ -216,6 +228,8 @@ class SettingsViewModel(
                             shoppingTrips = trips,
                             offers = offers,
                             offerHistory = history,
+                            shoppingLists = shoppingLists,
+                            shoppingListItems = shoppingListItems,
                         )
                     }
                 }
@@ -238,7 +252,9 @@ class SettingsViewModel(
                         repository.importOffers(payload.offers)
                         repository.importShoppingTrips(payload.shoppingTrips)
                         repository.importOfferHistory(payload.offerHistory)
-                        "Restored ${payload.pieces.size} items, ${payload.products.size} products, ${payload.offers.size} offers & ${payload.shoppingTrips.size} receipts!"
+                        repository.importShoppingLists(payload.shoppingLists)
+                        repository.importShoppingListItems(payload.shoppingListItems)
+                        "Restored ${payload.pieces.size} items, ${payload.shoppingLists.size} baskets, ${payload.offers.size} offers & ${payload.shoppingTrips.size} receipts!"
                     }
                 }
                 _snackbarMessages.emit(summary ?: "Could not parse database file.")
@@ -262,6 +278,8 @@ class SettingsViewModel(
                     val trips = repository.allShoppingTrips.firstOrNull() ?: emptyList()
                     val offers = repository.getAllOffersSync()
                     val history = repository.getAllOfferHistorySync()
+                    val shoppingLists = repository.getAllShoppingListsSync()
+                    val shoppingListItems = repository.getAllShoppingListItemsSync()
 
                     FileOutputStream(backupFile).use { outputStream ->
                         BackupRestoreService.exportFullBackup(
@@ -272,9 +290,12 @@ class SettingsViewModel(
                             shoppingTrips = trips,
                             offers = offers,
                             offerHistory = history,
+                            shoppingLists = shoppingLists,
+                            shoppingListItems = shoppingListItems,
                             currencySymbol = currencySymbol.value,
                             budgetLimit = budgetLimit.value,
                             themeMode = themeMode.value,
+                            capitalizationMode = capitalizationMode.value,
                         )
                     }
                     backupFile
@@ -314,6 +335,8 @@ class SettingsViewModel(
                     val trips = repository.allShoppingTrips.firstOrNull() ?: emptyList()
                     val offers = repository.getAllOffersSync()
                     val history = repository.getAllOfferHistorySync()
+                    val shoppingLists = repository.getAllShoppingListsSync()
+                    val shoppingListItems = repository.getAllShoppingListItemsSync()
 
                     FileOutputStream(targetFile).use { outputStream ->
                         BackupRestoreService.exportDatabaseFile(
@@ -325,6 +348,8 @@ class SettingsViewModel(
                             shoppingTrips = trips,
                             offers = offers,
                             offerHistory = history,
+                            shoppingLists = shoppingLists,
+                            shoppingListItems = shoppingListItems,
                         )
                     }
                     targetFile
@@ -387,7 +412,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             try {
                 repository.seedSampleData()
-                _snackbarMessages.emit("Sample parts, products, and BOM seeded successfully!")
+                _snackbarMessages.emit("Sample grocery items and offers loaded.")
             } catch (e: Exception) {
                 _snackbarMessages.emit("Failed to seed data: ${e.message}")
             }
@@ -398,7 +423,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             try {
                 repository.clearAllData()
-                _snackbarMessages.emit("Cleared all inventory, products, and BOM data.")
+                _snackbarMessages.emit("All baskets, items, offers, and shopping history have been cleared.")
             } catch (e: Exception) {
                 _snackbarMessages.emit("Failed to clear data: ${e.message}")
             }

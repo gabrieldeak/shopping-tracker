@@ -55,7 +55,9 @@ class TripsViewModel(
     }
 
     private val _selectedTripIds = MutableStateFlow<Set<Long>>(emptySet())
-    val selectedTripIds: StateFlow<Set<Long>> = _selectedTripIds.asStateFlow()
+    val selectedTripIds: StateFlow<Set<Long>> = combine(_selectedTripIds, repository.allShoppingTrips) { selected, trips ->
+        selected.intersect(trips.map { it.id }.toSet())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     private val _snackbarMessages = MutableSharedFlow<String>()
     val snackbarMessages: SharedFlow<String> = _snackbarMessages.asSharedFlow()

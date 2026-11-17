@@ -48,7 +48,9 @@ class OffersViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedOfferIds = MutableStateFlow<Set<Long>>(emptySet())
-    val selectedOfferIds: StateFlow<Set<Long>> = _selectedOfferIds.asStateFlow()
+    val selectedOfferIds: StateFlow<Set<Long>> = combine(_selectedOfferIds, repository.allOffers) { selected, offers ->
+        selected.intersect(offers.map { it.id }.toSet())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     private val _snackbarMessages = MutableSharedFlow<String>()
     val snackbarMessages: SharedFlow<String> = _snackbarMessages.asSharedFlow()

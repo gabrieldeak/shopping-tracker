@@ -92,12 +92,7 @@ class ScanViewModel(
     init {
         viewModelScope.launch {
             val lists = repository.getAllShoppingListsSync()
-            val defaultBudget = budgetLimit.value
-            if (lists.isEmpty()) {
-                val defaultId = repository.upsertShoppingList(ShoppingListEntity(name = "Main Shopping Basket", budgetLimit = defaultBudget))
-                _activeListId.value = defaultId
-                _selectedListIds.value = setOf(defaultId)
-            } else {
+            if (lists.isNotEmpty()) {
                 _activeListId.value = lists.first().id
                 _selectedListIds.value = setOf(lists.first().id)
             }
@@ -105,6 +100,20 @@ class ScanViewModel(
             val update = UpdateCheckService.checkForUpdates()
             if (update.hasUpdate) {
                 _appUpdateInfo.value = update
+            }
+        }
+
+        viewModelScope.launch {
+            repository.allShoppingLists.collect { lists ->
+                val validIds = lists.map { it.id }.toSet()
+                val pruned = _selectedListIds.value.intersect(validIds)
+                if (pruned.size != _selectedListIds.value.size) {
+                    _selectedListIds.value = pruned
+                }
+                val activeId = _activeListId.value
+                if (activeId != null && !validIds.contains(activeId)) {
+                    _activeListId.value = lists.firstOrNull()?.id
+                }
             }
         }
     }

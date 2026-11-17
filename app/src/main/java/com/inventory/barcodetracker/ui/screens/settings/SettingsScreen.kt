@@ -377,106 +377,34 @@ fun SettingsScreen(
             )
 
             // JSON Full Backup Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CloudUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text("1. Complete JSON Data Backup", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text("Human-readable JSON backup covering all items, products, deals, offer history, receipts, and settings.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        AppButton(
-                            onClick = { exportFullBackupLauncher.launch("barcode_tracker_backup.json") }
-                        ) {
-                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Save JSON")
-                        }
-
-                        AppOutlinedButton(
-                            onClick = { viewModel.shareFullBackup(context) }
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Share / Drive")
-                        }
-
-                        AppFilledTonalButton(
-                            onClick = { restoreFullBackupLauncher.launch(arrayOf("application/json", "*/*")) }
-                        ) {
-                            Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Restore JSON")
-                        }
-                    }
-                }
-            }
+            FullBackupActionCard(
+                title = "Complete JSON Backup",
+                subtitle = "Portable backup of items, baskets, deals, receipts & settings.",
+                badgeText = "JSON",
+                icon = Icons.Default.CloudUpload,
+                iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                onSave = { exportFullBackupLauncher.launch("barcode_tracker_backup.json") },
+                onShare = { viewModel.shareFullBackup(context) },
+                onRestore = { restoreFullBackupLauncher.launch(arrayOf("application/json", "*/*")) }
+            )
 
             // Raw SQLite DB File Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Save, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text("2. Raw SQLite Database File (shopping_tracker.db)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text("Direct 1:1 backup/restore of the SQLite database file (shopping_tracker.db).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        AppButton(
-                            onClick = { exportDatabaseLauncher.launch("shopping_tracker.db") }
-                        ) {
-                            Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Save .db File")
-                        }
-
-                        AppOutlinedButton(
-                            onClick = { viewModel.shareRawDatabase(context) }
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Share / Drive")
-                        }
-
-                        AppFilledTonalButton(
-                            onClick = { restoreDatabaseLauncher.launch(arrayOf("*/*")) }
-                        ) {
-                            Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Restore .db File")
-                        }
-                    }
-                }
-            }
+            FullBackupActionCard(
+                title = "SQLite Database Snapshot",
+                subtitle = "Direct 1:1 backup & restore of shopping_tracker.db.",
+                badgeText = ".DB",
+                icon = Icons.Default.Save,
+                iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
+                onSave = { exportDatabaseLauncher.launch("shopping_tracker.db") },
+                onShare = { viewModel.shareRawDatabase(context) },
+                onRestore = { restoreDatabaseLauncher.launch(arrayOf("*/*")) }
+            )
 
             HorizontalDivider()
 
-            // Section 1: CSV Export & Import
+            // Section: CSV Export & Import
             Text(
                 text = "CSV Backup & Data Export",
                 style = MaterialTheme.typography.titleMedium,
@@ -487,7 +415,7 @@ fun SettingsScreen(
             // My Items Catalog Card
             DataTransferCard(
                 title = "Items Catalog",
-                subtitle = "shopping_items.csv (Barcode, Name, Price, Category, Notes)",
+                subtitle = "shopping_items.csv · Barcode, Name, Price, Category, Notes",
                 icon = Icons.Default.Inventory2,
                 onExport = { exportItemsLauncher.launch("shopping_items.csv") },
                 onImport = { importItemsLauncher.launch(arrayOf("text/*", "text/comma-separated-values", "text/csv", "application/csv")) }
@@ -496,7 +424,7 @@ fun SettingsScreen(
             // Shopping History Card
             DataTransferCard(
                 title = "Shopping History & Receipts",
-                subtitle = "shopping_history.csv (Date, Total Cost, Item Count, Summary)",
+                subtitle = "shopping_history.csv · Date, Total Cost, Items, Summary",
                 icon = Icons.AutoMirrored.Filled.ReceiptLong,
                 onExport = { exportHistoryLauncher.launch("shopping_history.csv") },
                 onImport = { importHistoryLauncher.launch(arrayOf("text/*", "text/comma-separated-values", "text/csv", "application/csv")) }
@@ -559,7 +487,7 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Irreversibly deletes all stored shopping items, receipts, and history from your device's local database.",
+                        "Permanently deletes all shopping baskets, catalog items, offers, and receipt history from this device.",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -818,7 +746,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showClearConfirmDialog = false },
             title = { Text("Confirm Data Wipe") },
-            text = { Text("Are you sure you want to clear your local database? All saved products and shopping history will be deleted.") },
+            text = { Text("Are you sure you want to delete all local data? All baskets, catalog items, offers, and shopping history will be permanently removed.") },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -840,6 +768,115 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun FullBackupActionCard(
+    title: String,
+    subtitle: String,
+    badgeText: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconContainerColor: androidx.compose.ui.graphics.Color,
+    iconTint: androidx.compose.ui.graphics.Color,
+    onSave: () -> Unit,
+    onShare: () -> Unit,
+    onRestore: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(11.dp),
+                    color = iconContainerColor
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = iconTint,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = iconContainerColor
+                        ) {
+                            Text(
+                                text = badgeText,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = iconTint,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AppButton(
+                    onClick = onSave,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Save", maxLines = 1)
+                }
+                AppOutlinedButton(
+                    onClick = onShare,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Share", maxLines = 1)
+                }
+                AppFilledTonalButton(
+                    onClick = onRestore,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Restore", maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun DataTransferCard(
     title: String,
     subtitle: String,
@@ -849,38 +886,58 @@ private fun DataTransferCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(11.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 AppOutlinedButton(
                     onClick = onExport,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Export CSV")
+                    Text("Export CSV", maxLines = 1)
                 }
                 AppFilledTonalButton(
                     onClick = onImport,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Import CSV")
+                    Text("Import CSV", maxLines = 1)
                 }
             }
         }
