@@ -89,6 +89,28 @@ class QuickScanViewModel(
     private val _appUpdateInfo = MutableStateFlow<AppUpdateInfo?>(null)
     val appUpdateInfo: StateFlow<AppUpdateInfo?> = _appUpdateInfo.asStateFlow()
 
+    data class PendingBasketItem(
+        val piece: PieceEntity,
+        val quantity: Int = 1,
+        val fromScanner: Boolean = false,
+    )
+
+    private val _pendingBasketItem = MutableStateFlow<PendingBasketItem?>(null)
+    val pendingBasketItem: StateFlow<PendingBasketItem?> = _pendingBasketItem.asStateFlow()
+
+    private val _scanAnotherPromptItem = MutableStateFlow<String?>(null)
+    val scanAnotherPromptItem: StateFlow<String?> = _scanAnotherPromptItem.asStateFlow()
+
+    private var isCurrentFlowFromScanner = false
+
+    fun clearPendingBasketItem() {
+        _pendingBasketItem.value = null
+    }
+
+    fun dismissScanAnotherPrompt() {
+        _scanAnotherPromptItem.value = null
+    }
+
     init {
         viewModelScope.launch {
             val lists = repository.getAllShoppingListsSync()
@@ -129,7 +151,41 @@ class QuickScanViewModel(
             val id = repository.upsertShoppingList(ShoppingListEntity(name = formattedName, budgetLimit = defaultBudget))
             _activeListId.value = id
             _selectedListIds.value = _selectedListIds.value + id
-            _snackbarMessages.emit("Created basket \"$formattedName\"")
+
+            val pending = _pendingBasketItem.value
+            if (pending != null) {
+                _pendingBasketItem.value = null
+                addPieceToList(id, pending.piece, pending.quantity)
+                _snackbarMessages.emit("Created basket \"$formattedName\" & added ${pending.piece.name}")
+                if (pending.fromScanner) {
+                    _scanAnotherPromptItem.value = pending.piece.name
+                }
+            } else {
+                _snackbarMessages.emit("Created basket \"$formattedName\"")
+            }
+        }
+    }
+
+    private suspend fun addPieceToList(listId: Long, piece: PieceEntity, deltaQty: Int) {
+        val existing = repository.getItemsForListSync(listId).firstOrNull { it.barcode == piece.barcode }
+        val newQty = (existing?.quantity ?: 0) + deltaQty
+        if (newQty > 0) {
+            repository.upsertShoppingListItem(
+                ShoppingListItemEntity(
+                    listId = listId,
+                    barcode = piece.barcode,
+                    quantity = newQty,
+                    unitPrice = piece.unitPrice,
+                    offerType = piece.offerType,
+                    offerBuyQty = piece.offerBuyQty,
+                    offerPayQty = piece.offerPayQty,
+                    offerFixedPrice = piece.offerFixedPrice,
+                    offerPercentOff = piece.offerPercentOff,
+                    isChecked = existing?.isChecked ?: false
+                )
+            )
+        } else {
+            repository.removeShoppingListItem(listId, piece.barcode)
         }
     }
 
@@ -335,7 +391,7 @@ class QuickScanViewModel(
         viewModelScope.launch {
             when (val result = scannerService.startScan()) {
                 is ScanResult.Success -> {
-                    resolveBarcode(result.barcode)
+                    resolveBarcode(result.barcode, fromScanner = true)
                 }
                 is ScanResult.Cancelled -> {
                     // User closed scanner without scanning
@@ -350,40 +406,35 @@ class QuickScanViewModel(
         }
     }
 
-    fun resolveBarcode(barcode: String) {
+    fun resolveBarcode(barcode: String, fromScanner: Boolean = false) {
         val trimmed = barcode.trim()
         if (trimmed.isEmpty()) return
+        isCurrentFlowFromScanner = fromScanner
         viewModelScope.launch {
             val symbol = currencySymbol.value
             // 1. First check local SQLite database
             val piece = repository.getPieceByBarcode(trimmed)
             if (piece != null) {
+                val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
+                if (targetLists.isEmpty()) {
+                    _pendingBasketItem.value = PendingBasketItem(piece, 1, fromScanner = fromScanner)
+                    return@launch
+                }
+
                 repository.adjustPieceStock(piece.barcode, 1)
                 val updated = repository.getPieceByBarcode(piece.barcode) ?: piece
 
-                val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
                 for (listId in targetLists) {
-                    val existing = repository.getItemsForListSync(listId).firstOrNull { it.barcode == piece.barcode }
-                    val newQty = (existing?.quantity ?: 0) + 1
-                    repository.upsertShoppingListItem(
-                        ShoppingListItemEntity(
-                            listId = listId,
-                            barcode = piece.barcode,
-                            quantity = newQty,
-                            unitPrice = piece.unitPrice,
-                            offerType = piece.offerType,
-                            offerBuyQty = piece.offerBuyQty,
-                            offerPayQty = piece.offerPayQty,
-                            offerFixedPrice = piece.offerFixedPrice,
-                            offerPercentOff = piece.offerPercentOff
-                        )
-                    )
+                    addPieceToList(listId, piece, 1)
                 }
 
                 val priceInfo = if (updated.unitPrice > 0) String.format(Locale.US, " (%s%.2f)", symbol, updated.unitPrice) else ""
                 val basketCount = targetLists.size
                 val basketMsg = if (basketCount > 1) " to $basketCount selected baskets" else " to Basket"
                 _snackbarMessages.emit("✓ Added ${updated.name}$priceInfo$basketMsg")
+                if (fromScanner) {
+                    _scanAnotherPromptItem.value = updated.name
+                }
                 return@launch
             }
             // 2. Check product table
@@ -418,33 +469,22 @@ class QuickScanViewModel(
 
     fun adjustPieceStock(barcode: String, delta: Int) {
         viewModelScope.launch {
+            val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
+            if (targetLists.isEmpty() && delta > 0) {
+                val piece = repository.getPieceByBarcode(barcode)
+                if (piece != null) {
+                    _pendingBasketItem.value = PendingBasketItem(piece, delta)
+                }
+                return@launch
+            }
+
             repository.adjustPieceStock(barcode, delta)
             val updated = repository.getPieceByBarcode(barcode)
             updated?.let { piece ->
                 _scannedItemState.value = ScannedItemState.FoundPiece(piece)
 
-                val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
                 for (listId in targetLists) {
-                    val existing = repository.getItemsForListSync(listId).firstOrNull { it.barcode == piece.barcode }
-                    val newQty = (existing?.quantity ?: 0) + delta
-                    if (newQty > 0) {
-                        repository.upsertShoppingListItem(
-                            ShoppingListItemEntity(
-                                listId = listId,
-                                barcode = piece.barcode,
-                                quantity = newQty,
-                                unitPrice = piece.unitPrice,
-                                offerType = piece.offerType,
-                                offerBuyQty = piece.offerBuyQty,
-                                offerPayQty = piece.offerPayQty,
-                                offerFixedPrice = piece.offerFixedPrice,
-                                offerPercentOff = piece.offerPercentOff,
-                                isChecked = existing?.isChecked ?: false
-                            )
-                        )
-                    } else {
-                        repository.removeShoppingListItem(listId, piece.barcode)
-                    }
+                    addPieceToList(listId, piece, delta)
                 }
             }
             _snackbarMessages.emit("Cart quantity updated ($delta)")
@@ -464,26 +504,24 @@ class QuickScanViewModel(
 
     fun createPiece(piece: PieceEntity) {
         viewModelScope.launch {
+            val fromScanner = isCurrentFlowFromScanner
+            isCurrentFlowFromScanner = false
             repository.upsertPiece(piece)
-            _scannedItemState.value = ScannedItemState.FoundPiece(piece)
-
             val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
-            for (listId in targetLists) {
-                repository.upsertShoppingListItem(
-                    ShoppingListItemEntity(
-                        listId = listId,
-                        barcode = piece.barcode,
-                        quantity = piece.stockQuantity,
-                        unitPrice = piece.unitPrice,
-                        offerType = piece.offerType,
-                        offerBuyQty = piece.offerBuyQty,
-                        offerPayQty = piece.offerPayQty,
-                        offerFixedPrice = piece.offerFixedPrice,
-                        offerPercentOff = piece.offerPercentOff
-                    )
-                )
+            if (targetLists.isEmpty()) {
+                _scannedItemState.value = ScannedItemState.Idle
+                _pendingBasketItem.value = PendingBasketItem(piece, maxOf(1, piece.stockQuantity), fromScanner = fromScanner)
+                return@launch
             }
-            _snackbarMessages.emit("Created item ${piece.name}")
+
+            _scannedItemState.value = ScannedItemState.Idle
+            for (listId in targetLists) {
+                addPieceToList(listId, piece, maxOf(1, piece.stockQuantity))
+            }
+            _snackbarMessages.emit("✓ Added ${piece.name} to Basket")
+            if (fromScanner) {
+                _scanAnotherPromptItem.value = piece.name
+            }
         }
     }
 

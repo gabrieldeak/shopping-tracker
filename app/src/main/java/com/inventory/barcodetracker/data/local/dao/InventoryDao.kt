@@ -273,6 +273,9 @@ abstract class InventoryDao {
     @Query("DELETE FROM shopping_list_items WHERE listId = :listId AND barcode = :barcode")
     abstract suspend fun removeShoppingListItem(listId: Long, barcode: String)
 
+    @Query("DELETE FROM shopping_list_items WHERE barcode IN (:barcodes)")
+    abstract suspend fun removeShoppingListItemsByBarcodes(barcodes: List<String>)
+
     @Query("DELETE FROM shopping_list_items WHERE listId = :listId")
     abstract suspend fun clearShoppingListItems(listId: Long)
 

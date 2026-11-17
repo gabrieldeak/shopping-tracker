@@ -276,7 +276,7 @@ object BackupRestoreService {
                 val obj = tripsArr.getJSONObject(i)
                 tripsList.add(
                     ShoppingTripEntity(
-                        id = 0,
+                        id = obj.optLong("id", 0),
                         tripDate = obj.optLong("tripDate", System.currentTimeMillis()),
                         totalCost = obj.optDouble("totalCost", 0.0),
                         itemCount = obj.optInt("itemCount", 0),
@@ -295,7 +295,7 @@ object BackupRestoreService {
                 val obj = offersArr.getJSONObject(i)
                 offersList.add(
                     OfferEntity(
-                        id = 0,
+                        id = obj.optLong("id", 0),
                         title = obj.optString("title", ""),
                         offerType = obj.optString("offerType", "THREE_FOR_TWO"),
                         buyQty = obj.optInt("buyQty", 0),
@@ -318,7 +318,7 @@ object BackupRestoreService {
                 val obj = historyArr.getJSONObject(i)
                 historyList.add(
                     ProductOfferHistoryEntity(
-                        id = 0,
+                        id = obj.optLong("id", 0),
                         barcode = obj.optString("barcode", ""),
                         offerId = obj.optLong("offerId", 0),
                         appliedAt = obj.optLong("appliedAt", System.currentTimeMillis())
@@ -753,7 +753,7 @@ object BackupRestoreService {
             while (cursor.moveToNext()) {
                 tripsList.add(
                     ShoppingTripEntity(
-                        id = 0,
+                        id = cursor.optLong("id", 0),
                         tripDate = cursor.optLong("tripDate", System.currentTimeMillis()),
                         totalCost = cursor.optDbl("totalCost"),
                         itemCount = cursor.optInt("itemCount"),
@@ -772,7 +772,7 @@ object BackupRestoreService {
                 val title = cursor.optStr("title")
                 offersList.add(
                     OfferEntity(
-                        id = 0,
+                        id = cursor.optLong("id", 0),
                         title = title,
                         offerType = cursor.optStr("offerType", "THREE_FOR_TWO"),
                         buyQty = cursor.optInt("buyQty"),
@@ -796,7 +796,7 @@ object BackupRestoreService {
                 if (barcode.isBlank()) continue
                 historyList.add(
                     ProductOfferHistoryEntity(
-                        id = 0,
+                        id = cursor.optLong("id", 0),
                         barcode = barcode,
                         offerId = cursor.optLong("offerId"),
                         appliedAt = cursor.optLong("appliedAt", System.currentTimeMillis())

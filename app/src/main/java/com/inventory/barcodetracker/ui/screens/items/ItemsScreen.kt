@@ -295,8 +295,8 @@ fun ItemsScreen(
     pieceToDelete?.let { piece ->
         AlertDialog(
             onDismissRequest = { pieceToDelete = null },
-            title = { Text("Delete Part") },
-            text = { Text("Are you sure you want to delete \"${piece.name}\" (${piece.barcode})? Note: this will fail if it is currently linked to an assembled product.") },
+            title = { Text("Delete Item") },
+            text = { Text("Are you sure you want to delete \"${piece.name}\"?\n\nIf you delete it, it will also be removed from any active shopping baskets.") },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -321,7 +321,7 @@ fun ItemsScreen(
         AlertDialog(
             onDismissRequest = { showConfirmDeleteBatch = false },
             title = { Text("Delete Selected Items") },
-            text = { Text("Are you sure you want to delete ${selectedBarcodes.size} selected item(s) from your catalog?") },
+            text = { Text("Are you sure you want to delete ${selectedBarcodes.size} selected item(s)?\n\nIf you delete them, they will also be removed from any active shopping baskets.") },
             confirmButton = {
                 AppButton(
                     onClick = {

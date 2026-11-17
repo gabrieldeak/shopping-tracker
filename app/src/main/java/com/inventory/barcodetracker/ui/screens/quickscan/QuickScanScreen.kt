@@ -97,6 +97,15 @@ fun QuickScanScreen(
     var selectedBasketDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var showDatePickerModal by remember { mutableStateOf(false) }
 
+    val pendingBasketItem by viewModel.pendingBasketItem.collectAsStateWithLifecycle()
+    val scanAnotherPromptItem by viewModel.scanAnotherPromptItem.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingBasketItem) {
+        if (pendingBasketItem != null) {
+            newListNameText = ""
+            showCreateListDialog = true
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.snackbarMessages.collect { msg ->
             snackbarHostState.showSnackbar(msg)
@@ -557,6 +566,33 @@ fun QuickScanScreen(
         )
     }
 
+    scanAnotherPromptItem?.let { itemName ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissScanAnotherPrompt() },
+            title = { Text("Item Added") },
+            text = { Text("Added \"$itemName\" to your basket.\n\nWould you like to scan another product?") },
+            confirmButton = {
+                AppButton(
+                    onClick = {
+                        viewModel.dismissScanAnotherPrompt()
+                        viewModel.startScanner(
+                            onNeedManualInputFallback = { showManualInputDialog = true }
+                        )
+                    }
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Scan Another")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissScanAnotherPrompt() }) {
+                    Text("Done")
+                }
+            }
+        )
+    }
+
     // Create List Dialog
     if (showCreateListDialog) {
         val dateFormat = remember { java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()) }
@@ -568,7 +604,10 @@ fun QuickScanScreen(
         }
 
         AlertDialog(
-            onDismissRequest = { showCreateListDialog = false },
+            onDismissRequest = {
+                showCreateListDialog = false
+                viewModel.clearPendingBasketItem()
+            },
             title = { Text("Create New Shopping Basket") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -633,15 +672,25 @@ fun QuickScanScreen(
             confirmButton = {
                 AppButton(
                     onClick = {
+                        val hadPending = pendingBasketItem != null
                         viewModel.createShoppingList(generatedName)
                         showCreateListDialog = false
+                        if (hadPending && searchQuery.isNotBlank()) {
+                            viewModel.onSearchQueryChanged("")
+                            focusManager.clearFocus()
+                        }
                     }
                 ) {
                     Text("Create Basket")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showCreateListDialog = false }) {
+                TextButton(
+                    onClick = {
+                        showCreateListDialog = false
+                        viewModel.clearPendingBasketItem()
+                    }
+                ) {
                     Text("Cancel")
                 }
             }

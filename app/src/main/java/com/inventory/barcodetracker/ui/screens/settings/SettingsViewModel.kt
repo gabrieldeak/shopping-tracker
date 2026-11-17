@@ -12,13 +12,17 @@ import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
 import com.inventory.barcodetracker.data.repository.InventoryRepository
 import com.inventory.barcodetracker.service.BackupRestoreService
 import com.inventory.barcodetracker.service.CsvService
+import com.inventory.barcodetracker.service.OpenFoodFactsHealthResult
+import com.inventory.barcodetracker.service.OpenFoodFactsService
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,6 +67,35 @@ class SettingsViewModel(
 
     private val _snackbarMessages = MutableSharedFlow<String>()
     val snackbarMessages: SharedFlow<String> = _snackbarMessages.asSharedFlow()
+
+    sealed interface BarcodeHealthState {
+        data object Idle : BarcodeHealthState
+        data object Checking : BarcodeHealthState
+        data class Result(val result: OpenFoodFactsHealthResult) : BarcodeHealthState
+    }
+
+    private val _barcodeHealthState = MutableStateFlow<BarcodeHealthState>(BarcodeHealthState.Idle)
+    val barcodeHealthState: StateFlow<BarcodeHealthState> = _barcodeHealthState.asStateFlow()
+
+    fun runBarcodeApiHealthCheck() {
+        viewModelScope.launch {
+            _barcodeHealthState.value = BarcodeHealthState.Checking
+            val res = OpenFoodFactsService.healthCheck()
+            _barcodeHealthState.value = BarcodeHealthState.Result(res)
+            val healthyCount = res.endpoints.count { it.isHealthy }
+            val totalCount = res.endpoints.size
+            val msg = if (healthyCount == totalCount) {
+                "All $totalCount barcode APIs healthy"
+            } else {
+                "$healthyCount/$totalCount barcode APIs reachable"
+            }
+            _snackbarMessages.emit(msg)
+        }
+    }
+
+    fun clearBarcodeApiHealthCheck() {
+        _barcodeHealthState.value = BarcodeHealthState.Idle
+    }
 
     fun exportItems(contentResolver: ContentResolver, uri: Uri) {
         viewModelScope.launch {
@@ -119,7 +152,7 @@ class SettingsViewModel(
                 val count = withContext(Dispatchers.IO) {
                     contentResolver.openInputStream(uri)?.use { inputStream ->
                         val trips = CsvService.importTrips(inputStream)
-                        trips.forEach { repository.saveShoppingTrip(it) }
+                        repository.importShoppingTrips(trips)
                         trips.size
                     } ?: 0
                 }
@@ -174,7 +207,7 @@ class SettingsViewModel(
                 val summary = withContext(Dispatchers.IO) {
                     contentResolver.openInputStream(uri)?.use { inputStream ->
                         val payload = BackupRestoreService.parseBackupStream(context, inputStream) ?: return@use null
-                        if (payload.currencySymbol.isNotBlank() && payload.currencySymbol != "$") {
+                        if (payload.currencySymbol.isNotBlank()) {
                             currencyPreferences.setCurrencySymbol(payload.currencySymbol)
                         }
                         if (payload.budgetLimit > 0) {

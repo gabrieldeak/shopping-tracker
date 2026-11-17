@@ -13,7 +13,7 @@ class CurrencyPreferences(context: Context) {
         context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
     private val _currencySymbol = MutableStateFlow(
-        prefs.getString(KEY_CURRENCY_SYMBOL, "$") ?: "$",
+        prefs.getString(KEY_CURRENCY_SYMBOL, "£") ?: "£",
     )
     val currencySymbol: StateFlow<String> = _currencySymbol.asStateFlow()
 
@@ -33,7 +33,7 @@ class CurrencyPreferences(context: Context) {
     val capitalizationMode: StateFlow<String> = _capitalizationMode.asStateFlow()
 
     fun setCurrencySymbol(symbol: String) {
-        val trimmed = symbol.trim().ifEmpty { "$" }
+        val trimmed = symbol.trim().ifEmpty { "£" }
         prefs.edit { putString(KEY_CURRENCY_SYMBOL, trimmed) }
         _currencySymbol.value = trimmed
     }

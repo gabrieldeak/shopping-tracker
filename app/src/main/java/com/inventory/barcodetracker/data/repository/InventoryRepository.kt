@@ -11,6 +11,7 @@ import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 import com.inventory.barcodetracker.data.local.model.BomItem
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 class InventoryRepository(
     private val inventoryDao: InventoryDao,
@@ -27,10 +28,13 @@ class InventoryRepository(
     }
 
     suspend fun deletePiece(piece: PieceEntity) {
+        inventoryDao.removeShoppingListItemsByBarcodes(listOf(piece.barcode))
         inventoryDao.deletePiece(piece)
     }
 
     suspend fun deletePiecesByBarcodes(barcodes: List<String>) {
+        if (barcodes.isEmpty()) return
+        inventoryDao.removeShoppingListItemsByBarcodes(barcodes)
         inventoryDao.deletePiecesByBarcodes(barcodes)
     }
 
@@ -152,12 +156,56 @@ class InventoryRepository(
     }
 
     suspend fun importOffers(offers: List<OfferEntity>) {
-        inventoryDao.upsertOffers(offers)
+        if (offers.isEmpty()) return
+        val existing = inventoryDao.getAllOffersSync()
+        val existingById = existing.associateBy { it.id }
+        val existingByKey = existing.associateBy { offerKey(it) }.toMutableMap()
+
+        val toUpsert = mutableListOf<OfferEntity>()
+        val seenKeys = mutableSetOf<String>()
+        for (offer in offers) {
+            val key = offerKey(offer)
+            if (!seenKeys.add(key)) continue
+            val matchedId = when {
+                offer.id > 0 && existingById.containsKey(offer.id) -> offer.id
+                existingByKey.containsKey(key) -> existingByKey[key]!!.id
+                else -> offer.id
+            }
+            val resolved = offer.copy(id = matchedId)
+            toUpsert.add(resolved)
+            existingByKey[key] = resolved
+        }
+        inventoryDao.upsertOffers(toUpsert)
     }
 
     suspend fun importShoppingTrips(trips: List<ShoppingTripEntity>) {
-        inventoryDao.insertShoppingTrips(trips)
+        if (trips.isEmpty()) return
+        val existing = inventoryDao.getAllShoppingTrips().first()
+        val existingById = existing.associateBy { it.id }
+        val existingByKey = existing.associateBy { tripKey(it) }.toMutableMap()
+
+        val toUpsert = mutableListOf<ShoppingTripEntity>()
+        val seenKeys = mutableSetOf<String>()
+        for (trip in trips) {
+            val key = tripKey(trip)
+            if (!seenKeys.add(key)) continue
+            val matchedId = when {
+                trip.id > 0 && existingById.containsKey(trip.id) -> trip.id
+                existingByKey.containsKey(key) -> existingByKey[key]!!.id
+                else -> trip.id
+            }
+            val resolved = trip.copy(id = matchedId)
+            toUpsert.add(resolved)
+            existingByKey[key] = resolved
+        }
+        inventoryDao.insertShoppingTrips(toUpsert)
     }
+
+    private fun offerKey(offer: OfferEntity): String =
+        "${offer.title}|${offer.offerType}|${offer.buyQty}|${offer.payQty}|${offer.fixedPrice}|${offer.percentOff}|${offer.storeName}|${offer.notes}"
+
+    private fun tripKey(trip: ShoppingTripEntity): String =
+        "${trip.tripDate}|${trip.totalCost}|${trip.itemCount}|${trip.itemsSummary}"
 
     suspend fun deleteOffer(offer: OfferEntity) {
         inventoryDao.deleteOffer(offer)
@@ -195,7 +243,26 @@ class InventoryRepository(
     }
 
     suspend fun importOfferHistory(history: List<ProductOfferHistoryEntity>) {
-        inventoryDao.upsertOfferHistories(history)
+        if (history.isEmpty()) return
+        val existing = inventoryDao.getAllOfferHistorySync()
+        val existingById = existing.associateBy { it.id }
+        val existingByKey = existing.associateBy { "${it.barcode}|${it.offerId}|${it.appliedAt}" }.toMutableMap()
+
+        val toUpsert = mutableListOf<ProductOfferHistoryEntity>()
+        val seenKeys = mutableSetOf<String>()
+        for (item in history) {
+            val key = "${item.barcode}|${item.offerId}|${item.appliedAt}"
+            if (!seenKeys.add(key)) continue
+            val matchedId = when {
+                item.id > 0 && existingById.containsKey(item.id) -> item.id
+                existingByKey.containsKey(key) -> existingByKey[key]!!.id
+                else -> item.id
+            }
+            val resolved = item.copy(id = matchedId)
+            toUpsert.add(resolved)
+            existingByKey[key] = resolved
+        }
+        inventoryDao.upsertOfferHistories(toUpsert)
     }
 
     // --- Shopping Lists ---
@@ -211,7 +278,26 @@ class InventoryRepository(
     }
 
     suspend fun importShoppingLists(lists: List<ShoppingListEntity>) {
-        inventoryDao.upsertShoppingLists(lists)
+        if (lists.isEmpty()) return
+        val existing = inventoryDao.getAllShoppingListsSync()
+        val existingById = existing.associateBy { it.id }
+        val existingByKey = existing.associateBy { "${it.name}|${it.createdAt}" }.toMutableMap()
+
+        val toUpsert = mutableListOf<ShoppingListEntity>()
+        val seenKeys = mutableSetOf<String>()
+        for (list in lists) {
+            val key = "${list.name}|${list.createdAt}"
+            if (!seenKeys.add(key)) continue
+            val matchedId = when {
+                list.id > 0 && existingById.containsKey(list.id) -> list.id
+                existingByKey.containsKey(key) -> existingByKey[key]!!.id
+                else -> list.id
+            }
+            val resolved = list.copy(id = matchedId)
+            toUpsert.add(resolved)
+            existingByKey[key] = resolved
+        }
+        inventoryDao.upsertShoppingLists(toUpsert)
     }
 
     suspend fun deleteShoppingList(list: ShoppingListEntity) {

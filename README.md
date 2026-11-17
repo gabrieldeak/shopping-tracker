@@ -13,11 +13,11 @@ A local-first, offline-ready Android application built with **Kotlin** and **Jet
 ## ✨ Key Features (Version 3.0.0)
 
 - **5-Tab Swipeable Navigation**:
-  - **Quick Scan** (`ui/screens/quickscan/`): Unified search + inline barcode scan bar, expandable **Shopping Basket Cards** with live subtotals, budget progress, vouchers, duplicate, rename, finish & save, and multi-select scan routing.
-  - **Items** (`ui/screens/items/`): Clean product catalog without global counts (quantities live inside each basket), optional barcodes, price & offer assignment, and multi-select batch add-to-basket / delete.
+  - **Quick Scan** (`ui/screens/quickscan/`): Unified search + inline barcode scan bar, expandable **Shopping Basket Cards** with live subtotals, budget progress, vouchers, duplicate, rename, finish & save, multi-select scan routing, automatic **Create Basket** prompt when adding an item with no baskets, and a **"Scan Another?"** prompt for rapid multi-item scanning.
+  - **Items** (`ui/screens/items/`): Clean product catalog without global counts (quantities live inside each basket), optional barcodes, price & offer assignment, multi-select batch add-to-basket / delete, and cascade removal from active baskets on delete.
   - **Offers** (`ui/screens/offers/`): Modern uniform-width promotion pills (`2 for £4.00`, `3 for 2`, `% Off`, etc.) with optional name, store, and notes in expandable details, plus camera OCR deal scanning.
   - **History** (`ui/screens/history/`): Expandable receipt cards with modern itemized rows (name, quantity, offer/savings pill, line total), top action bar (**Delete** & **Reload Basket**), and batch delete.
-  - **Settings** (`ui/screens/settings/`): Currency, budget limit, theme, smart text capitalization, **Full Backup & Database Restore** (JSON & SQLite `.db` covering items, baskets, basket items + checked state, offers, receipts, and settings), **CSV Backup & Data Export**, sample data seeding, and GitHub Release update checks.
+  - **Settings** (`ui/screens/settings/`): **£ (GBP)** default currency, budget limit, theme, smart text capitalization, **Full Backup & Database Restore** (idempotent JSON & SQLite `.db` covering items, baskets, basket items + checked state, offers, receipts, and settings), **CSV Backup & Data Export**, **Barcode Lookup APIs** health check (`OpenFoodFacts .org/.net`, `OpenProductsFacts`, `OpenBeautyFacts`), sample data seeding, and GitHub Release update checks.
 - **Per-Basket Item Counts & Swipe Actions**:
   - Item quantities are linked to each shopping basket.
   - **Swipe Right** on a basket item to mark it checked/unchecked (stored in Room; **Checked Items** section is collapsed by default).
@@ -42,7 +42,7 @@ Built following **MVVM** architecture and a **Repository** pattern.
 | **DI** | Manual DI (`AppContainer`) | Lightweight, zero-reflection dependency injection |
 | **Barcode Scanner** | Google Code Scanner | Play Services code scanner API |
 | **Text Recognition** | Google ML Kit | On-device OCR for text and deal label parsing |
-| **API Client** | OpenFoodFacts API | Automatic barcode web lookup for grocery items |
+| **API Client** | Open*Facts APIs | Multi-source barcode lookup (`OpenFoodFacts .org/.net`, `OpenProductsFacts`, `OpenBeautyFacts`) |
 | **Preferences** | SharedPreferences / Flow | Reactive preferences for currency, budget, theme, and capitalization |
 
 ---

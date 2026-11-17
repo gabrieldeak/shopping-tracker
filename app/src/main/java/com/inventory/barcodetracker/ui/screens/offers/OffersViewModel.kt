@@ -27,7 +27,7 @@ class OffersViewModel(
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     val currencySymbol: StateFlow<String> = currencyPreferences.currencySymbol
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "$")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "£")
 
     val allPieces: StateFlow<List<PieceEntity>> = repository.allPieces
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

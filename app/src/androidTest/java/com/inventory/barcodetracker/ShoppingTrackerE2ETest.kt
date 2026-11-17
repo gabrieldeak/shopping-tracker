@@ -226,4 +226,44 @@ class ShoppingTrackerE2ETest {
         }
         composeRule.onNodeWithText("Temp Basket").assertDoesNotExist()
     }
+
+    @Test
+    fun testAddingSearchedItemWithNoBasketPromptsCreateBasketAndAddsItem() {
+        // Add item to catalog while no baskets exist
+        composeRule.onNodeWithText("Items").performClick()
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithContentDescription("Add Item").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Add Item").performClick()
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Item Name *").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Item Name *").performTextInput("Butter")
+        composeRule.onNodeWithText("Price (", substring = true).performTextInput("1.80")
+        composeRule.onNodeWithText("Save Item").performClick()
+
+        // Search "Butter" on Quick Scan with no baskets -> tapping it opens New Basket dialog
+        composeRule.onNodeWithText("Quick Scan").performClick()
+        composeRule.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Butter")
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodes(hasText("Butter") and !hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNode(hasText("Butter") and !hasSetTextAction()).performClick()
+
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Create New Shopping Basket").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Basket Name / Store").performTextInput("Corner Shop")
+        composeRule.onNodeWithText("Create Basket").performClick()
+
+        // Basket is created and Butter is automatically added inside it
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithContentDescription("Expand").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Expand").performClick()
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Butter").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Qty: 1").assertIsDisplayed()
+    }
 }
