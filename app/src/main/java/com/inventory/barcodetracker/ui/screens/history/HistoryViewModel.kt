@@ -1,4 +1,4 @@
-package com.inventory.barcodetracker.ui.screens.trips
+package com.inventory.barcodetracker.ui.screens.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,7 +19,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class TripsViewModel(
+class HistoryViewModel(
     private val repository: InventoryRepository,
     currencyPreferences: CurrencyPreferences,
 ) : ViewModel() {

@@ -1,4 +1,4 @@
-package com.inventory.barcodetracker.ui.screens.scan
+package com.inventory.barcodetracker.ui.screens.quickscan
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*

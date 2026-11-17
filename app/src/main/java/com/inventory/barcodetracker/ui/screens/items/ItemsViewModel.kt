@@ -1,4 +1,4 @@
-package com.inventory.barcodetracker.ui.screens.pieces
+package com.inventory.barcodetracker.ui.screens.items
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class PiecesViewModel(
+class ItemsViewModel(
     private val repository: InventoryRepository,
     private val currencyPreferences: CurrencyPreferences,
 ) : ViewModel() {

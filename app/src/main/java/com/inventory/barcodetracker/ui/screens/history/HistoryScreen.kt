@@ -1,4 +1,4 @@
-package com.inventory.barcodetracker.ui.screens.trips
+package com.inventory.barcodetracker.ui.screens.history
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -34,8 +34,8 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TripsScreen(
-    viewModel: TripsViewModel,
+fun HistoryScreen(
+    viewModel: HistoryViewModel,
     snackbarHostState: SnackbarHostState,
 ) {
     val trips by viewModel.shoppingTrips.collectAsStateWithLifecycle()
@@ -306,20 +306,6 @@ private fun TripItemCard(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    if (trip.itemsSummary.isNotBlank()) {
-                        val itemLines = trip.itemsSummary.split("\n").filter { it.isNotBlank() }
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            itemLines.forEach { line ->
-                                Text(
-                                    text = line,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -356,10 +342,108 @@ private fun TripItemCard(
                             )
                         }
                     }
+
+                    if (trip.itemsSummary.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        val itemLines = trip.itemsSummary
+                            .split("\n")
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() && !it.startsWith("Basket:", ignoreCase = true) }
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            itemLines.forEach { line ->
+                                val parsed = parseHistoryItemLine(line)
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = parsed.name,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            if (parsed.qty != null || parsed.offerTag.isNotBlank()) {
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    if (parsed.qty != null) {
+                                                        Text(
+                                                            text = "Qty: ${parsed.qty}",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                    if (parsed.offerTag.isNotBlank()) {
+                                                        Surface(
+                                                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                                                            shape = RoundedCornerShape(6.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = parsed.offerTag,
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontWeight = FontWeight.SemiBold,
+                                                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (parsed.price.isNotBlank()) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = parsed.price,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+private data class ParsedHistoryItem(
+    val name: String,
+    val qty: Int? = null,
+    val offerTag: String = "",
+    val price: String = "",
+)
+
+private val HISTORY_ITEM_REGEX = Regex("""^[•\-]?\s*(.+?)\s*\(x(\d+)\)(?:\s*\[(.+?)])?(?:\s*[—\-]\s*(.+))?$""")
+
+private fun parseHistoryItemLine(raw: String): ParsedHistoryItem {
+    val cleaned = raw.trim()
+    val match = HISTORY_ITEM_REGEX.find(cleaned)
+    if (match != null) {
+        val name = match.groupValues[1].trim()
+        val qty = match.groupValues[2].toIntOrNull()
+        val offerTag = match.groupValues[3].trim()
+        val price = match.groupValues[4].trim()
+        return ParsedHistoryItem(name = name, qty = qty, offerTag = offerTag, price = price)
+    }
+    return ParsedHistoryItem(name = cleaned.removePrefix("•").trim())
 }
 
 private fun formatDate(timestamp: Long): String {

@@ -1,4 +1,4 @@
-package com.inventory.barcodetracker.ui.screens.pieces
+package com.inventory.barcodetracker.ui.screens.items
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -39,8 +39,8 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PiecesScreen(
-    viewModel: PiecesViewModel,
+fun ItemsScreen(
+    viewModel: ItemsViewModel,
     snackbarHostState: SnackbarHostState,
 ) {
     val searchFilter by viewModel.searchFilter.collectAsStateWithLifecycle()
@@ -265,7 +265,7 @@ fun PiecesScreen(
 
     // Add Dialog
     if (showAddDialog) {
-        PieceDialog(
+        ItemDialog(
             initialPiece = null,
             currencySymbol = currencySymbol,
             savedOffers = savedOffers,
@@ -279,7 +279,7 @@ fun PiecesScreen(
 
     // Edit Dialog
     editingPiece?.let { piece ->
-        PieceDialog(
+        ItemDialog(
             initialPiece = piece,
             currencySymbol = currencySymbol,
             savedOffers = savedOffers,

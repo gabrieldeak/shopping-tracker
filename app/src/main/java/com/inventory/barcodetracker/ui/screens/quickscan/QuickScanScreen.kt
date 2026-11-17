@@ -1,4 +1,4 @@
-package com.inventory.barcodetracker.ui.screens.scan
+package com.inventory.barcodetracker.ui.screens.quickscan
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -53,7 +53,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickScanScreen(
-    viewModel: ScanViewModel,
+    viewModel: QuickScanViewModel,
     onNavigateToProductBom: (sku: String) -> Unit,
     snackbarHostState: SnackbarHostState
 ) {

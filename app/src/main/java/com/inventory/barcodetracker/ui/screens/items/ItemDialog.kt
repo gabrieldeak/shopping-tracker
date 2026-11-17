@@ -1,4 +1,4 @@
-package com.inventory.barcodetracker.ui.screens.pieces
+package com.inventory.barcodetracker.ui.screens.items
 
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -52,7 +52,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun PieceDialog(
+fun ItemDialog(
     initialPiece: PieceEntity? = null,
     currencySymbol: String = "$",
     savedOffers: List<OfferEntity> = emptyList(),

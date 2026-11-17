@@ -11,16 +11,16 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.inventory.barcodetracker.di.AppContainer
 import com.inventory.barcodetracker.ui.AppViewModelFactory
+import com.inventory.barcodetracker.ui.screens.history.HistoryScreen
+import com.inventory.barcodetracker.ui.screens.history.HistoryViewModel
+import com.inventory.barcodetracker.ui.screens.items.ItemsScreen
+import com.inventory.barcodetracker.ui.screens.items.ItemsViewModel
 import com.inventory.barcodetracker.ui.screens.offers.OffersScreen
 import com.inventory.barcodetracker.ui.screens.offers.OffersViewModel
-import com.inventory.barcodetracker.ui.screens.pieces.PiecesScreen
-import com.inventory.barcodetracker.ui.screens.pieces.PiecesViewModel
-import com.inventory.barcodetracker.ui.screens.scan.QuickScanScreen
-import com.inventory.barcodetracker.ui.screens.scan.ScanViewModel
+import com.inventory.barcodetracker.ui.screens.quickscan.QuickScanScreen
+import com.inventory.barcodetracker.ui.screens.quickscan.QuickScanViewModel
 import com.inventory.barcodetracker.ui.screens.settings.SettingsScreen
 import com.inventory.barcodetracker.ui.screens.settings.SettingsViewModel
-import com.inventory.barcodetracker.ui.screens.trips.TripsScreen
-import com.inventory.barcodetracker.ui.screens.trips.TripsViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -33,14 +33,14 @@ fun AppNavHost(
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
 
     // Instantiating ViewModels
-    val scanViewModel: ScanViewModel = viewModel(
+    val quickScanViewModel: QuickScanViewModel = viewModel(
         factory = AppViewModelFactory(
             repository = appContainer.inventoryRepository,
             currencyPreferences = appContainer.currencyPreferences,
             scannerService = appContainer.barcodeScannerService
         )
     )
-    val piecesViewModel: PiecesViewModel = viewModel(
+    val itemsViewModel: ItemsViewModel = viewModel(
         factory = AppViewModelFactory(
             repository = appContainer.inventoryRepository,
             currencyPreferences = appContainer.currencyPreferences
@@ -52,7 +52,7 @@ fun AppNavHost(
             currencyPreferences = appContainer.currencyPreferences
         )
     )
-    val tripsViewModel: TripsViewModel = viewModel(
+    val historyViewModel: HistoryViewModel = viewModel(
         factory = AppViewModelFactory(
             repository = appContainer.inventoryRepository,
             currencyPreferences = appContainer.currencyPreferences
@@ -97,20 +97,20 @@ fun AppNavHost(
         ) { page ->
             when (page) {
                 0 -> QuickScanScreen(
-                    viewModel = scanViewModel,
+                    viewModel = quickScanViewModel,
                     onNavigateToProductBom = { _ -> },
                     snackbarHostState = snackbarHostState
                 )
-                1 -> PiecesScreen(
-                    viewModel = piecesViewModel,
+                1 -> ItemsScreen(
+                    viewModel = itemsViewModel,
                     snackbarHostState = snackbarHostState
                 )
                 2 -> OffersScreen(
                     viewModel = offersViewModel,
                     snackbarHostState = snackbarHostState
                 )
-                3 -> TripsScreen(
-                    viewModel = tripsViewModel,
+                3 -> HistoryScreen(
+                    viewModel = historyViewModel,
                     snackbarHostState = snackbarHostState
                 )
                 4 -> SettingsScreen(

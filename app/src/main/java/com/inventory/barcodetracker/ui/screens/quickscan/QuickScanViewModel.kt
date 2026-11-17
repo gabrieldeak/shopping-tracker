@@ -1,4 +1,4 @@
-package com.inventory.barcodetracker.ui.screens.scan
+package com.inventory.barcodetracker.ui.screens.quickscan
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,7 +42,7 @@ sealed class ScannedItemState {
     ) : ScannedItemState()
 }
 
-class ScanViewModel(
+class QuickScanViewModel(
     private val repository: InventoryRepository,
     private val scannerService: BarcodeScannerService,
     private val currencyPreferences: CurrencyPreferences,

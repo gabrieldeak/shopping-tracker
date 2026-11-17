@@ -9,17 +9,17 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    object Scan : Screen("scan", "Quick Scan", Icons.Default.QrCodeScanner)
+    object QuickScan : Screen("quick_scan", "Quick Scan", Icons.Default.QrCodeScanner)
     object Items : Screen("items", "Items", Icons.Default.Inventory2)
     object Offers : Screen("offers", "Offers", Icons.Default.LocalOffer)
-    object Trips : Screen("trips", "History", Icons.AutoMirrored.Filled.ReceiptLong)
+    object History : Screen("history", "History", Icons.AutoMirrored.Filled.ReceiptLong)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
 }
 
 val bottomNavScreens = listOf(
-    Screen.Scan,
+    Screen.QuickScan,
     Screen.Items,
     Screen.Offers,
-    Screen.Trips,
+    Screen.History,
     Screen.Settings,
 )
