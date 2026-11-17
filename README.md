@@ -3,6 +3,7 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0-blue.svg)](https://kotlinlang.org)
 [![Android](https://img.shields.io/badge/Android-API%2026%2B-green.svg)](https://developer.android.com)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4.svg)](https://developer.android.com/jetpack/compose)
+[![Android E2E Tests](https://github.com/gabrieldeak/shopping-tracker/actions/workflows/android-tests.yml/badge.svg)](https://github.com/gabrieldeak/shopping-tracker/actions/workflows/android-tests.yml)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
 A local-first, offline-ready Android application built with **Kotlin** and **Jetpack Compose**. Developed & Designed by **G.A.D** and ✨ *Vibe coded with AI*. Designed for fast in-store shopping, barcode scanning, per-basket item tracking, budget limits, multi-buy offer management, OCR label recognition, and receipt history.
@@ -69,11 +70,18 @@ app/src/main/java/com/inventory/barcodetracker/
 
 ---
 
-## 🚀 Building
+## 🚀 Building & Testing
 
+### Build Debug APK
 ```bash
 ./gradlew assembleDebug
 ```
+
+### Run Compose UI E2E Tests (requires connected device or emulator)
+```bash
+./gradlew connectedDebugAndroidTest
+```
+Test results are published automatically in GitHub Actions via [android-tests.yml](.github/workflows/android-tests.yml).
 
 ---
 
