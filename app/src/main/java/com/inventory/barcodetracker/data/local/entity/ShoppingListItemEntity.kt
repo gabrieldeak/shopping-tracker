@@ -16,7 +16,8 @@ data class ShoppingListItemEntity(
     val offerPayQty: Int = 0,
     val offerFixedPrice: Double = 0.0,
     val offerPercentOff: Double = 0.0,
-    val addedAt: Long = System.currentTimeMillis()
+    val addedAt: Long = System.currentTimeMillis(),
+    val isChecked: Boolean = false
 )
 
 fun ShoppingListItemEntity.calculateItemTotal(piece: PieceEntity?): Double {

@@ -194,6 +194,20 @@ class ScanViewModel(
         }
     }
 
+    fun toggleBasketItemChecked(listId: Long, barcode: String, isChecked: Boolean) {
+        viewModelScope.launch {
+            repository.setShoppingListItemChecked(listId, barcode, isChecked)
+        }
+    }
+
+    fun adjustBasketItemQuantity(listId: Long, barcode: String, delta: Int) {
+        viewModelScope.launch {
+            val existing = repository.getItemsForListSync(listId).firstOrNull { it.barcode == barcode } ?: return@launch
+            val newQty = existing.quantity + delta
+            repository.updateShoppingListItemQuantity(listId, barcode, newQty)
+        }
+    }
+
     fun removeShoppingListItem(listId: Long, barcode: String) {
         viewModelScope.launch {
             repository.removeShoppingListItem(listId, barcode)
@@ -402,18 +416,21 @@ class ScanViewModel(
 
                 val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
                 for (listId in targetLists) {
-                    if (piece.stockQuantity > 0) {
+                    val existing = repository.getItemsForListSync(listId).firstOrNull { it.barcode == piece.barcode }
+                    val newQty = (existing?.quantity ?: 0) + delta
+                    if (newQty > 0) {
                         repository.upsertShoppingListItem(
                             ShoppingListItemEntity(
                                 listId = listId,
                                 barcode = piece.barcode,
-                                quantity = piece.stockQuantity,
+                                quantity = newQty,
                                 unitPrice = piece.unitPrice,
                                 offerType = piece.offerType,
                                 offerBuyQty = piece.offerBuyQty,
                                 offerPayQty = piece.offerPayQty,
                                 offerFixedPrice = piece.offerFixedPrice,
-                                offerPercentOff = piece.offerPercentOff
+                                offerPercentOff = piece.offerPercentOff,
+                                isChecked = existing?.isChecked ?: false
                             )
                         )
                     } else {

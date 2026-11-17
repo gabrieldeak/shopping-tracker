@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import com.inventory.barcodetracker.ui.components.AppButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
+import com.inventory.barcodetracker.ui.components.OfferDetailsEditor
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,13 +45,12 @@ fun OfferDialog(
     var notes by remember { mutableStateOf(initialOffer?.notes ?: "") }
 
     var offerType by remember { mutableStateOf(initialOffer?.offerType ?: "THREE_FOR_TWO") }
-    var offerBuyQty by remember { mutableStateOf(initialOffer?.buyQty?.let { if (it == 0) "3" else it.toString() } ?: "3") }
-    var offerPayQty by remember { mutableStateOf(initialOffer?.payQty?.let { if (it == 0) "2" else it.toString() } ?: "2") }
+    var offerBuyQty by remember { mutableStateOf(initialOffer?.buyQty?.let { if (it == 0) "" else it.toString() } ?: "") }
+    var offerPayQty by remember { mutableStateOf(initialOffer?.payQty?.let { if (it == 0) "" else it.toString() } ?: "") }
     var offerFixedPrice by remember { mutableStateOf(initialOffer?.fixedPrice?.let { if (it == 0.0) "" else String.format(Locale.US, "%.2f", it) } ?: "") }
     var offerPercentOff by remember { mutableStateOf(initialOffer?.percentOff?.let { if (it == 0.0) "" else String.format(Locale.US, "%.0f", it) } ?: "") }
     var detectedOfferMessage by remember { mutableStateOf<String?>(null) }
 
-    var titleError by remember { mutableStateOf<String?>(null) }
     var dropdownExpanded by remember { mutableStateOf(false) }
 
     val offerTypesMap = listOf(
@@ -134,32 +134,7 @@ fun OfferDialog(
                         )
                     }
 
-                    AppOutlinedTextField(
-                        value = title,
-                        onValueChange = {
-                            title = it
-                            if (it.isNotBlank()) titleError = null
-                        },
-                        label = { Text("Offer Title / Name *") },
-                        placeholder = { Text("e.g. Tesco 3 for 2 Grill Deal") },
-                        isError = titleError != null,
-                        supportingText = titleError?.let { { Text(it) } },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    AppOutlinedTextField(
-                        value = storeName,
-                        onValueChange = { storeName = it },
-                        label = { Text("Store / Supermarket") },
-                        placeholder = { Text("e.g. Tesco, Sainsbury's, Asda") },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Promotion Type Dropdown
+                    // Promotion Type Dropdown (Required)
                     ExposedDropdownMenuBox(
                         expanded = dropdownExpanded,
                         onExpandedChange = { dropdownExpanded = !dropdownExpanded },
@@ -187,13 +162,6 @@ fun OfferDialog(
                                     onClick = {
                                         offerType = typeKey
                                         dropdownExpanded = false
-                                        when (typeKey) {
-                                            "THREE_FOR_TWO" -> { if (offerBuyQty.isBlank()) offerBuyQty = "3"; if (offerPayQty.isBlank()) offerPayQty = "2" }
-                                            "MULTI_BUY_FIXED" -> { if (offerBuyQty.isBlank()) offerBuyQty = "2"; if (offerFixedPrice.isBlank()) offerFixedPrice = "5.00" }
-                                            "REDUCED_PRICE" -> { if (offerFixedPrice.isBlank()) offerFixedPrice = "2.50" }
-                                            "PERCENT_OFF" -> { if (offerPercentOff.isBlank()) offerPercentOff = "20" }
-                                            "VOUCHER" -> { if (offerFixedPrice.isBlank()) offerFixedPrice = "10.00" }
-                                        }
                                     }
                                 )
                             }
@@ -201,99 +169,45 @@ fun OfferDialog(
                     }
 
                     // Dynamic Deal Parameters
-                    when (offerType) {
-                        "THREE_FOR_TWO" -> {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                AppOutlinedTextField(
-                                    value = offerBuyQty,
-                                    onValueChange = { offerBuyQty = it },
-                                    label = { Text("Buy Qty") },
-                                    placeholder = { Text("3") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true
-                                )
-                                AppOutlinedTextField(
-                                    value = offerPayQty,
-                                    onValueChange = { offerPayQty = it },
-                                    label = { Text("Pay Qty") },
-                                    placeholder = { Text("2") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true
-                                )
-                            }
-                        }
-                        "MULTI_BUY_FIXED" -> {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                AppOutlinedTextField(
-                                    value = offerBuyQty,
-                                    onValueChange = { offerBuyQty = it },
-                                    label = { Text("Buy Qty") },
-                                    placeholder = { Text("2") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true
-                                )
-                                AppOutlinedTextField(
-                                    value = offerFixedPrice,
-                                    onValueChange = { offerFixedPrice = it },
-                                    label = { Text("Bundle Price") },
-                                    prefix = { Text(currencySymbol) },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true
-                                )
-                            }
-                        }
-                        "REDUCED_PRICE" -> {
-                            AppOutlinedTextField(
-                                value = offerFixedPrice,
-                                onValueChange = { offerFixedPrice = it },
-                                label = { Text("Special Reduced Price") },
-                                placeholder = { Text("e.g. 2.50") },
-                                prefix = { Text(currencySymbol) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                        }
-                        "PERCENT_OFF" -> {
-                            AppOutlinedTextField(
-                                value = offerPercentOff,
-                                onValueChange = { offerPercentOff = it },
-                                label = { Text("Discount Percentage") },
-                                suffix = { Text("%") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                        }
-                        "VOUCHER" -> {
-                            AppOutlinedTextField(
-                                value = offerFixedPrice,
-                                onValueChange = { offerFixedPrice = it },
-                                label = { Text("Basket Voucher Discount Amount") },
-                                prefix = { Text(currencySymbol) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                        }
-                    }
+                    OfferDetailsEditor(
+                        offerType = offerType,
+                        currencySymbol = currencySymbol,
+                        offerBuyQty = offerBuyQty,
+                        onBuyQtyChange = { offerBuyQty = it },
+                        offerPayQty = offerPayQty,
+                        onPayQtyChange = { offerPayQty = it },
+                        offerFixedPrice = offerFixedPrice,
+                        onFixedPriceChange = { offerFixedPrice = it },
+                        offerPercentOff = offerPercentOff,
+                        onPercentOffChange = { offerPercentOff = it }
+                    )
+
+                    AppOutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Offer Title / Name (Optional)") },
+                        placeholder = { Text("e.g. Tesco 3 for 2 Grill Deal") },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    AppOutlinedTextField(
+                        value = storeName,
+                        onValueChange = { storeName = it },
+                        label = { Text("Store / Supermarket (Optional)") },
+                        placeholder = { Text("e.g. Tesco, Sainsbury's, Asda") },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     AppOutlinedTextField(
                         value = notes,
                         onValueChange = { notes = it },
                         label = { Text("Notes / Description (Optional)") },
                         placeholder = { Text("e.g. Valid until Sunday") },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        keyboardOptions = KeyboardCapitalization.Sentences.let { KeyboardOptions(capitalization = it) },
                         maxLines = 2,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -313,18 +227,6 @@ fun OfferDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     AppButton(
                         onClick = {
-                            if (title.isBlank()) {
-                                val badge = when (offerType) {
-                                    "THREE_FOR_TWO" -> "${offerBuyQty.ifBlank { "3" }} for ${offerPayQty.ifBlank { "2" }} Offer"
-                                    "MULTI_BUY_FIXED" -> "${offerBuyQty.ifBlank { "2" }} for $currencySymbol${offerFixedPrice.ifBlank { "0.00" }}"
-                                    "REDUCED_PRICE" -> "Reduced to $currencySymbol${offerFixedPrice.ifBlank { "0.00" }}"
-                                    "PERCENT_OFF" -> "${offerPercentOff.ifBlank { "20" }}% Off"
-                                    "VOUCHER" -> "$currencySymbol${offerFixedPrice.ifBlank { "10.00" }} Basket Voucher"
-                                    else -> "Special Offer"
-                                }
-                                title = if (storeName.isNotBlank()) "$storeName $badge" else badge
-                            }
-
                             val offer = OfferEntity(
                                 id = initialOffer?.id ?: 0,
                                 title = title.trim(),

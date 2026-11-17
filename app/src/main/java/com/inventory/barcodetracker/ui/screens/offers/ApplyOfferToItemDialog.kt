@@ -54,7 +54,7 @@ fun ApplyOfferToItemDialog(
             Column {
                 Text("Apply Offer to Product")
                 Text(
-                    text = "${offer.title} (${offer.getDisplayBadge(currencySymbol)})",
+                    text = if (offer.title.isNotBlank()) "${offer.title} (${offer.getDisplayBadge(currencySymbol)})" else offer.getDisplayBadge(currencySymbol),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold

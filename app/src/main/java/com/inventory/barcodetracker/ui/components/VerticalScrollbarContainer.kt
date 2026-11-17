@@ -28,8 +28,8 @@ fun VerticalScrollbarContainer(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(end = if (scrollState.maxValue > 0) 12.dp else 0.dp)
-                .verticalScroll(scrollState),
+                .verticalScroll(scrollState)
+                .padding(top = 8.dp, end = if (scrollState.maxValue > 0) 12.dp else 0.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             content = content
         )

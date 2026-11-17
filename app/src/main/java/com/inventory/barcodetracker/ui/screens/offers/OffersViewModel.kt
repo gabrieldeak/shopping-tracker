@@ -84,7 +84,8 @@ class OffersViewModel(
                 storeName = currencyPreferences.formatText(offer.storeName)
             )
             repository.upsertOffer(formattedOffer)
-            _snackbarMessages.emit("Offer \"${formattedOffer.title}\" saved successfully.")
+            val label = formattedOffer.title.ifBlank { formattedOffer.getDisplayBadge(currencySymbol.value) }
+            _snackbarMessages.emit("Offer \"$label\" saved successfully.")
         }
     }
 
@@ -92,7 +93,8 @@ class OffersViewModel(
         viewModelScope.launch {
             repository.deleteOffer(offer)
             _selectedOfferIds.value = _selectedOfferIds.value - offer.id
-            _snackbarMessages.emit("Offer \"${offer.title}\" deleted.")
+            val label = offer.title.ifBlank { offer.getDisplayBadge(currencySymbol.value) }
+            _snackbarMessages.emit("Offer \"$label\" deleted.")
         }
     }
 

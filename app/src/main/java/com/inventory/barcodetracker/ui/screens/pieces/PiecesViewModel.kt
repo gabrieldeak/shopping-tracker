@@ -151,9 +151,11 @@ class PiecesViewModel(
             val piecesMap = repository.getAllPiecesSync().associateBy { it.barcode }
 
             for (listId in targetListIds) {
+                val existingItems = repository.getItemsForListSync(listId).associateBy { it.barcode }
                 for (barcode in selectedBarcodesList) {
                     val piece = piecesMap[barcode] ?: continue
-                    val qty = if (piece.stockQuantity > 0) piece.stockQuantity else 1
+                    val existing = existingItems[barcode]
+                    val qty = (existing?.quantity ?: 0) + 1
                     repository.upsertShoppingListItem(
                         ShoppingListItemEntity(
                             listId = listId,
@@ -164,7 +166,8 @@ class PiecesViewModel(
                             offerBuyQty = piece.offerBuyQty,
                             offerPayQty = piece.offerPayQty,
                             offerFixedPrice = piece.offerFixedPrice,
-                            offerPercentOff = piece.offerPercentOff
+                            offerPercentOff = piece.offerPercentOff,
+                            isChecked = existing?.isChecked ?: false
                         )
                     )
                 }

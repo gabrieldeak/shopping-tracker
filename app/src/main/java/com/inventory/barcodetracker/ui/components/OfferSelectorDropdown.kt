@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
 
 fun offerTypeDisplayLabel(type: String, currencySymbol: String): String = when (type) {
-    "THREE_FOR_TWO" -> "Buy X Pay Y (e.g. 3 for 2, BOGO)"
+    "THREE_FOR_TWO" -> "Buy X Pay Y (e.g. 3 for 2)"
     "MULTI_BUY_FIXED" -> "X for $currencySymbol Y (Multi-Buy Bundle)"
     "REDUCED_PRICE" -> "Reduced to $currencySymbol Y (Special Price)"
     "PERCENT_OFF" -> "% Discount"
@@ -62,7 +62,7 @@ fun OfferSelectorDropdown(
     val builtInOfferOptions = remember(currencySymbol) {
         listOf(
             "NONE" to "No Offer",
-            "THREE_FOR_TWO" to "Buy X Pay Y (e.g. 3 for 2, BOGO)",
+            "THREE_FOR_TWO" to "Buy X Pay Y (e.g. 3 for 2)",
             "MULTI_BUY_FIXED" to "X for $currencySymbol Y (Multi-Buy Bundle)",
             "REDUCED_PRICE" to "Reduced to $currencySymbol Y (Special Price)",
             "PERCENT_OFF" to "% Discount"
@@ -171,15 +171,16 @@ fun OfferSelectorDropdown(
                         )
                         filteredLibrary.forEach { offer ->
                             val badge = offer.getDisplayBadge(currencySymbol)
+                            val offerDisplay = if (offer.title.isNotBlank()) "${offer.title} ($badge)" else badge
                             Text(
-                                text = "🏷️ ${offer.title} ($badge)",
+                                text = "🏷️ $offerDisplay",
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
                                         onSelectSavedOffer(offer)
                                         isSearching = false
-                                        searchText = "${offer.title} ($badge)"
+                                        searchText = offerDisplay
                                         expanded = false
                                         focusManager.clearFocus()
                                     }

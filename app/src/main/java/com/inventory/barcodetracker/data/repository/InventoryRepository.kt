@@ -246,6 +246,18 @@ class InventoryRepository(
         inventoryDao.updateShoppingListItemPrice(barcode, newPrice)
     }
 
+    suspend fun setShoppingListItemChecked(listId: Long, barcode: String, isChecked: Boolean) {
+        inventoryDao.setShoppingListItemChecked(listId, barcode, isChecked)
+    }
+
+    suspend fun updateShoppingListItemQuantity(listId: Long, barcode: String, quantity: Int) {
+        if (quantity <= 0) {
+            inventoryDao.removeShoppingListItem(listId, barcode)
+        } else {
+            inventoryDao.updateShoppingListItemQuantity(listId, barcode, quantity)
+        }
+    }
+
     suspend fun importShoppingListItems(items: List<ShoppingListItemEntity>) {
         inventoryDao.upsertShoppingListItems(items)
     }

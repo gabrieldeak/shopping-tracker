@@ -261,6 +261,12 @@ abstract class InventoryDao {
     @Query("UPDATE shopping_list_items SET unitPrice = :newPrice WHERE barcode = :barcode")
     abstract suspend fun updateShoppingListItemPrice(barcode: String, newPrice: Double)
 
+    @Query("UPDATE shopping_list_items SET isChecked = :isChecked WHERE listId = :listId AND barcode = :barcode")
+    abstract suspend fun setShoppingListItemChecked(listId: Long, barcode: String, isChecked: Boolean)
+
+    @Query("UPDATE shopping_list_items SET quantity = :quantity WHERE listId = :listId AND barcode = :barcode")
+    abstract suspend fun updateShoppingListItemQuantity(listId: Long, barcode: String, quantity: Int)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsertShoppingListItems(items: List<ShoppingListItemEntity>)
 
@@ -278,7 +284,7 @@ abstract class InventoryDao {
         val newListId = upsertShoppingList(ShoppingListEntity(name = newName))
         val sourceItems = getItemsForListSync(sourceListId)
         val newItems = sourceItems.map { item ->
-            item.copy(listId = newListId, addedAt = System.currentTimeMillis())
+            item.copy(listId = newListId, addedAt = System.currentTimeMillis(), isChecked = false)
         }
         upsertShoppingListItems(newItems)
         return newListId

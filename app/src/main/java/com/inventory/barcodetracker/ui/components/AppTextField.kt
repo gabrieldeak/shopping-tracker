@@ -1,6 +1,7 @@
 package com.inventory.barcodetracker.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -11,12 +12,14 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
 /**
@@ -124,8 +127,9 @@ fun AppSearchBar(
 }
 
 /**
- * Unified text field matching the surfaceContainerHigh + 12.dp rounded look and feel.
+ * Unified, compact text field matching the surfaceContainerHigh + 12.dp rounded look and feel.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppOutlinedTextField(
     value: String,
@@ -145,7 +149,7 @@ fun AppOutlinedTextField(
     singleLine: Boolean = false,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     minLines: Int = 1,
-    textStyle: TextStyle = LocalTextStyle.current,
+    textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
     shape: Shape = RoundedCornerShape(12.dp),
     colors: TextFieldColors? = null,
 ) {
@@ -158,26 +162,57 @@ fun AppOutlinedTextField(
         focusedBorderColor = MaterialTheme.colorScheme.primary,
         disabledBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
     )
-    OutlinedTextField(
+    val resolvedColors = colors ?: defaultColors
+    val interactionSource = remember { MutableInteractionSource() }
+    val resolvedTextStyle = textStyle.copy(
+        color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    )
+
+    BasicTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier,
+        modifier = modifier.heightIn(min = 46.dp),
         enabled = enabled,
         readOnly = readOnly,
-        label = label,
-        placeholder = placeholder,
-        leadingIcon = leadingIcon,
-        trailingIcon = trailingIcon,
-        prefix = prefix,
-        suffix = suffix,
-        supportingText = supportingText,
-        isError = isError,
+        textStyle = resolvedTextStyle,
+        cursorBrush = SolidColor(if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
         keyboardOptions = keyboardOptions,
         singleLine = singleLine,
         maxLines = maxLines,
         minLines = minLines,
-        textStyle = textStyle,
-        shape = shape,
-        colors = colors ?: defaultColors
+        interactionSource = interactionSource,
+        decorationBox = { innerTextField ->
+            OutlinedTextFieldDefaults.DecorationBox(
+                value = value,
+                visualTransformation = VisualTransformation.None,
+                innerTextField = innerTextField,
+                placeholder = placeholder?.let {
+                    { ProvideTextStyle(MaterialTheme.typography.bodyMedium) { it() } }
+                },
+                label = label?.let {
+                    { ProvideTextStyle(MaterialTheme.typography.bodySmall) { it() } }
+                },
+                leadingIcon = leadingIcon,
+                trailingIcon = trailingIcon,
+                prefix = prefix,
+                suffix = suffix,
+                supportingText = supportingText,
+                singleLine = singleLine,
+                enabled = enabled,
+                isError = isError,
+                interactionSource = interactionSource,
+                colors = resolvedColors,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                container = {
+                    OutlinedTextFieldDefaults.Container(
+                        enabled = enabled,
+                        isError = isError,
+                        interactionSource = interactionSource,
+                        colors = resolvedColors,
+                        shape = shape
+                    )
+                }
+            )
+        }
     )
 }

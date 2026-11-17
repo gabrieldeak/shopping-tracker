@@ -509,6 +509,12 @@ fun QuickScanScreen(
                             },
                             onRemoveItem = { barcode ->
                                 viewModel.removeShoppingListItem(list.id, barcode)
+                            },
+                            onToggleItemChecked = { barcode, isChecked ->
+                                viewModel.toggleBasketItemChecked(list.id, barcode, isChecked)
+                            },
+                            onAdjustItemQuantity = { barcode, delta ->
+                                viewModel.adjustBasketItemQuantity(list.id, barcode, delta)
                             }
                         )
                     }

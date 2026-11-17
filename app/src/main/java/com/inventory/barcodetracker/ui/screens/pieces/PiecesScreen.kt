@@ -410,11 +410,6 @@ private fun PieceItemCard(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        Text(
-                            text = "Qty: ${piece.stockQuantity}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         if (piece.offerType != "NONE" && piece.offerDescription.isNotBlank()) {
                             Surface(
                                 color = MaterialTheme.colorScheme.tertiaryContainer,
@@ -478,78 +473,31 @@ private fun PieceItemCard(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        IconButton(
+                            onClick = onEdit,
+                            modifier = Modifier.size(34.dp)
                         ) {
-                            IconButton(
-                                onClick = onEdit,
-                                modifier = Modifier.size(34.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = "Edit",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = onDelete,
-                                modifier = Modifier.size(34.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Delete",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Edit",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-
-                        // Inline count stepper
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(34.dp)
                         ) {
-                            Text(
-                                text = "Default Qty:",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(end = 4.dp)
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
                             )
-                            FilledIconButton(
-                                onClick = { onAdjustStock(-1) },
-                                enabled = piece.stockQuantity > 0,
-                                modifier = Modifier.size(32.dp),
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                )
-                            ) {
-                                Icon(Icons.Default.Remove, contentDescription = "Decrement", modifier = Modifier.size(16.dp))
-                            }
-
-                            Text(
-                                text = "${piece.stockQuantity}",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(horizontal = 6.dp)
-                            )
-
-                            FilledIconButton(
-                                onClick = { onAdjustStock(+1) },
-                                modifier = Modifier.size(32.dp),
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                )
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = "Increment", modifier = Modifier.size(16.dp))
-                            }
                         }
                     }
                 }
