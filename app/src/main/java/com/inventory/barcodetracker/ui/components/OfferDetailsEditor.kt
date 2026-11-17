@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import java.util.Locale
 
 /**
@@ -34,6 +35,7 @@ fun OfferDetailsEditor(
     modifier: Modifier = Modifier,
 ) {
     if (offerType == "NONE") return
+    val strings = LocalAppStrings.current
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -48,7 +50,7 @@ fun OfferDetailsEditor(
                     AppOutlinedTextField(
                         value = offerBuyQty,
                         onValueChange = onBuyQtyChange,
-                        label = { Text("Buy Qty") },
+                        label = { Text(strings.buyQtyLabel) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
@@ -56,7 +58,7 @@ fun OfferDetailsEditor(
                     AppOutlinedTextField(
                         value = offerPayQty,
                         onValueChange = onPayQtyChange,
-                        label = { Text("Pay Qty") },
+                        label = { Text(strings.payQtyLabel) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
@@ -66,11 +68,11 @@ fun OfferDetailsEditor(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    PresetPill(label = "3 for 2") {
+                    PresetPill(label = strings.threeForTwo) {
                         onBuyQtyChange("3")
                         onPayQtyChange("2")
                     }
-                    PresetPill(label = "2 for 1") {
+                    PresetPill(label = strings.twoForOne) {
                         onBuyQtyChange("2")
                         onPayQtyChange("1")
                     }
@@ -85,7 +87,7 @@ fun OfferDetailsEditor(
                     AppOutlinedTextField(
                         value = offerBuyQty,
                         onValueChange = onBuyQtyChange,
-                        label = { Text("Buy Qty") },
+                        label = { Text(strings.buyQtyLabel) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.weight(1f)
@@ -93,7 +95,7 @@ fun OfferDetailsEditor(
                     AppOutlinedTextField(
                         value = offerFixedPrice,
                         onValueChange = onFixedPriceChange,
-                        label = { Text("Bundle Price") },
+                        label = { Text(strings.bundlePriceLabel) },
                         prefix = { Text(currencySymbol) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
@@ -104,11 +106,11 @@ fun OfferDetailsEditor(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    PresetPill(label = "2 for ${currencySymbol}5") {
+                    PresetPill(label = String.format(Locale.US, strings.twoForAmountFmt, currencySymbol)) {
                         onBuyQtyChange("2")
                         onFixedPriceChange("5.00")
                     }
-                    PresetPill(label = "3 for ${currencySymbol}10") {
+                    PresetPill(label = String.format(Locale.US, strings.threeForAmountFmt, currencySymbol)) {
                         onBuyQtyChange("3")
                         onFixedPriceChange("10.00")
                     }
@@ -119,7 +121,7 @@ fun OfferDetailsEditor(
                 AppOutlinedTextField(
                     value = offerFixedPrice,
                     onValueChange = onFixedPriceChange,
-                    label = { Text("Special Reduced Price") },
+                    label = { Text(strings.specialReducedPriceLabel) },
                     prefix = { Text(currencySymbol) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -130,7 +132,7 @@ fun OfferDetailsEditor(
                             val saving = standardUnitPrice - reduced
                             if (saving > 0) {
                                 Text(
-                                    text = "Save $currencySymbol${String.format(Locale.US, "%.2f", saving)} per item (from $currencySymbol${String.format(Locale.US, "%.2f", standardUnitPrice)})",
+                                    text = String.format(Locale.US, strings.savePerItemFmt, currencySymbol, saving, currencySymbol, standardUnitPrice),
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -143,7 +145,7 @@ fun OfferDetailsEditor(
                 AppOutlinedTextField(
                     value = offerPercentOff,
                     onValueChange = onPercentOffChange,
-                    label = { Text("Discount %") },
+                    label = { Text(strings.discountPercentLabel) },
                     suffix = { Text("%") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -154,7 +156,7 @@ fun OfferDetailsEditor(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf("10", "20", "25", "50").forEach { pct ->
-                        PresetPill(label = if (pct == "50") "50% (Half)" else "$pct% Off") {
+                        PresetPill(label = if (pct == "50") strings.fiftyHalf else String.format(Locale.US, strings.percentOffFmt, pct)) {
                             onPercentOffChange(pct)
                         }
                     }
@@ -165,7 +167,7 @@ fun OfferDetailsEditor(
                 AppOutlinedTextField(
                     value = offerFixedPrice,
                     onValueChange = onFixedPriceChange,
-                    label = { Text("Basket Voucher Discount") },
+                    label = { Text(strings.basketVoucherDiscountLabel) },
                     prefix = { Text(currencySymbol) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,

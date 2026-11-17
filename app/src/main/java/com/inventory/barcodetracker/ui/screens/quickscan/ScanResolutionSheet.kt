@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Remove
@@ -35,6 +36,7 @@ import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.service.OfferRecognitionService
 import com.inventory.barcodetracker.service.TextRecognitionService
 import com.inventory.barcodetracker.ui.components.OcrTextEditDialog
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import com.inventory.barcodetracker.ui.theme.StockLowRed
 import com.inventory.barcodetracker.ui.theme.StockLowRedContainer
 import com.inventory.barcodetracker.ui.theme.StockOkGreen
@@ -49,6 +51,7 @@ fun ScanResolutionSheet(
     currencySymbol: String = "$",
     savedOffers: List<OfferEntity> = emptyList(),
     onDismiss: () -> Unit,
+    onSkipLookupToManual: () -> Unit = {},
     onAdjustPieceStock: (barcode: String, delta: Int) -> Unit,
     onAdjustProductStock: (sku: String, delta: Int) -> Unit,
     onCreatePiece: (PieceEntity) -> Unit,
@@ -56,6 +59,7 @@ fun ScanResolutionSheet(
     onNavigateToProductBom: (sku: String) -> Unit,
 ) {
     if (state is ScannedItemState.Idle) return
+    val strings = LocalAppStrings.current
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -69,6 +73,30 @@ fun ScanResolutionSheet(
                 .verticalScroll(rememberScrollState())
         ) {
             when (state) {
+                is ScannedItemState.Loading -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator()
+                        Text(
+                            text = "${strings.lookingUpBarcode} ${state.barcode}...",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = strings.checkingOnlineCatalogs,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        TextButton(onClick = onSkipLookupToManual) {
+                            Text(strings.cancelAndEnterManually)
+                        }
+                    }
+                }
                 is ScannedItemState.FoundPiece -> {
                     PieceResolutionContent(
                         piece = state.piece,
@@ -93,6 +121,7 @@ fun ScanResolutionSheet(
                         initialName = state.initialName,
                         initialBrand = state.initialBrand,
                         initialCategory = state.initialCategory,
+                        apisUnavailable = state.apisUnavailable,
                         currencySymbol = currencySymbol,
                         savedOffers = savedOffers,
                         onCreatePiece = { piece ->
@@ -121,6 +150,7 @@ private fun PieceResolutionContent(
     onUpdatePiece: (PieceEntity) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     val coroutineScope = rememberCoroutineScope()
     var showOfferEditor by remember { mutableStateOf(false) }
 
@@ -144,9 +174,9 @@ private fun PieceResolutionContent(
                     if (recognizedOffer.payQty > 0) offerPayQty = recognizedOffer.payQty.toString()
                     if (recognizedOffer.fixedPrice > 0.0) offerFixedPrice = String.format(Locale.US, "%.2f", recognizedOffer.fixedPrice)
                     if (recognizedOffer.percentOff > 0.0) offerPercentOff = String.format(Locale.US, "%.0f", recognizedOffer.percentOff)
-                    detectedOfferMessage = "Auto-detected offer: \"${recognizedOffer.detectedText}\""
+                    detectedOfferMessage = String.format(Locale.US, strings.autoDetectedOfferFmt, recognizedOffer.detectedText)
                 } else {
-                    detectedOfferMessage = "Could not match deal from label text. Select deal manually below."
+                    detectedOfferMessage = strings.couldNotMatchDeal
                 }
             }
         }
@@ -159,7 +189,7 @@ private fun PieceResolutionContent(
     ) {
         Column {
             Text(
-                text = "Item Identified",
+                text = strings.itemIdentified,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -170,7 +200,7 @@ private fun PieceResolutionContent(
             )
         }
         IconButton(onClick = onDismiss) {
-            Icon(Icons.Default.Close, contentDescription = "Close")
+            Icon(Icons.Default.Close, contentDescription = strings.close)
         }
     }
 
@@ -183,7 +213,7 @@ private fun PieceResolutionContent(
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Barcode: ${piece.barcode}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text("${strings.barcodeLabel} ${piece.barcode}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
             if (piece.description.isNotBlank()) {
                 Text(piece.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -195,7 +225,7 @@ private fun PieceResolutionContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = String.format(Locale.US, "Unit Price: %s%.2f", currencySymbol, piece.unitPrice),
+                        text = String.format(Locale.US, strings.unitPriceFmt, currencySymbol, piece.unitPrice),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -237,12 +267,12 @@ private fun PieceResolutionContent(
         ) {
             Column {
                 Text(
-                    text = "Quantity in Shopping Basket",
+                    text = strings.quantityInShoppingBasket,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 Text(
-                    text = "${piece.stockQuantity} in cart",
+                    text = String.format(Locale.US, strings.inCartFmt, piece.stockQuantity),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -251,7 +281,7 @@ private fun PieceResolutionContent(
             if (piece.unitPrice > 0) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Item Subtotal",
+                        text = strings.itemSubtotal,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -263,7 +293,7 @@ private fun PieceResolutionContent(
                     )
                     if (piece.savings > 0) {
                         Text(
-                            text = String.format(Locale.US, "Saved %s%.2f", currencySymbol, piece.savings),
+                            text = String.format(Locale.US, strings.savedFmt, currencySymbol, piece.savings),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.tertiary
@@ -299,7 +329,7 @@ private fun PieceResolutionContent(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (piece.offerType == "NONE") "Add Store Special Offer / Deal" else "Active Offer: ${piece.offerDescription}",
+                        text = if (piece.offerType == "NONE") strings.addStoreOfferLabel else String.format(Locale.US, strings.activeOfferFmt, piece.offerDescription),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -307,7 +337,7 @@ private fun PieceResolutionContent(
                 }
 
                 TextButton(onClick = { showOfferEditor = !showOfferEditor }) {
-                    Text(if (showOfferEditor) "Hide" else if (piece.offerType == "NONE") "+ Set Offer" else "Edit Offer")
+                    Text(if (showOfferEditor) strings.hide else if (piece.offerType == "NONE") strings.setOfferBtn else strings.editOfferBtn)
                 }
             }
 
@@ -322,7 +352,7 @@ private fun PieceResolutionContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Store Special Offer / Multi-Buy",
+                        strings.storeSpecialOfferTitle,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
@@ -330,7 +360,7 @@ private fun PieceResolutionContent(
                     IconButton(onClick = { cameraOfferLauncher.launch(null) }) {
                         Icon(
                             Icons.Default.PhotoCamera,
-                            contentDescription = "Scan Offer Label with Camera",
+                            contentDescription = strings.scanOfferLabelDesc,
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -360,7 +390,7 @@ private fun PieceResolutionContent(
                         offerPayQty = if (offer.payQty > 0) offer.payQty.toString() else ""
                         offerFixedPrice = if (offer.fixedPrice > 0.0) String.format(Locale.US, "%.2f", offer.fixedPrice) else ""
                         offerPercentOff = if (offer.percentOff > 0.0) String.format(Locale.US, "%.0f", offer.percentOff) else ""
-                        detectedOfferMessage = "Selected deal: \"${offer.title}\""
+                        detectedOfferMessage = String.format(Locale.US, strings.selectedDealFmt, offer.title)
                     }
                 )
 
@@ -396,7 +426,7 @@ private fun PieceResolutionContent(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Apply & Save Offer")
+                    Text(strings.applyAndSaveOffer)
                 }
             }
         }
@@ -405,7 +435,7 @@ private fun PieceResolutionContent(
     Spacer(modifier = Modifier.height(20.dp))
 
     Text(
-        text = "Adjust Quantity in Cart",
+        text = strings.adjustQuantityInCart,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.SemiBold
     )
@@ -456,6 +486,7 @@ private fun ProductResolutionContent(
     onViewBom: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val strings = LocalAppStrings.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -463,7 +494,7 @@ private fun ProductResolutionContent(
     ) {
         Column {
             Text(
-                text = "Assembled Product",
+                text = strings.assembledProduct,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.secondary
             )
@@ -474,7 +505,7 @@ private fun ProductResolutionContent(
             )
         }
         IconButton(onClick = onDismiss) {
-            Icon(Icons.Default.Close, contentDescription = "Close")
+            Icon(Icons.Default.Close, contentDescription = strings.close)
         }
     }
 
@@ -499,12 +530,12 @@ private fun ProductResolutionContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Stock In Hand", style = MaterialTheme.typography.labelMedium)
-                Text("${product.stockQuantity} units", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(strings.stockInHand, style = MaterialTheme.typography.labelMedium)
+                Text(String.format(Locale.US, strings.unitsFmt, product.stockQuantity), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text("Target Production", style = MaterialTheme.typography.labelMedium)
-                Text("${product.targetProductionCount} units", style = MaterialTheme.typography.titleMedium)
+                Text(strings.targetProduction, style = MaterialTheme.typography.labelMedium)
+                Text(String.format(Locale.US, strings.unitsFmt, product.targetProductionCount), style = MaterialTheme.typography.titleMedium)
             }
         }
     }
@@ -540,7 +571,7 @@ private fun ProductResolutionContent(
         },
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text("View Product Components & Build Capacity")
+        Text(strings.viewProductComponents)
         Spacer(modifier = Modifier.width(8.dp))
         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
     }
@@ -553,12 +584,14 @@ private fun NotFoundResolutionContent(
     initialName: String = "",
     initialBrand: String = "",
     initialCategory: String = "Grocery",
+    apisUnavailable: Boolean = false,
     currencySymbol: String = "$",
     savedOffers: List<OfferEntity> = emptyList(),
     onCreatePiece: (PieceEntity) -> Unit,
     onCreateProduct: (ProductEntity) -> Unit = {},
     onDismiss: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     val coroutineScope = rememberCoroutineScope()
     var name by remember(scannedBarcode, initialName) { mutableStateOf(initialName) }
     var unitPriceText by remember { mutableStateOf("") }
@@ -605,9 +638,9 @@ private fun NotFoundResolutionContent(
                     if (recognizedOffer.payQty > 0) offerPayQty = recognizedOffer.payQty.toString()
                     if (recognizedOffer.fixedPrice > 0.0) offerFixedPrice = String.format(Locale.US, "%.2f", recognizedOffer.fixedPrice)
                     if (recognizedOffer.percentOff > 0.0) offerPercentOff = String.format(Locale.US, "%.0f", recognizedOffer.percentOff)
-                    detectedOfferMessage = "Auto-detected offer: \"${recognizedOffer.detectedText}\""
+                    detectedOfferMessage = String.format(Locale.US, strings.autoDetectedOfferFmt, recognizedOffer.detectedText)
                 } else {
-                    detectedOfferMessage = "Could not match deal from label text. Select deal manually below."
+                    detectedOfferMessage = strings.couldNotMatchDeal
                 }
             }
         }
@@ -620,7 +653,7 @@ private fun NotFoundResolutionContent(
     ) {
         Column {
             Text(
-                text = "Unrecognized Barcode",
+                text = strings.unrecognizedBarcode,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.error
             )
@@ -631,7 +664,34 @@ private fun NotFoundResolutionContent(
             )
         }
         IconButton(onClick = onDismiss) {
-            Icon(Icons.Default.Close, contentDescription = "Close")
+            Icon(Icons.Default.Close, contentDescription = strings.close)
+        }
+    }
+
+    if (apisUnavailable) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = strings.apisUnavailableInfo,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
         }
     }
 
@@ -640,13 +700,13 @@ private fun NotFoundResolutionContent(
     AppOutlinedTextField(
         value = name,
         onValueChange = { name = it },
-        label = { Text("Item Name *") },
-        placeholder = { Text("e.g. Steak Burgers, Olive Oil") },
+        label = { Text(strings.itemNameRequiredLabel) },
+        placeholder = { Text(strings.itemNamePlaceholder) },
         trailingIcon = {
             IconButton(onClick = { cameraOcrLauncher.launch(null) }) {
                 Icon(
                     Icons.Default.PhotoCamera,
-                    contentDescription = "Scan Product Name with Camera",
+                    contentDescription = strings.scanProductNameDesc,
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -664,7 +724,7 @@ private fun NotFoundResolutionContent(
         AppOutlinedTextField(
             value = unitPriceText,
             onValueChange = { unitPriceText = it },
-            label = { Text("Price ($currencySymbol)") },
+            label = { Text(String.format(Locale.US, strings.priceLabelFmt, currencySymbol)) },
             prefix = { Text(currencySymbol) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.weight(1f),
@@ -674,7 +734,7 @@ private fun NotFoundResolutionContent(
         AppOutlinedTextField(
             value = initialQuantity,
             onValueChange = { initialQuantity = it },
-            label = { Text("Quantity in Cart") },
+            label = { Text(strings.quantityInCartLabel) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.weight(1f),
             singleLine = true
@@ -686,8 +746,8 @@ private fun NotFoundResolutionContent(
     AppOutlinedTextField(
         value = category,
         onValueChange = { category = it },
-        label = { Text("Category / Store Section") },
-        placeholder = { Text("e.g. Dairy, Produce, Bakery") },
+        label = { Text(strings.categorySectionLabel) },
+        placeholder = { Text(strings.categoryPlaceholder) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
@@ -697,7 +757,7 @@ private fun NotFoundResolutionContent(
     AppOutlinedTextField(
         value = notes,
         onValueChange = { notes = it },
-        label = { Text("Notes / Brand") },
+        label = { Text(strings.notesBrandLabel) },
         modifier = Modifier.fillMaxWidth(),
         maxLines = 2
     )
@@ -719,7 +779,7 @@ private fun NotFoundResolutionContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Store Special Offer / Deal (Optional)",
+                    text = strings.storeSpecialOfferOptional,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -727,7 +787,7 @@ private fun NotFoundResolutionContent(
                 IconButton(onClick = { cameraOfferLauncher.launch(null) }) {
                     Icon(
                         Icons.Default.PhotoCamera,
-                        contentDescription = "Scan Offer Label with Camera",
+                        contentDescription = strings.scanOfferLabelDesc,
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -808,7 +868,7 @@ private fun NotFoundResolutionContent(
     ) {
         Icon(Icons.Default.Add, contentDescription = null)
         Spacer(modifier = Modifier.width(8.dp))
-        Text("Save Item & Add to Cart")
+        Text(strings.saveItemAndAddToCart)
     }
 
     if (showOcrChoiceDialog) {

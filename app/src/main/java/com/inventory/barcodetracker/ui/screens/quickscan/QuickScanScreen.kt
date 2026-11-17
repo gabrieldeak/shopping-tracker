@@ -48,6 +48,7 @@ import com.inventory.barcodetracker.ui.components.AppOutlinedButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
 import com.inventory.barcodetracker.ui.components.AppSearchBar
 import com.inventory.barcodetracker.ui.components.ShoppingListCard
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,6 +70,10 @@ fun QuickScanScreen(
     val allPiecesMap by viewModel.allPiecesMap.collectAsStateWithLifecycle()
     val selectedListIds by viewModel.selectedListIds.collectAsStateWithLifecycle()
     val appUpdateInfo by viewModel.appUpdateInfo.collectAsStateWithLifecycle()
+    val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
+    val strings = LocalAppStrings.current
+    var showLanguageMenu by remember { mutableStateOf(false) }
+    var pendingCurrencySwitchPrompt by remember { mutableStateOf<String?>(null) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -133,16 +138,60 @@ fun QuickScanScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Barcode Quick Scan")
+                        Text(strings.quickScanTitle)
                     }
                 },
                 actions = {
                     IconButton(onClick = { showManualInputDialog = true }) {
                         Icon(
                             Icons.Default.Keyboard,
-                            contentDescription = "Manual Barcode Entry",
+                            contentDescription = strings.manualBarcodeEntryDesc,
                             tint = MaterialTheme.colorScheme.primary
                         )
+                    }
+                    Box(modifier = Modifier.padding(end = 8.dp)) {
+                        Surface(
+                            onClick = { showLanguageMenu = true },
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                            )
+                        ) {
+                            Text(
+                                text = if (appLanguage == "ro") "🇷🇴 RO" else "🇬🇧 EN",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showLanguageMenu,
+                            onDismissRequest = { showLanguageMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("🇬🇧 English (UK)") },
+                                onClick = {
+                                    viewModel.setAppLanguage("en")
+                                    showLanguageMenu = false
+                                    if (currencySymbol != "£") {
+                                        pendingCurrencySwitchPrompt = "£"
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🇷🇴 Română") },
+                                onClick = {
+                                    viewModel.setAppLanguage("ro")
+                                    showLanguageMenu = false
+                                    if (currencySymbol != "RON") {
+                                        pendingCurrencySwitchPrompt = "RON"
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -158,7 +207,7 @@ fun QuickScanScreen(
             AppSearchBar(
                 query = searchQuery,
                 onQueryChange = viewModel::onSearchQueryChanged,
-                placeholder = "Search or scan item...",
+                placeholder = strings.searchOrScanPlaceholder,
                 onBackClick = if (searchQuery.isNotBlank()) {
                     {
                         viewModel.onSearchQueryChanged("")
@@ -188,14 +237,14 @@ fun QuickScanScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.QrCodeScanner,
-                                contentDescription = "Scan Barcode",
+                                contentDescription = strings.scanBarcodeDesc,
                                 modifier = Modifier.size(18.dp)
                             )
                             AnimatedVisibility(visible = searchQuery.isEmpty()) {
                                 Row {
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Scan",
+                                        text = strings.scanButton,
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = FontWeight.SemiBold,
                                         maxLines = 1
@@ -211,9 +260,9 @@ fun QuickScanScreen(
             AnimatedVisibility(visible = searchQuery.isNotBlank()) {
                 val selectedBaskets = allShoppingLists.filter { selectedListIds.contains(it.id) }
                 val targetLabel = when {
-                    selectedBaskets.isEmpty() -> "No basket selected — check a basket to add items"
-                    selectedBaskets.size == 1 -> "Adding to: ${selectedBaskets.first().name}"
-                    else -> "Adding to: ${selectedBaskets.first().name} (+${selectedBaskets.size - 1} more)"
+                    selectedBaskets.isEmpty() -> strings.noBasketSelectedHint
+                    selectedBaskets.size == 1 -> "${strings.addingToPrefix} ${selectedBaskets.first().name}"
+                    else -> "${strings.addingToPrefix} ${selectedBaskets.first().name} (+${selectedBaskets.size - 1} ${strings.moreSuffix})"
                 }
                 Surface(
                     modifier = Modifier
@@ -272,7 +321,7 @@ fun QuickScanScreen(
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Text(
-                                    text = "Baskets",
+                                    text = strings.basketsBack,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1
@@ -306,7 +355,7 @@ fun QuickScanScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "No items match \"$searchQuery\"",
+                                    text = String.format(Locale.US, strings.noItemsMatchFmt, searchQuery),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -314,7 +363,7 @@ fun QuickScanScreen(
                                 AppFilledTonalButton(
                                     onClick = { viewModel.resolveBarcode(searchQuery.trim()) }
                                 ) {
-                                    Text("Add \"$searchQuery\" to Catalog")
+                                    Text(String.format(Locale.US, strings.addToCatalogFmt, searchQuery))
                                 }
                             }
                         }
@@ -323,7 +372,7 @@ fun QuickScanScreen(
                     if (matchingPieces.isNotEmpty()) {
                         item {
                             Text(
-                                "Parts & Pieces (${matchingPieces.size}) — Tap item to add +1 to selected baskets",
+                                String.format(Locale.US, strings.partsAndPiecesHeaderFmt, matchingPieces.size),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold,
@@ -342,7 +391,7 @@ fun QuickScanScreen(
                     if (matchingProducts.isNotEmpty()) {
                         item {
                             Text(
-                                "Assembled Products (${matchingProducts.size}) — Tap product to add +1 to selected baskets",
+                                String.format(Locale.US, strings.assembledProductsHeaderFmt, matchingProducts.size),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.secondary,
                                 fontWeight = FontWeight.Bold,
@@ -373,7 +422,7 @@ fun QuickScanScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Shopping Baskets",
+                                text = strings.activeBasketsHeader,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -389,7 +438,7 @@ fun QuickScanScreen(
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("New Basket", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(strings.newBasket, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
 
@@ -411,7 +460,7 @@ fun QuickScanScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "${selectedListIds.size} selected",
+                                        text = "${selectedListIds.size} ${strings.selectedSuffix}",
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
@@ -428,7 +477,7 @@ fun QuickScanScreen(
                                         ) {
                                             Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(15.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Clear", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                                            Text(strings.clearAction, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                                         }
 
                                         AppButton(
@@ -438,7 +487,7 @@ fun QuickScanScreen(
                                         ) {
                                             Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(15.dp))
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Save", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                                            Text(strings.saveAction, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                                         }
 
                                         FilledTonalIconButton(
@@ -451,7 +500,7 @@ fun QuickScanScreen(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Delete,
-                                                contentDescription = "Delete Selected Baskets",
+                                                contentDescription = strings.deleteSelectedBasketsDesc,
                                                 modifier = Modifier.size(17.dp)
                                             )
                                         }
@@ -475,13 +524,13 @@ fun QuickScanScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    "No shopping baskets created yet.",
+                                    strings.noBasketsTitle,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    "Tap '+ New Basket' above to create custom lists (e.g. Main Basket, Tesco Weekly). Checked baskets will automatically receive scanned or added items!",
+                                    strings.noBasketsSubtitle,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -538,6 +587,7 @@ fun QuickScanScreen(
         currencySymbol = currencySymbol,
         savedOffers = savedOffers,
         onDismiss = viewModel::dismissScannedSheet,
+        onSkipLookupToManual = viewModel::skipLookupToManualEntry,
         onAdjustPieceStock = viewModel::adjustPieceStock,
         onAdjustProductStock = viewModel::adjustProductStock,
         onCreatePiece = viewModel::createPiece,
@@ -569,8 +619,16 @@ fun QuickScanScreen(
     scanAnotherPromptItem?.let { itemName ->
         AlertDialog(
             onDismissRequest = { viewModel.dismissScanAnotherPrompt() },
-            title = { Text("Item Added") },
-            text = { Text("Added \"$itemName\" to your basket.\n\nWould you like to scan another product?") },
+            title = { Text(strings.itemAddedTitle) },
+            text = {
+                Text(
+                    if (appLanguage == "ro") {
+                        "Produsul \"$itemName\" a fost adăugat în coș.\n\nDoriți să scanați alt produs?"
+                    } else {
+                        "Added \"$itemName\" to your basket.\n\nWould you like to scan another product?"
+                    }
+                )
+            },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -582,12 +640,12 @@ fun QuickScanScreen(
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Scan Another")
+                    Text(strings.scanAnother)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.dismissScanAnotherPrompt() }) {
-                    Text("Done")
+                    Text(strings.done)
                 }
             }
         )
@@ -598,8 +656,8 @@ fun QuickScanScreen(
         val dateFormat = remember { java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()) }
         val dateStr = dateFormat.format(java.util.Date(selectedBasketDateMillis))
 
-        val generatedName = remember(newListNameText, includeDateInName, selectedBasketDateMillis) {
-            val base = newListNameText.trim().ifEmpty { "Shopping Basket" }
+        val generatedName = remember(newListNameText, includeDateInName, selectedBasketDateMillis, strings.defaultBasketName) {
+            val base = newListNameText.trim().ifEmpty { strings.defaultBasketName }
             if (includeDateInName) "$base - $dateStr" else base
         }
 
@@ -608,14 +666,14 @@ fun QuickScanScreen(
                 showCreateListDialog = false
                 viewModel.clearPendingBasketItem()
             },
-            title = { Text("Create New Shopping Basket") },
+            title = { Text(strings.createBasketTitle) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     AppOutlinedTextField(
                         value = newListNameText,
                         onValueChange = { newListNameText = it },
-                        label = { Text("Basket Name / Store") },
-                        placeholder = { Text("e.g. Tesco Weekly, BBQ Party") },
+                        label = { Text(strings.basketNameLabel) },
+                        placeholder = { Text(strings.basketNamePlaceholder) },
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -635,7 +693,7 @@ fun QuickScanScreen(
                                 onCheckedChange = { includeDateInName = it }
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Append Date", style = MaterialTheme.typography.bodyMedium)
+                            Text(strings.appendDate, style = MaterialTheme.typography.bodyMedium)
                         }
 
                         AssistChip(
@@ -655,7 +713,7 @@ fun QuickScanScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "Preview: ",
+                                strings.previewPrefix,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -681,7 +739,7 @@ fun QuickScanScreen(
                         }
                     }
                 ) {
-                    Text("Create Basket")
+                    Text(strings.createBasketConfirm)
                 }
             },
             dismissButton = {
@@ -691,7 +749,7 @@ fun QuickScanScreen(
                         viewModel.clearPendingBasketItem()
                     }
                 ) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -713,12 +771,12 @@ fun QuickScanScreen(
                         showDatePickerModal = false
                     }
                 ) {
-                    Text("OK")
+                    Text(strings.ok)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePickerModal = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         ) {
@@ -730,12 +788,12 @@ fun QuickScanScreen(
     listToRename?.let { list ->
         AlertDialog(
             onDismissRequest = { listToRename = null },
-            title = { Text("Rename Shopping Basket") },
+            title = { Text(strings.renameBasketTitle) },
             text = {
                 AppOutlinedTextField(
                     value = renameListNameText,
                     onValueChange = { renameListNameText = it },
-                    label = { Text("Basket Name") },
+                    label = { Text(strings.basketNameLabel) },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -751,12 +809,12 @@ fun QuickScanScreen(
                     },
                     enabled = renameListNameText.isNotBlank()
                 ) {
-                    Text("Rename")
+                    Text(strings.rename)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { listToRename = null }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -766,12 +824,12 @@ fun QuickScanScreen(
     listToCopy?.let { list ->
         AlertDialog(
             onDismissRequest = { listToCopy = null },
-            title = { Text("Duplicate Shopping Basket") },
+            title = { Text(strings.duplicateBasketTitle) },
             text = {
                 AppOutlinedTextField(
                     value = copyListNameText,
                     onValueChange = { copyListNameText = it },
-                    label = { Text("New Basket Name") },
+                    label = { Text(strings.newBasketNameLabel) },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -787,12 +845,12 @@ fun QuickScanScreen(
                     },
                     enabled = copyListNameText.isNotBlank()
                 ) {
-                    Text("Duplicate")
+                    Text(strings.duplicate)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { listToCopy = null }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -802,8 +860,8 @@ fun QuickScanScreen(
     listToDelete?.let { list ->
         AlertDialog(
             onDismissRequest = { listToDelete = null },
-            title = { Text("Delete Shopping Basket") },
-            text = { Text("Are you sure you want to delete \"${list.name}\"?") },
+            title = { Text(strings.deleteBasketTitle) },
+            text = { Text(String.format(Locale.US, strings.deleteBasketConfirmFmt, list.name)) },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -812,12 +870,12 @@ fun QuickScanScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(strings.delete)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { listToDelete = null }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -827,18 +885,18 @@ fun QuickScanScreen(
     listForBudgetDialog?.let { list ->
         AlertDialog(
             onDismissRequest = { listForBudgetDialog = null },
-            title = { Text("Set Target Budget Limit (${list.name})") },
+            title = { Text(String.format(Locale.US, strings.setTargetBudgetTitleFmt, list.name)) },
             text = {
                 Column {
                     Text(
-                        "Enter a target limit for \"${list.name}\". The card will notify you when total items reach or exceed this limit.",
+                        String.format(Locale.US, strings.setTargetBudgetBodyFmt, list.name),
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     AppOutlinedTextField(
                         value = budgetInputText,
                         onValueChange = { budgetInputText = it },
-                        label = { Text("Budget Limit ($currencySymbol)") },
+                        label = { Text(String.format(Locale.US, strings.budgetLimitLabelFmt, currencySymbol)) },
                         prefix = { Text(currencySymbol) },
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
                         singleLine = true,
@@ -855,7 +913,7 @@ fun QuickScanScreen(
                         listForBudgetDialog = null
                     }
                 ) {
-                    Text("Save Budget")
+                    Text(strings.saveBudget)
                 }
             },
             dismissButton = {
@@ -867,11 +925,11 @@ fun QuickScanScreen(
                                 listForBudgetDialog = null
                             }
                         ) {
-                            Text("Clear")
+                            Text(strings.clearAction)
                         }
                     }
                     TextButton(onClick = { listForBudgetDialog = null }) {
-                        Text("Cancel")
+                        Text(strings.cancel)
                     }
                 }
             }
@@ -882,8 +940,8 @@ fun QuickScanScreen(
     if (showConfirmDeleteBatch) {
         AlertDialog(
             onDismissRequest = { showConfirmDeleteBatch = false },
-            title = { Text("Delete Selected Baskets") },
-            text = { Text("Are you sure you want to delete ${selectedListIds.size} selected shopping basket(s)?") },
+            title = { Text(strings.deleteSelectedBasketsTitle) },
+            text = { Text(String.format(Locale.US, strings.deleteSelectedBasketsConfirmFmt, selectedListIds.size)) },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -892,12 +950,12 @@ fun QuickScanScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete Selected")
+                    Text(strings.deleteSelected)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDeleteBatch = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -907,11 +965,11 @@ fun QuickScanScreen(
     appUpdateInfo?.let { update ->
         AlertDialog(
             onDismissRequest = viewModel::dismissUpdateBanner,
-            title = { Text("🚀 Update Available! (${update.latestTag})") },
+            title = { Text(String.format(Locale.US, strings.updateAvailableTitleFmt, update.latestTag)) },
             text = {
                 Column {
                     Text(
-                        "A new version of Shopping Tracker (${update.latestTag}) is available on GitHub!",
+                        String.format(Locale.US, strings.updateAvailableBodyFmt, update.latestTag),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -935,12 +993,12 @@ fun QuickScanScreen(
                         viewModel.dismissUpdateBanner()
                     }
                 ) {
-                    Text("Download Update")
+                    Text(strings.downloadUpdate)
                 }
             },
             dismissButton = {
                 TextButton(onClick = viewModel::dismissUpdateBanner) {
-                    Text("Later")
+                    Text(strings.later)
                 }
             }
         )
@@ -953,11 +1011,11 @@ fun QuickScanScreen(
                 showManualInputDialog = false
                 manualBarcodeText = ""
             },
-            title = { Text("Enter Barcode / SKU") },
+            title = { Text(strings.enterBarcodeTitle) },
             text = {
                 Column {
                     Text(
-                        "Input a barcode or SKU to look up or register new inventory:",
+                        strings.enterBarcodeBody,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -965,7 +1023,7 @@ fun QuickScanScreen(
                     AppOutlinedTextField(
                         value = manualBarcodeText,
                         onValueChange = { manualBarcodeText = it },
-                        placeholder = { Text("e.g. PART-001 or 12345678") },
+                        placeholder = { Text(strings.enterBarcodePlaceholder) },
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -984,7 +1042,7 @@ fun QuickScanScreen(
                     },
                     enabled = manualBarcodeText.isNotBlank()
                 ) {
-                    Text("Resolve")
+                    Text(strings.resolve)
                 }
             },
             dismissButton = {
@@ -992,7 +1050,33 @@ fun QuickScanScreen(
                     showManualInputDialog = false
                     manualBarcodeText = ""
                 }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
+                }
+            }
+        )
+    }
+
+    pendingCurrencySwitchPrompt?.let { targetCurrency ->
+        val targetLangName = if (targetCurrency == "RON") strings.languageNameRomanian else strings.languageNameEnglish
+        AlertDialog(
+            onDismissRequest = { pendingCurrencySwitchPrompt = null },
+            title = { Text(strings.switchCurrencyTitle) },
+            text = {
+                Text(String.format(Locale.US, strings.switchCurrencyBodyFmt, targetLangName, targetCurrency))
+            },
+            confirmButton = {
+                AppButton(
+                    onClick = {
+                        viewModel.setCurrencySymbol(targetCurrency)
+                        pendingCurrencySwitchPrompt = null
+                    }
+                ) {
+                    Text(String.format(Locale.US, strings.switchCurrencyConfirmFmt, targetCurrency))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingCurrencySwitchPrompt = null }) {
+                    Text(String.format(Locale.US, strings.keepCurrencyFmt, currencySymbol))
                 }
             }
         )
@@ -1006,6 +1090,7 @@ private fun SearchPieceCard(
     currencySymbol: String = "$",
     onClick: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1029,12 +1114,12 @@ private fun SearchPieceCard(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(piece.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                val priceInfo = if (piece.unitPrice > 0) String.format(Locale.US, " • %s%.2f/ea", currencySymbol, piece.unitPrice) else ""
-                Text("Code: ${piece.barcode}$priceInfo", style = MaterialTheme.typography.bodySmall)
+                val priceInfo = if (piece.unitPrice > 0) String.format(Locale.US, " • %s%.2f${strings.eachSuffix}", currencySymbol, piece.unitPrice) else ""
+                Text("${strings.codePrefix} ${piece.barcode}$priceInfo", style = MaterialTheme.typography.bodySmall)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "+ Add +1",
+                    strings.addPlusOne,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -1057,6 +1142,7 @@ private fun SearchProductCard(
     currencySymbol: String = "$",
     onClick: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1080,12 +1166,12 @@ private fun SearchProductCard(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                val priceInfo = if (product.unitPrice > 0) String.format(Locale.US, " • %s%.2f/ea", currencySymbol, product.unitPrice) else ""
+                val priceInfo = if (product.unitPrice > 0) String.format(Locale.US, " • %s%.2f${strings.eachSuffix}", currencySymbol, product.unitPrice) else ""
                 Text("SKU: ${product.productSku}$priceInfo", style = MaterialTheme.typography.bodySmall)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "+ Add +1",
+                    strings.addPlusOne,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.secondary

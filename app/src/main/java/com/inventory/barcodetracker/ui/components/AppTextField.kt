@@ -69,7 +69,7 @@ fun AppSearchBar(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to Baskets",
+                            contentDescription = com.inventory.barcodetracker.ui.i18n.LocalAppStrings.current.basketsBack,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -115,7 +115,7 @@ fun AppSearchBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Clear,
-                        contentDescription = "Clear search",
+                        contentDescription = com.inventory.barcodetracker.ui.i18n.LocalAppStrings.current.clearSearchDesc,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )

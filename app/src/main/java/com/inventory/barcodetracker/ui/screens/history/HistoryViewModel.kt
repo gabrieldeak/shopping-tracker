@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
 import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
 import com.inventory.barcodetracker.data.repository.InventoryRepository
+import com.inventory.barcodetracker.ui.i18n.AppStrings
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -21,8 +22,11 @@ import java.util.Locale
 
 class HistoryViewModel(
     private val repository: InventoryRepository,
-    currencyPreferences: CurrencyPreferences,
+    private val currencyPreferences: CurrencyPreferences,
 ) : ViewModel() {
+
+    private val strings: AppStrings
+        get() = AppStrings.forLanguage(currencyPreferences.appLanguage.value)
 
     val currencySymbol: StateFlow<String> = currencyPreferences.currencySymbol
 
@@ -86,7 +90,7 @@ class HistoryViewModel(
         viewModelScope.launch {
             repository.deleteShoppingTrip(trip)
             _selectedTripIds.value = _selectedTripIds.value - trip.id
-            _snackbarMessages.emit("Trip receipt deleted")
+            _snackbarMessages.emit(strings.vmTripReceiptDeleted)
         }
     }
 
@@ -96,7 +100,7 @@ class HistoryViewModel(
             if (selected.isNotEmpty()) {
                 repository.deleteShoppingTripsByIds(selected)
                 _selectedTripIds.value = emptySet()
-                _snackbarMessages.emit("Deleted ${selected.size} selected receipt(s)")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmDeletedReceiptsFmt, selected.size))
             }
         }
     }
@@ -105,9 +109,9 @@ class HistoryViewModel(
         viewModelScope.launch {
             try {
                 val listName = repository.reloadTripIntoCart(trip)
-                _snackbarMessages.emit("Reloaded basket \"$listName\" into active cart!")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmReloadedBasketFmt, listName))
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to reload basket: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedReloadBasketFmt, e.message ?: ""))
             }
         }
     }

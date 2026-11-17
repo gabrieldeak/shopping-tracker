@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.ui.components.AppSearchBar
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +44,7 @@ fun OffersScreen(
     viewModel: OffersViewModel,
     snackbarHostState: SnackbarHostState,
 ) {
+    val strings = LocalAppStrings.current
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val offersList by viewModel.offersList.collectAsStateWithLifecycle()
     val allPieces by viewModel.allPieces.collectAsStateWithLifecycle()
@@ -79,13 +81,13 @@ fun OffersScreen(
                         ) {
                             Icon(
                                 Icons.Default.LocalOffer,
-                                contentDescription = "Offers Logo",
+                                contentDescription = strings.offersLogoDesc,
                                 tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Store Offers & Deals")
+                        Text(strings.offersTitle)
                     }
                 }
             )
@@ -93,8 +95,8 @@ fun OffersScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddOfferDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Add Offer") },
-                text = { Text("Add Offer", fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.Add, contentDescription = strings.addOffer) },
+                text = { Text(strings.addOffer, fontWeight = FontWeight.Bold) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
@@ -110,7 +112,7 @@ fun OffersScreen(
             AppSearchBar(
                 query = searchQuery,
                 onQueryChange = viewModel::onSearchQueryChanged,
-                placeholder = "Search offers by name or store...",
+                placeholder = strings.searchOffersPlaceholder,
                 modifier = Modifier.padding(vertical = 2.dp)
             )
 
@@ -127,7 +129,7 @@ fun OffersScreen(
                         onClick = { viewModel.selectAllOffers(offersList.map { it.id }) }
                     ) {
                         Text(
-                            text = if (selectedOfferIds.size == offersList.size) "Deselect All (${offersList.size})" else "Select All (${offersList.size})",
+                            text = if (selectedOfferIds.size == offersList.size) String.format(java.util.Locale.US, strings.deselectAllFmt, offersList.size) else String.format(java.util.Locale.US, strings.selectAllFmt, offersList.size),
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
@@ -146,7 +148,7 @@ fun OffersScreen(
                             ) {
                                 Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Delete (${selectedOfferIds.size})", fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(String.format(java.util.Locale.US, strings.deleteCountFmt, selectedOfferIds.size), fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
                     }
@@ -177,7 +179,7 @@ fun OffersScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Saved Store Promotions",
+                            text = strings.savedStorePromotions,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
@@ -186,7 +188,7 @@ fun OffersScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "$activeDealsCount Active Deals",
+                                text = String.format(java.util.Locale.US, strings.activeDealsCountFmt, activeDealsCount),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
@@ -213,7 +215,7 @@ fun OffersScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Check offers below to batch delete, or tap 'Apply' to link a deal to a catalog product.",
+                                text = strings.offersHint,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -237,13 +239,13 @@ fun OffersScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "No offers match \"$searchQuery\"" else "No store offers saved yet",
+                            text = if (searchQuery.isNotBlank()) String.format(java.util.Locale.US, strings.noOffersMatchFmt, searchQuery) else strings.noOffersSavedYet,
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Tap '+ Create Offer' below to set up 3 for 2, 2 for $currencySymbol 5, or reduced price deals.",
+                            text = String.format(java.util.Locale.US, strings.tapCreateOfferHintFmt, currencySymbol),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -301,10 +303,10 @@ fun OffersScreen(
     offerToDelete?.let { offer ->
         AlertDialog(
             onDismissRequest = { offerToDelete = null },
-            title = { Text("Delete Offer") },
+            title = { Text(strings.deleteOfferTitle) },
             text = {
                 val label = offer.title.ifBlank { offer.getDisplayBadge(currencySymbol) }
-                Text("Are you sure you want to delete offer \"$label\"?")
+                Text(String.format(java.util.Locale.US, strings.deleteOfferConfirmFmt, label))
             },
             confirmButton = {
                 AppButton(
@@ -314,12 +316,12 @@ fun OffersScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(strings.delete)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { offerToDelete = null }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -329,8 +331,8 @@ fun OffersScreen(
     if (showConfirmDeleteBatch) {
         AlertDialog(
             onDismissRequest = { showConfirmDeleteBatch = false },
-            title = { Text("Delete Selected Offers") },
-            text = { Text("Are you sure you want to delete ${selectedOfferIds.size} selected store offer(s)?") },
+            title = { Text(strings.deleteSelectedOffersTitle) },
+            text = { Text(String.format(java.util.Locale.US, strings.deleteSelectedOffersConfirmFmt, selectedOfferIds.size)) },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -339,12 +341,12 @@ fun OffersScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete Selected")
+                    Text(strings.deleteSelected)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDeleteBatch = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -442,7 +444,7 @@ private fun OfferCardItem(
                 ) {
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (isExpanded) "Collapse details" else "Expand details",
+                        contentDescription = if (isExpanded) LocalAppStrings.current.collapse else LocalAppStrings.current.expand,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -467,7 +469,7 @@ private fun OfferCardItem(
 
                     if (offer.storeName.isNotBlank()) {
                         Text(
-                            text = "Store: ${offer.storeName}",
+                            text = String.format(java.util.Locale.US, LocalAppStrings.current.storeFmt, offer.storeName),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.primary
@@ -500,7 +502,7 @@ private fun OfferCardItem(
                             ) {
                                 Icon(
                                     Icons.Default.Edit,
-                                    contentDescription = "Edit",
+                                    contentDescription = LocalAppStrings.current.edit,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -511,7 +513,7 @@ private fun OfferCardItem(
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
-                                    contentDescription = "Delete",
+                                    contentDescription = LocalAppStrings.current.delete,
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -525,7 +527,7 @@ private fun OfferCardItem(
                         ) {
                             Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Apply to Item", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text(LocalAppStrings.current.applyToItem, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

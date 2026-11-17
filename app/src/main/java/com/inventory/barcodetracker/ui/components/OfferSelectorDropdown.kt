@@ -20,18 +20,8 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 
-fun offerTypeDisplayLabel(type: String, currencySymbol: String): String = when (type) {
-    "THREE_FOR_TWO" -> "Buy X Pay Y (e.g. 3 for 2)"
-    "MULTI_BUY_FIXED" -> "X for $currencySymbol Y (Multi-Buy Bundle)"
-    "REDUCED_PRICE" -> "Reduced to $currencySymbol Y (Special Price)"
-    "PERCENT_OFF" -> "% Discount"
-    else -> "No Offer"
-}
-
-/**
- * Reusable searchable offer & saved-deal selector used across item dialogs and scan sheets.
- */
 @Composable
 fun OfferSelectorDropdown(
     offerType: String,
@@ -42,14 +32,15 @@ fun OfferSelectorDropdown(
     modifier: Modifier = Modifier,
     onExpanded: (() -> Unit)? = null,
 ) {
+    val strings = LocalAppStrings.current
     val focusManager = LocalFocusManager.current
     var expanded by remember { mutableStateOf(false) }
-    var searchText by remember { mutableStateOf(offerTypeDisplayLabel(offerType, currencySymbol)) }
+    var searchText by remember { mutableStateOf(strings.offerTypeLabel(offerType, currencySymbol)) }
     var isSearching by remember { mutableStateOf(false) }
 
-    LaunchedEffect(offerType) {
+    LaunchedEffect(offerType, strings.languageCode) {
         if (!isSearching) {
-            searchText = offerTypeDisplayLabel(offerType, currencySymbol)
+            searchText = strings.offerTypeLabel(offerType, currencySymbol)
         }
     }
 
@@ -59,13 +50,13 @@ fun OfferSelectorDropdown(
         }
     }
 
-    val builtInOfferOptions = remember(currencySymbol) {
+    val builtInOfferOptions = remember(currencySymbol, strings.languageCode) {
         listOf(
-            "NONE" to "No Offer",
-            "THREE_FOR_TWO" to "Buy X Pay Y (e.g. 3 for 2)",
-            "MULTI_BUY_FIXED" to "X for $currencySymbol Y (Multi-Buy Bundle)",
-            "REDUCED_PRICE" to "Reduced to $currencySymbol Y (Special Price)",
-            "PERCENT_OFF" to "% Discount"
+            "NONE" to strings.offerTypeLabel("NONE", currencySymbol),
+            "THREE_FOR_TWO" to strings.offerTypeLabel("THREE_FOR_TWO", currencySymbol),
+            "MULTI_BUY_FIXED" to strings.offerTypeLabel("MULTI_BUY_FIXED", currencySymbol),
+            "REDUCED_PRICE" to strings.offerTypeLabel("REDUCED_PRICE", currencySymbol),
+            "PERCENT_OFF" to strings.offerTypeLabel("PERCENT_OFF", currencySymbol)
         )
     }
     val libraryOffers = remember(savedOffers) {
@@ -93,8 +84,8 @@ fun OfferSelectorDropdown(
                 isSearching = true
                 if (!expanded) expanded = true
             },
-            label = { Text("Offer Type or Saved Deal") },
-            placeholder = { Text("Search offer or saved deal...") },
+            label = { Text(strings.offerTypeOrSavedDeal) },
+            placeholder = { Text(strings.searchOfferPlaceholder) },
             singleLine = true,
             trailingIcon = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -109,7 +100,7 @@ fun OfferSelectorDropdown(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear offer search",
+                                contentDescription = strings.clearOfferSearchDesc,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -120,7 +111,7 @@ fun OfferSelectorDropdown(
                             expanded = next
                             if (!next) {
                                 isSearching = false
-                                searchText = offerTypeDisplayLabel(offerType, currencySymbol)
+                                searchText = strings.offerTypeLabel(offerType, currencySymbol)
                                 focusManager.clearFocus()
                             }
                         },
@@ -128,7 +119,7 @@ fun OfferSelectorDropdown(
                     ) {
                         Icon(
                             imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (expanded) "Collapse offers" else "Expand offers"
+                            contentDescription = if (expanded) strings.collapseOffersDesc else strings.expandOffersDesc
                         )
                     }
                 }
@@ -163,7 +154,7 @@ fun OfferSelectorDropdown(
                 ) {
                     if (filteredLibrary.isNotEmpty()) {
                         Text(
-                            text = "Saved Offers Library",
+                            text = strings.savedOffersLibrary,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
@@ -194,7 +185,7 @@ fun OfferSelectorDropdown(
 
                     if (filteredBuiltIn.isNotEmpty()) {
                         Text(
-                            text = "Offer Types",
+                            text = strings.offerTypesHeader,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
@@ -222,7 +213,7 @@ fun OfferSelectorDropdown(
 
                     if (filteredLibrary.isEmpty() && filteredBuiltIn.isEmpty()) {
                         Text(
-                            text = "No matching offers",
+                            text = strings.noMatchingOffers,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)

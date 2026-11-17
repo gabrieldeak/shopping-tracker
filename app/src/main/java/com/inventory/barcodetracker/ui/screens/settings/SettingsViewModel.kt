@@ -4,6 +4,9 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
+import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,8 +17,10 @@ import com.inventory.barcodetracker.service.BackupRestoreService
 import com.inventory.barcodetracker.service.CsvService
 import com.inventory.barcodetracker.service.OpenFoodFactsHealthResult
 import com.inventory.barcodetracker.service.OpenFoodFactsService
+import com.inventory.barcodetracker.ui.i18n.AppStrings
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,36 +37,40 @@ class SettingsViewModel(
     private val currencyPreferences: CurrencyPreferences,
 ) : ViewModel() {
 
+    private val strings: AppStrings
+        get() = AppStrings.forLanguage(currencyPreferences.appLanguage.value)
+
     val currencySymbol: StateFlow<String> = currencyPreferences.currencySymbol
     val budgetLimit: StateFlow<Double> = currencyPreferences.budgetLimit
     val themeMode: StateFlow<String> = currencyPreferences.themeMode
     val capitalizationMode: StateFlow<String> = currencyPreferences.capitalizationMode
+    val appLanguage: StateFlow<String> = currencyPreferences.appLanguage
 
     fun setCurrencySymbol(symbol: String) {
         currencyPreferences.setCurrencySymbol(symbol)
         viewModelScope.launch {
-            _snackbarMessages.emit("Currency symbol updated to $symbol")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmCurrencyUpdatedFmt, symbol))
         }
     }
 
     fun setBudgetLimit(limit: Double) {
         currencyPreferences.setBudgetLimit(limit)
         viewModelScope.launch {
-            _snackbarMessages.emit("Shopping budget limit updated")
+            _snackbarMessages.emit(strings.vmBudgetLimitUpdated)
         }
     }
 
     fun setThemeMode(mode: String) {
         currencyPreferences.setThemeMode(mode)
         viewModelScope.launch {
-            _snackbarMessages.emit("App theme updated to $mode")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmThemeUpdatedFmt, mode))
         }
     }
 
     fun setCapitalizationMode(mode: String) {
         currencyPreferences.setCapitalizationMode(mode)
         viewModelScope.launch {
-            _snackbarMessages.emit("Text capitalization mode updated")
+            _snackbarMessages.emit(strings.vmCapModeUpdated)
         }
     }
 
@@ -72,6 +81,162 @@ class SettingsViewModel(
         data object Idle : BarcodeHealthState
         data object Checking : BarcodeHealthState
         data class Result(val result: OpenFoodFactsHealthResult) : BarcodeHealthState
+    }
+
+    enum class BackupFileType(val extension: String, val label: String) {
+        JSON("json", "JSON"),
+        DB("db", ".DB"),
+        CSV("csv", "CSV"),
+    }
+
+    data class AvailableBackupFile(
+        val uri: Uri,
+        val displayName: String,
+        val type: BackupFileType,
+        val modifiedAtMillis: Long,
+        val sizeBytes: Long,
+    )
+
+    private val _availableBackups = MutableStateFlow<List<AvailableBackupFile>>(emptyList())
+    val availableBackups: StateFlow<List<AvailableBackupFile>> = _availableBackups.asStateFlow()
+
+    private fun resolveDisplayName(contentResolver: ContentResolver, uri: Uri, fallback: String): String {
+        return try {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) cursor.getString(idx)?.takeIf { it.isNotBlank() } else null
+                } else null
+            } ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: fallback
+        } catch (_: Exception) {
+            uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: fallback
+        }
+    }
+
+    private fun recordRecentBackupUri(context: Context, uri: Uri) {
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (_: Exception) {}
+        val prefs = context.getSharedPreferences("recent_backup_uris", Context.MODE_PRIVATE)
+        val existing = prefs.getStringSet("uris", emptySet())?.toMutableSet() ?: mutableSetOf()
+        existing.add(uri.toString())
+        prefs.edit().putStringSet("uris", existing).apply()
+    }
+
+    private fun isUriReadable(cr: ContentResolver, uri: Uri): Boolean {
+        return try {
+            cr.openAssetFileDescriptor(uri, "r")?.use { afd ->
+                afd.length != 0L
+            } ?: cr.openInputStream(uri)?.use { true } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun loadAvailableBackups(context: Context, filterType: BackupFileType) {
+        viewModelScope.launch {
+            val found = withContext(Dispatchers.IO) {
+                val results = linkedMapOf<String, AvailableBackupFile>()
+                val cr = context.contentResolver
+
+                // 1. Check persisted SAF URIs (from previous saves/restores)
+                val prefs = context.getSharedPreferences("recent_backup_uris", Context.MODE_PRIVATE)
+                val savedUris = prefs.getStringSet("uris", emptySet()) ?: emptySet()
+                val validUris = mutableSetOf<String>()
+                for (uriStr in savedUris) {
+                    try {
+                        val uri = Uri.parse(uriStr)
+                        if (!isUriReadable(cr, uri)) continue
+                        cr.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+                            if (c.moveToFirst()) {
+                                val nameIdx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                val sizeIdx = c.getColumnIndex(OpenableColumns.SIZE)
+                                val name = if (nameIdx >= 0) c.getString(nameIdx) ?: "" else ""
+                                val size = if (sizeIdx >= 0) c.getLong(sizeIdx) else 0L
+                                if (size > 0L) {
+                                    validUris.add(uriStr)
+                                    if (name.lowercase(Locale.ROOT).endsWith(".${filterType.extension}")) {
+                                        results[name.lowercase(Locale.ROOT)] = AvailableBackupFile(
+                                            uri = uri,
+                                            displayName = name,
+                                            type = filterType,
+                                            modifiedAtMillis = System.currentTimeMillis(),
+                                            sizeBytes = size,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+                if (validUris.size != savedUris.size) {
+                    prefs.edit().putStringSet("uris", validUris).apply()
+                }
+
+                // 2. Query MediaStore.Downloads (API 29+) for matching non-trashed, readable files
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try {
+                        val projection = arrayOf(
+                            MediaStore.Downloads._ID,
+                            MediaStore.Downloads.DISPLAY_NAME,
+                            MediaStore.Downloads.DATE_MODIFIED,
+                            MediaStore.Downloads.SIZE,
+                        )
+                        val selection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            "${MediaStore.Downloads.DISPLAY_NAME} LIKE ? AND ${MediaStore.Downloads.SIZE} > 0 AND ${MediaStore.MediaColumns.IS_TRASHED} = 0 AND ${MediaStore.MediaColumns.IS_PENDING} = 0"
+                        } else {
+                            "${MediaStore.Downloads.DISPLAY_NAME} LIKE ? AND ${MediaStore.Downloads.SIZE} > 0"
+                        }
+                        val selectionArgs = arrayOf("%. ${filterType.extension}".replace(" ", ""))
+                        cr.query(
+                            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                            projection,
+                            selection,
+                            selectionArgs,
+                            "${MediaStore.Downloads.DATE_MODIFIED} DESC"
+                        )?.use { cursor ->
+                            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+                            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
+                            val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_MODIFIED)
+                            val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Downloads.SIZE)
+                            while (cursor.moveToNext()) {
+                                val id = cursor.getLong(idCol)
+                                val name = cursor.getString(nameCol) ?: continue
+                                val modifiedSec = cursor.getLong(dateCol)
+                                val size = cursor.getLong(sizeCol)
+                                val contentUri = Uri.withAppendedPath(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id.toString())
+                                if (!isUriReadable(cr, contentUri)) continue
+                                results[name.lowercase(Locale.ROOT)] = AvailableBackupFile(
+                                    uri = contentUri,
+                                    displayName = name,
+                                    type = filterType,
+                                    modifiedAtMillis = modifiedSec * 1000L,
+                                    sizeBytes = size,
+                                )
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+
+                results.values.sortedByDescending { it.modifiedAtMillis }
+            }
+            _availableBackups.value = found
+        }
+    }
+
+    fun validateAndNotifyWrongType(context: Context, uri: Uri, expectedType: BackupFileType): Boolean {
+        val name = resolveDisplayName(context.contentResolver, uri, "")
+        if (name.isNotBlank() && !name.lowercase(Locale.ROOT).endsWith(".${expectedType.extension}")) {
+            viewModelScope.launch {
+                _snackbarMessages.emit(String.format(Locale.US, strings.wrongFileTypeFmt, name, expectedType.label))
+            }
+            return false
+        }
+        recordRecentBackupUri(context, uri)
+        return true
     }
 
     private val _barcodeHealthState = MutableStateFlow<BarcodeHealthState>(BarcodeHealthState.Idle)
@@ -85,9 +250,9 @@ class SettingsViewModel(
             val healthyCount = res.endpoints.count { it.isHealthy }
             val totalCount = res.endpoints.size
             val msg = if (healthyCount == totalCount) {
-                "All $totalCount barcode APIs healthy"
+                String.format(Locale.US, strings.vmAllApisHealthyFmt, totalCount)
             } else {
-                "$healthyCount/$totalCount barcode APIs reachable"
+                String.format(Locale.US, strings.vmSomeApisReachableFmt, healthyCount, totalCount)
             }
             _snackbarMessages.emit(msg)
         }
@@ -97,7 +262,7 @@ class SettingsViewModel(
         _barcodeHealthState.value = BarcodeHealthState.Idle
     }
 
-    fun exportItems(contentResolver: ContentResolver, uri: Uri) {
+    fun exportItems(context: Context, contentResolver: ContentResolver, uri: Uri) {
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -105,10 +270,12 @@ class SettingsViewModel(
                     contentResolver.openOutputStream(uri)?.use { outputStream ->
                         CsvService.exportPieces(outputStream, pieces)
                     }
+                    recordRecentBackupUri(context, uri)
                 }
-                _snackbarMessages.emit("Successfully exported shopping_items.csv")
+                val savedName = resolveDisplayName(contentResolver, uri, "shopping_items.csv")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmExportedFileFmt, savedName))
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to export shopping items: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedExportItemsFmt, e.message ?: ""))
             }
         }
     }
@@ -123,14 +290,14 @@ class SettingsViewModel(
                         pieces.size
                     } ?: 0
                 }
-                _snackbarMessages.emit("Imported $count shopping item(s) into Items.")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmImportedItemsFmt, count))
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to import items: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedImportItemsFmt, e.message ?: ""))
             }
         }
     }
 
-    fun exportHistory(contentResolver: ContentResolver, uri: Uri) {
+    fun exportHistory(context: Context, contentResolver: ContentResolver, uri: Uri) {
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -138,10 +305,12 @@ class SettingsViewModel(
                     contentResolver.openOutputStream(uri)?.use { outputStream ->
                         CsvService.exportTrips(outputStream, trips)
                     }
+                    recordRecentBackupUri(context, uri)
                 }
-                _snackbarMessages.emit("Successfully exported shopping_history.csv")
+                val savedName = resolveDisplayName(contentResolver, uri, "shopping_history.csv")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmExportedFileFmt, savedName))
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to export history: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedExportHistoryFmt, e.message ?: ""))
             }
         }
     }
@@ -156,14 +325,14 @@ class SettingsViewModel(
                         trips.size
                     } ?: 0
                 }
-                _snackbarMessages.emit("Imported $count receipt(s) into History.")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmImportedReceiptsFmt, count))
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to import history: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedImportHistoryFmt, e.message ?: ""))
             }
         }
     }
 
-    fun exportFullBackup(contentResolver: ContentResolver, uri: Uri) {
+    fun exportFullBackup(context: Context, contentResolver: ContentResolver, uri: Uri) {
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
@@ -191,13 +360,34 @@ class SettingsViewModel(
                             budgetLimit = budgetLimit.value,
                             themeMode = themeMode.value,
                             capitalizationMode = capitalizationMode.value,
+                            appLanguage = appLanguage.value,
                         )
                     }
+                    recordRecentBackupUri(context, uri)
                 }
-                _snackbarMessages.emit("Full backup file saved successfully!")
+                val savedName = resolveDisplayName(contentResolver, uri, "barcode_tracker_backup.json")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmSavedBackupFileFmt, savedName))
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to export backup: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedExportBackupFmt, e.message ?: ""))
             }
+        }
+    }
+
+    private fun applyRestoredPreferences(payload: com.inventory.barcodetracker.service.FullBackupPayload) {
+        if (payload.currencySymbol.isNotBlank()) {
+            currencyPreferences.setCurrencySymbol(payload.currencySymbol)
+        }
+        if (payload.budgetLimit > 0) {
+            currencyPreferences.setBudgetLimit(payload.budgetLimit)
+        }
+        if (payload.themeMode in listOf("light", "dark", "system")) {
+            currencyPreferences.setThemeMode(payload.themeMode)
+        }
+        if (payload.capitalizationMode in listOf("TITLE_CASE", "FIRST_LETTER", "NONE")) {
+            currencyPreferences.setCapitalizationMode(payload.capitalizationMode)
+        }
+        if (payload.appLanguage in listOf("en", "ro")) {
+            currencyPreferences.setAppLanguage(payload.appLanguage)
         }
     }
 
@@ -207,18 +397,7 @@ class SettingsViewModel(
                 val summary = withContext(Dispatchers.IO) {
                     contentResolver.openInputStream(uri)?.use { inputStream ->
                         val payload = BackupRestoreService.parseBackupStream(context, inputStream) ?: return@use null
-                        if (payload.currencySymbol.isNotBlank()) {
-                            currencyPreferences.setCurrencySymbol(payload.currencySymbol)
-                        }
-                        if (payload.budgetLimit > 0) {
-                            currencyPreferences.setBudgetLimit(payload.budgetLimit)
-                        }
-                        if (payload.themeMode in listOf("light", "dark", "system")) {
-                            currencyPreferences.setThemeMode(payload.themeMode)
-                        }
-                        if (payload.capitalizationMode in listOf("TITLE_CASE", "FIRST_LETTER", "NONE")) {
-                            currencyPreferences.setCapitalizationMode(payload.capitalizationMode)
-                        }
+                        applyRestoredPreferences(payload)
 
                         repository.importPieces(payload.pieces)
                         repository.importProducts(payload.products)
@@ -228,12 +407,12 @@ class SettingsViewModel(
                         repository.importOfferHistory(payload.offerHistory)
                         repository.importShoppingLists(payload.shoppingLists)
                         repository.importShoppingListItems(payload.shoppingListItems)
-                        "Restored ${payload.pieces.size} items, ${payload.shoppingLists.size} baskets, ${payload.offers.size} offers & ${payload.shoppingTrips.size} receipts!"
+                        String.format(Locale.US, strings.vmRestoredSummaryFmt, payload.pieces.size, payload.shoppingLists.size, payload.offers.size, payload.shoppingTrips.size)
                     }
                 }
-                _snackbarMessages.emit(summary ?: "Could not parse backup file.")
+                _snackbarMessages.emit(summary ?: strings.vmCouldNotParseBackup)
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to restore backup: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedRestoreBackupFmt, e.message ?: ""))
             }
         }
     }
@@ -263,12 +442,19 @@ class SettingsViewModel(
                             offerHistory = history,
                             shoppingLists = shoppingLists,
                             shoppingListItems = shoppingListItems,
+                            currencySymbol = currencySymbol.value,
+                            budgetLimit = budgetLimit.value,
+                            themeMode = themeMode.value,
+                            capitalizationMode = capitalizationMode.value,
+                            appLanguage = appLanguage.value,
                         )
                     }
+                    recordRecentBackupUri(context, uri)
                 }
-                _snackbarMessages.emit("Raw SQLite database exported successfully (shopping_tracker.db)!")
+                val savedName = resolveDisplayName(contentResolver, uri, "shopping_tracker.db")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmSavedDbFileFmt, savedName))
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to export database file: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedExportDbFmt, e.message ?: ""))
             }
         }
     }
@@ -279,6 +465,7 @@ class SettingsViewModel(
                 val summary = withContext(Dispatchers.IO) {
                     contentResolver.openInputStream(uri)?.use { inputStream ->
                         val payload = BackupRestoreService.parseBackupStream(context, inputStream) ?: return@use null
+                        applyRestoredPreferences(payload)
                         repository.importPieces(payload.pieces)
                         repository.importProducts(payload.products)
                         repository.importProductPieces(payload.productPieces)
@@ -287,12 +474,12 @@ class SettingsViewModel(
                         repository.importOfferHistory(payload.offerHistory)
                         repository.importShoppingLists(payload.shoppingLists)
                         repository.importShoppingListItems(payload.shoppingListItems)
-                        "Restored ${payload.pieces.size} items, ${payload.shoppingLists.size} baskets, ${payload.offers.size} offers & ${payload.shoppingTrips.size} receipts!"
+                        String.format(Locale.US, strings.vmRestoredSummaryFmt, payload.pieces.size, payload.shoppingLists.size, payload.offers.size, payload.shoppingTrips.size)
                     }
                 }
-                _snackbarMessages.emit(summary ?: "Could not parse database file.")
+                _snackbarMessages.emit(summary ?: strings.vmCouldNotParseDb)
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to restore database file: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedRestoreDbFmt, e.message ?: ""))
             }
         }
     }
@@ -329,6 +516,7 @@ class SettingsViewModel(
                             budgetLimit = budgetLimit.value,
                             themeMode = themeMode.value,
                             capitalizationMode = capitalizationMode.value,
+                            appLanguage = appLanguage.value,
                         )
                     }
                     backupFile
@@ -343,13 +531,13 @@ class SettingsViewModel(
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/json"
                     putExtra(Intent.EXTRA_STREAM, contentUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "Shopping Tracker Full Backup")
+                    putExtra(Intent.EXTRA_SUBJECT, strings.vmShareBackupSubject)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
 
-                context.startActivity(Intent.createChooser(shareIntent, "Share Backup via Google Drive, Email, etc."))
+                context.startActivity(Intent.createChooser(shareIntent, strings.vmShareBackupChooser))
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to share backup: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedShareBackupFmt, e.message ?: ""))
             }
         }
     }
@@ -383,6 +571,11 @@ class SettingsViewModel(
                             offerHistory = history,
                             shoppingLists = shoppingLists,
                             shoppingListItems = shoppingListItems,
+                            currencySymbol = currencySymbol.value,
+                            budgetLimit = budgetLimit.value,
+                            themeMode = themeMode.value,
+                            capitalizationMode = capitalizationMode.value,
+                            appLanguage = appLanguage.value,
                         )
                     }
                     targetFile
@@ -397,13 +590,13 @@ class SettingsViewModel(
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/octet-stream"
                     putExtra(Intent.EXTRA_STREAM, contentUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "Shopping Tracker Database (.db)")
+                    putExtra(Intent.EXTRA_SUBJECT, strings.vmShareDbSubject)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
 
-                context.startActivity(Intent.createChooser(shareIntent, "Share SQLite Database via Google Drive, Email, etc."))
+                context.startActivity(Intent.createChooser(shareIntent, strings.vmShareDbChooser))
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to share database file: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedShareDbFmt, e.message ?: ""))
             }
         }
     }
@@ -429,14 +622,14 @@ class SettingsViewModel(
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/vnd.android.package-archive"
                     putExtra(Intent.EXTRA_STREAM, contentUri)
-                    putExtra(Intent.EXTRA_SUBJECT, "Shopping Tracker App")
-                    putExtra(Intent.EXTRA_TEXT, "Here is the Shopping Tracker Android App installer (APK).")
+                    putExtra(Intent.EXTRA_SUBJECT, strings.vmShareApkSubject)
+                    putExtra(Intent.EXTRA_TEXT, strings.vmShareApkText)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
 
-                context.startActivity(Intent.createChooser(shareIntent, "Share App APK via Bluetooth, Drive, Email..."))
+                context.startActivity(Intent.createChooser(shareIntent, strings.vmShareApkChooser))
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to share app APK: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedShareApkFmt, e.message ?: ""))
             }
         }
     }
@@ -445,9 +638,9 @@ class SettingsViewModel(
         viewModelScope.launch {
             try {
                 repository.seedSampleData()
-                _snackbarMessages.emit("Sample grocery items and offers loaded.")
+                _snackbarMessages.emit(strings.vmSampleDataLoaded)
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to seed data: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedSeedDataFmt, e.message ?: ""))
             }
         }
     }
@@ -456,9 +649,9 @@ class SettingsViewModel(
         viewModelScope.launch {
             try {
                 repository.clearAllData()
-                _snackbarMessages.emit("All baskets, items, offers, and shopping history have been cleared.")
+                _snackbarMessages.emit(strings.vmAllDataCleared)
             } catch (e: Exception) {
-                _snackbarMessages.emit("Failed to clear data: ${e.message}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedClearDataFmt, e.message ?: ""))
             }
         }
     }

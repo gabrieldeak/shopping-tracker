@@ -37,6 +37,7 @@ import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
 import com.inventory.barcodetracker.data.local.entity.calculateItemSavings
 import com.inventory.barcodetracker.data.local.entity.calculateItemTotal
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import java.util.Locale
 
 @Suppress("DEPRECATION")
@@ -59,6 +60,7 @@ fun ShoppingListCard(
     onToggleItemChecked: (String, Boolean) -> Unit = { _, _ -> },
     onAdjustItemQuantity: (String, Int) -> Unit = { _, _ -> },
 ) {
+    val strings = LocalAppStrings.current
     var isExpanded by remember { mutableStateOf(false) }
     var showCheckedItems by remember { mutableStateOf(false) }
     var itemPendingDelete by remember { mutableStateOf<Pair<ShoppingListItemEntity, String>?>(null) }
@@ -162,15 +164,15 @@ fun ShoppingListCard(
             ) {
                 if (direction == SwipeToDismissBoxValue.StartToEnd) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy List", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Icon(Icons.Default.ContentCopy, contentDescription = strings.copyListDesc, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Duplicate", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(strings.duplicate, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 } else if (direction == SwipeToDismissBoxValue.EndToStart) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Delete", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text(strings.delete, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Icon(Icons.Default.Delete, contentDescription = "Delete List", tint = MaterialTheme.colorScheme.onErrorContainer)
+                        Icon(Icons.Default.Delete, contentDescription = strings.deleteListDesc, tint = MaterialTheme.colorScheme.onErrorContainer)
                     }
                 }
             }
@@ -217,7 +219,7 @@ fun ShoppingListCard(
                                     shape = RoundedCornerShape(6.dp)
                                 ) {
                                     Text(
-                                        text = "Over Budget",
+                                        text = strings.overBudget,
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onError,
@@ -233,14 +235,14 @@ fun ShoppingListCard(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = if (totalCount == 1) "1 item" else "$totalCount items",
+                                text = if (totalCount == 1) strings.oneItem else String.format(Locale.US, strings.itemsCountFmt, totalCount),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1
                             )
                             if (totalSavings > 0) {
                                 Text(
-                                    text = String.format(Locale.US, "• Saved %s%.2f", currencySymbol, totalSavings),
+                                    text = String.format(Locale.US, strings.bulletSavedFmt, currencySymbol, totalSavings),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.tertiary,
@@ -265,7 +267,7 @@ fun ShoppingListCard(
                     ) {
                         Icon(
                             imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            contentDescription = if (isExpanded) strings.collapse else strings.expand,
                             tint = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
@@ -296,8 +298,8 @@ fun ShoppingListCard(
                             else MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
                         ) {
                             Text(
-                                text = if (remaining >= 0) String.format(Locale.US, "%s%.2f left", currencySymbol, remaining)
-                                else String.format(Locale.US, "+%s%.2f over", currencySymbol, -remaining),
+                                text = if (remaining >= 0) String.format(Locale.US, strings.leftFmt, currencySymbol, remaining)
+                                else String.format(Locale.US, strings.overFmt, currencySymbol, -remaining),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
@@ -350,7 +352,7 @@ fun ShoppingListCard(
 
                         if (regularItems.isEmpty() && voucherItems.isEmpty()) {
                             Text(
-                                "No items in this basket yet. Check box above and scan barcodes or search items to populate!",
+                                strings.emptyBasketHint,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -387,7 +389,7 @@ fun ShoppingListCard(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = "(${checkedItems.size}) ${if (showCheckedItems) "Hide checked items" else "Show checked items"}",
+                                            text = "(${checkedItems.size}) ${if (showCheckedItems) strings.hideCheckedItems else strings.showCheckedItems}",
                                             style = MaterialTheme.typography.labelMedium,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -435,7 +437,7 @@ fun ShoppingListCard(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Column {
-                                            Text("Unchecked", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(strings.uncheckedLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Text(
                                                 String.format(Locale.US, "%s%.2f", currencySymbol, uncheckedTotal),
                                                 style = MaterialTheme.typography.labelLarge,
@@ -443,7 +445,7 @@ fun ShoppingListCard(
                                             )
                                         }
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text("Checked", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(strings.checkedLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Text(
                                                 String.format(Locale.US, "%s%.2f", currencySymbol, checkedTotal),
                                                 style = MaterialTheme.typography.labelLarge,
@@ -452,7 +454,7 @@ fun ShoppingListCard(
                                             )
                                         }
                                         Column(horizontalAlignment = Alignment.End) {
-                                            Text("Total", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(strings.totalLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Text(
                                                 String.format(Locale.US, "%s%.2f", currencySymbol, itemsSubtotal),
                                                 style = MaterialTheme.typography.labelLarge,
@@ -475,10 +477,10 @@ fun ShoppingListCard(
                                         .replace(Regex("""(\$|£|€|RON)\s+"""), "$1")
                                         .trim()
 
-                                    val voucherName = if (rawName.contains("Voucher", ignoreCase = true) || rawName.contains("Coupon", ignoreCase = true)) {
+                                    val voucherName = if (rawName.contains("Voucher", ignoreCase = true) || rawName.contains("Coupon", ignoreCase = true) || rawName.contains("Cupon", ignoreCase = true)) {
                                         rawName
                                     } else {
-                                        "Voucher ($rawName)"
+                                        String.format(Locale.US, strings.voucherLabelFmt, rawName)
                                     }
 
                                     val discountVal = kotlin.math.abs(item.unitPrice)
@@ -507,7 +509,7 @@ fun ShoppingListCard(
                                                 onClick = { onRemoveItem(item.barcode) },
                                                 modifier = Modifier.size(24.dp)
                                             ) {
-                                                Icon(Icons.Default.Clear, contentDescription = "Remove Voucher", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
+                                                Icon(Icons.Default.Clear, contentDescription = strings.removeVoucherDesc, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
                                             }
                                         }
                                     }
@@ -542,7 +544,7 @@ fun ShoppingListCard(
                             ) {
                                 Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Budget", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(strings.budgetBtn, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
 
                             AppOutlinedButton(
@@ -556,7 +558,7 @@ fun ShoppingListCard(
                             ) {
                                 Icon(Icons.Default.LocalOffer, contentDescription = null, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Voucher", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(strings.voucherBtn, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
 
                             AppOutlinedButton(
@@ -570,7 +572,7 @@ fun ShoppingListCard(
                             ) {
                                 Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(3.dp))
-                                Text("Rename", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(strings.rename, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
 
                             AppOutlinedButton(
@@ -584,7 +586,7 @@ fun ShoppingListCard(
                             ) {
                                 Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(3.dp))
-                                Text("Copy", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(strings.copy, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
 
@@ -601,7 +603,7 @@ fun ShoppingListCard(
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = "↔ Swipe item: Right to Check • Left to Delete",
+                                    text = strings.swipeHint,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -618,8 +620,8 @@ fun ShoppingListCard(
     itemPendingDelete?.let { (item, displayName) ->
         AlertDialog(
             onDismissRequest = { itemPendingDelete = null },
-            title = { Text("Remove Item") },
-            text = { Text("Remove \"$displayName\" from \"${list.name}\"?") },
+            title = { Text(strings.removeItemTitle) },
+            text = { Text(String.format(Locale.US, strings.removeItemConfirmFmt, displayName, list.name)) },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -628,12 +630,12 @@ fun ShoppingListCard(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Remove")
+                    Text(strings.remove)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { itemPendingDelete = null }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -710,7 +712,7 @@ private fun BasketItemRow(
                         Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (item.isChecked) "Uncheck" else "Check",
+                            text = if (item.isChecked) LocalAppStrings.current.uncheck else LocalAppStrings.current.check,
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelMedium
@@ -719,7 +721,7 @@ private fun BasketItemRow(
                 } else if (direction == SwipeToDismissBoxValue.EndToStart) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Delete",
+                            text = LocalAppStrings.current.delete,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelMedium
@@ -750,7 +752,7 @@ private fun BasketItemRow(
                     ) {
                         Icon(
                             imageVector = if (item.isChecked) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                            contentDescription = if (item.isChecked) "Uncheck item" else "Check item",
+                            contentDescription = if (item.isChecked) LocalAppStrings.current.uncheckItemDesc else LocalAppStrings.current.checkItemDesc,
                             tint = if (item.isChecked) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
@@ -771,7 +773,7 @@ private fun BasketItemRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "Qty: ${item.quantity}",
+                                text = "${LocalAppStrings.current.qtyLabel} ${item.quantity}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -809,7 +811,7 @@ private fun BasketItemRow(
                     ) {
                         Icon(
                             imageVector = if (itemExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (itemExpanded) "Collapse item" else "Expand item",
+                            contentDescription = if (itemExpanded) LocalAppStrings.current.collapseItemDesc else LocalAppStrings.current.expandItemDesc,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
@@ -822,20 +824,20 @@ private fun BasketItemRow(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
-                            text = "Barcode: ${item.barcode}",
+                            text = "${LocalAppStrings.current.barcodeLabel} ${item.barcode}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (piece != null && piece.location.isNotBlank() && piece.location != "Default Bin") {
                             Text(
-                                text = "Category: ${piece.location}",
+                                text = "${LocalAppStrings.current.categoryLabel} ${piece.location}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         if (lineSavings > 0) {
                             Text(
-                                text = String.format(Locale.US, "Saved %s%.2f with deal", currencySymbol, lineSavings),
+                                text = String.format(Locale.US, LocalAppStrings.current.savedWithDealFmt, currencySymbol, lineSavings),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.tertiary
@@ -854,7 +856,7 @@ private fun BasketItemRow(
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
-                                    contentDescription = "Remove item",
+                                    contentDescription = LocalAppStrings.current.removeItemDesc,
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -865,7 +867,7 @@ private fun BasketItemRow(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    text = "Qty:",
+                                    text = LocalAppStrings.current.qtyLabel,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(end = 2.dp)
@@ -878,7 +880,7 @@ private fun BasketItemRow(
                                         contentColor = MaterialTheme.colorScheme.onSurface
                                     )
                                 ) {
-                                    Icon(Icons.Default.Remove, contentDescription = "Decrease quantity", modifier = Modifier.size(15.dp))
+                                    Icon(Icons.Default.Remove, contentDescription = LocalAppStrings.current.decreaseQtyDesc, modifier = Modifier.size(15.dp))
                                 }
                                 Text(
                                     text = "${item.quantity}",
@@ -894,7 +896,7 @@ private fun BasketItemRow(
                                         contentColor = MaterialTheme.colorScheme.onPrimary
                                     )
                                 ) {
-                                    Icon(Icons.Default.Add, contentDescription = "Increase quantity", modifier = Modifier.size(15.dp))
+                                    Icon(Icons.Default.Add, contentDescription = LocalAppStrings.current.increaseQtyDesc, modifier = Modifier.size(15.dp))
                                 }
                             }
                         }

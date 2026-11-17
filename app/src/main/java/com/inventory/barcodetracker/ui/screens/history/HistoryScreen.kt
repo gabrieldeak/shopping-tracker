@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.data.local.entity.ShoppingTripEntity
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -38,6 +39,7 @@ fun HistoryScreen(
     viewModel: HistoryViewModel,
     snackbarHostState: SnackbarHostState,
 ) {
+    val strings = LocalAppStrings.current
     val trips by viewModel.shoppingTrips.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedTripIds by viewModel.selectedTripIds.collectAsStateWithLifecycle()
@@ -65,13 +67,13 @@ fun HistoryScreen(
                         ) {
                             Icon(
                                 Icons.Default.ShoppingCart,
-                                contentDescription = "App Logo",
+                                contentDescription = strings.appLogoDesc,
                                 tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Shopping History")
+                        Text(strings.historyTitle)
                     }
                 },
                 actions = {
@@ -83,7 +85,7 @@ fun HistoryScreen(
                         ) {
                             Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Delete Selected (${selectedTripIds.size})", fontWeight = FontWeight.Bold)
+                            Text("${strings.deleteSelected} (${selectedTripIds.size})", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -99,7 +101,7 @@ fun HistoryScreen(
             AppSearchBar(
                 query = searchQuery,
                 onQueryChange = viewModel::onSearchQueryChanged,
-                placeholder = "Search history by basket, item or date...",
+                placeholder = strings.searchHistoryPlaceholder,
                 modifier = Modifier.padding(vertical = 2.dp)
             )
 
@@ -115,7 +117,7 @@ fun HistoryScreen(
                         onClick = { viewModel.selectAllTrips(trips.map { it.id }) }
                     ) {
                         Text(
-                            text = if (selectedTripIds.size == trips.size) "Deselect All (${trips.size})" else "Select All (${trips.size})",
+                            text = if (selectedTripIds.size == trips.size) String.format(Locale.US, strings.deselectAllFmt, trips.size) else String.format(Locale.US, strings.selectAllFmt, trips.size),
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
@@ -137,13 +139,13 @@ fun HistoryScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "No saved baskets yet",
+                            text = strings.noSavedBasketsYet,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "When you finish shopping, tap 'Finish & Save' on any basket card to save a date-stamped receipt here.",
+                            text = strings.noSavedBasketsSubtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 32.dp)
@@ -174,8 +176,8 @@ fun HistoryScreen(
     tripToDelete?.let { trip ->
         AlertDialog(
             onDismissRequest = { tripToDelete = null },
-            title = { Text("Delete Saved Basket") },
-            text = { Text("Are you sure you want to delete the saved basket from ${formatDate(trip.tripDate)}?") },
+            title = { Text(strings.deleteSavedBasketTitle) },
+            text = { Text(String.format(Locale.US, strings.deleteSavedBasketConfirmFmt, formatDate(trip.tripDate))) },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -184,12 +186,12 @@ fun HistoryScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(strings.delete)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { tripToDelete = null }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -199,8 +201,8 @@ fun HistoryScreen(
     if (showConfirmDeleteBatch) {
         AlertDialog(
             onDismissRequest = { showConfirmDeleteBatch = false },
-            title = { Text("Delete Selected Receipts") },
-            text = { Text("Are you sure you want to delete ${selectedTripIds.size} selected receipt(s) from your history?") },
+            title = { Text(strings.deleteSelectedReceiptsTitle) },
+            text = { Text(String.format(Locale.US, strings.deleteSelectedReceiptsConfirmFmt, selectedTripIds.size)) },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -209,12 +211,12 @@ fun HistoryScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete Selected")
+                    Text(strings.deleteSelected)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDeleteBatch = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -229,13 +231,14 @@ private fun TripItemCard(
     onDelete: () -> Unit,
     onReload: () -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     var isExpanded by remember { mutableStateOf(false) }
 
     val firstLine = trip.itemsSummary.lineSequence().firstOrNull()?.trim() ?: ""
     val basketName = if (firstLine.startsWith("Basket:") || firstLine.startsWith("List:")) {
         firstLine.substringAfter(":").trim()
     } else {
-        "Shopping Basket"
+        strings.defaultHistoryBasketName
     }
 
     Card(
@@ -270,7 +273,7 @@ private fun TripItemCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "${formatDate(trip.tripDate)} • ${trip.itemCount} items",
+                        text = String.format(Locale.US, strings.historyDateItemsFmt, formatDate(trip.tripDate), trip.itemCount),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -293,7 +296,7 @@ private fun TripItemCard(
                 ) {
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (isExpanded) "Collapse items" else "Expand items",
+                        contentDescription = if (isExpanded) strings.collapseItemsDesc else strings.expandItemsDesc,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -317,7 +320,7 @@ private fun TripItemCard(
                         ) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Delete",
+                                contentDescription = strings.delete,
                                 tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -335,7 +338,7 @@ private fun TripItemCard(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Reload Basket",
+                                text = strings.reloadBasket,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1
@@ -380,7 +383,7 @@ private fun TripItemCard(
                                                 ) {
                                                     if (parsed.qty != null) {
                                                         Text(
-                                                            text = "Qty: ${parsed.qty}",
+                                                            text = "${strings.qtyLabel} ${parsed.qty}",
                                                             style = MaterialTheme.typography.labelSmall,
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                                         )

@@ -8,9 +8,12 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.inventory.barcodetracker.di.AppContainer
 import com.inventory.barcodetracker.ui.AppViewModelFactory
+import com.inventory.barcodetracker.ui.i18n.AppStrings
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import com.inventory.barcodetracker.ui.screens.history.HistoryScreen
 import com.inventory.barcodetracker.ui.screens.history.HistoryViewModel
 import com.inventory.barcodetracker.ui.screens.items.ItemsScreen
@@ -64,59 +67,70 @@ fun AppNavHost(
             currencyPreferences = appContainer.currencyPreferences
         )
     )
+    val appLanguage by appContainer.currencyPreferences.appLanguage.collectAsStateWithLifecycle()
+    val strings = remember(appLanguage) { AppStrings.forLanguage(appLanguage) }
 
-    Scaffold(
-        modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            NavigationBar {
-                bottomNavScreens.forEachIndexed { index, screen ->
-                    val selected = pagerState.currentPage == index
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            if (pagerState.currentPage != index) {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
+    CompositionLocalProvider(LocalAppStrings provides strings) {
+        Scaffold(
+            modifier = modifier,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            bottomBar = {
+                NavigationBar {
+                    bottomNavScreens.forEachIndexed { index, screen ->
+                        val selected = pagerState.currentPage == index
+                        val label = when (screen) {
+                            Screen.QuickScan -> strings.tabQuickScan
+                            Screen.Items -> strings.tabItems
+                            Screen.Offers -> strings.tabOffers
+                            Screen.History -> strings.tabHistory
+                            Screen.Settings -> strings.tabSettings
+                        }
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                if (pagerState.currentPage != index) {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
                                 }
-                            }
-                        },
-                        icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = { Text(screen.title) }
-                    )
+                            },
+                            icon = { Icon(screen.icon, contentDescription = label) },
+                            label = { Text(label) }
+                        )
+                    }
                 }
             }
-        }
-    ) { innerPadding ->
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
-        ) { page ->
-            when (page) {
-                0 -> QuickScanScreen(
-                    viewModel = quickScanViewModel,
-                    onNavigateToProductBom = { _ -> },
-                    snackbarHostState = snackbarHostState
-                )
-                1 -> ItemsScreen(
-                    viewModel = itemsViewModel,
-                    snackbarHostState = snackbarHostState
-                )
-                2 -> OffersScreen(
-                    viewModel = offersViewModel,
-                    snackbarHostState = snackbarHostState
-                )
-                3 -> HistoryScreen(
-                    viewModel = historyViewModel,
-                    snackbarHostState = snackbarHostState
-                )
-                4 -> SettingsScreen(
-                    viewModel = settingsViewModel,
-                    snackbarHostState = snackbarHostState
-                )
+        ) { innerPadding ->
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding)
+            ) { page ->
+                when (page) {
+                    0 -> QuickScanScreen(
+                        viewModel = quickScanViewModel,
+                        onNavigateToProductBom = { _ -> },
+                        snackbarHostState = snackbarHostState
+                    )
+                    1 -> ItemsScreen(
+                        viewModel = itemsViewModel,
+                        snackbarHostState = snackbarHostState
+                    )
+                    2 -> OffersScreen(
+                        viewModel = offersViewModel,
+                        snackbarHostState = snackbarHostState
+                    )
+                    3 -> HistoryScreen(
+                        viewModel = historyViewModel,
+                        snackbarHostState = snackbarHostState
+                    )
+                    4 -> SettingsScreen(
+                        viewModel = settingsViewModel,
+                        snackbarHostState = snackbarHostState
+                    )
+                }
             }
         }
     }

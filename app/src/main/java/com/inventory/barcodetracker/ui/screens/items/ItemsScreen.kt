@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.ui.components.AddItemsToBasketDialog
 import com.inventory.barcodetracker.ui.components.AppSearchBar
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,6 +44,7 @@ fun ItemsScreen(
     viewModel: ItemsViewModel,
     snackbarHostState: SnackbarHostState,
 ) {
+    val strings = LocalAppStrings.current
     val searchFilter by viewModel.searchFilter.collectAsStateWithLifecycle()
     val lowStockOnly by viewModel.lowStockOnly.collectAsStateWithLifecycle()
     val piecesList by viewModel.piecesList.collectAsStateWithLifecycle()
@@ -77,13 +79,13 @@ fun ItemsScreen(
                         ) {
                             Icon(
                                 Icons.Default.ShoppingCart,
-                                contentDescription = "App Logo",
+                                contentDescription = strings.appLogoDesc,
                                 tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Items Catalog")
+                        Text(strings.itemsTitle)
                     }
                 }
             )
@@ -91,8 +93,8 @@ fun ItemsScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Add Item") },
-                text = { Text("Add Item", fontWeight = FontWeight.Bold) },
+                icon = { Icon(Icons.Default.Add, contentDescription = strings.addItem) },
+                text = { Text(strings.addItem, fontWeight = FontWeight.Bold) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
@@ -108,7 +110,7 @@ fun ItemsScreen(
             AppSearchBar(
                 query = searchFilter,
                 onQueryChange = viewModel::onSearchFilterChanged,
-                placeholder = "Search catalog by name or barcode...",
+                placeholder = strings.searchCatalogPlaceholder,
                 modifier = Modifier.padding(vertical = 2.dp)
             )
 
@@ -125,7 +127,7 @@ fun ItemsScreen(
                         onClick = { viewModel.selectAllPieces(piecesList.map { it.barcode }) }
                     ) {
                         Text(
-                            text = if (selectedBarcodes.size == piecesList.size) "Deselect All (${piecesList.size})" else "Select All (${piecesList.size})",
+                            text = if (selectedBarcodes.size == piecesList.size) String.format(Locale.US, strings.deselectAllFmt, piecesList.size) else String.format(Locale.US, strings.selectAllFmt, piecesList.size),
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
@@ -143,7 +145,7 @@ fun ItemsScreen(
                             ) {
                                 Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Add (${selectedBarcodes.size})", fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(String.format(Locale.US, strings.addCountFmt, selectedBarcodes.size), fontWeight = FontWeight.Bold, maxLines = 1)
                             }
 
                             AppButton(
@@ -153,7 +155,7 @@ fun ItemsScreen(
                             ) {
                                 Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Delete (${selectedBarcodes.size})", fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(String.format(Locale.US, strings.deleteCountFmt, selectedBarcodes.size), fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
                     }
@@ -184,7 +186,7 @@ fun ItemsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Saved Items Catalog",
+                            text = strings.savedItemsCatalog,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
@@ -193,7 +195,7 @@ fun ItemsScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "$catalogCount Saved Products",
+                                text = String.format(Locale.US, strings.savedProductsCountFmt, catalogCount),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
@@ -220,7 +222,7 @@ fun ItemsScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Check items below, then tap 'Add to Basket' above to route them to your shopping lists.",
+                                text = strings.itemsRoutingHint,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -236,7 +238,7 @@ fun ItemsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (lowStockOnly) "No parts currently below threshold" else "No parts found in inventory",
+                        text = if (lowStockOnly) strings.noPartsBelowThreshold else strings.noItemsInCatalog,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -295,8 +297,8 @@ fun ItemsScreen(
     pieceToDelete?.let { piece ->
         AlertDialog(
             onDismissRequest = { pieceToDelete = null },
-            title = { Text("Delete Item") },
-            text = { Text("Are you sure you want to delete \"${piece.name}\"?\n\nIf you delete it, it will also be removed from any active shopping baskets.") },
+            title = { Text(strings.deleteItemTitle) },
+            text = { Text(String.format(Locale.US, strings.deleteItemConfirmFmt, piece.name)) },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -305,12 +307,12 @@ fun ItemsScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(strings.delete)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pieceToDelete = null }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -320,8 +322,8 @@ fun ItemsScreen(
     if (showConfirmDeleteBatch) {
         AlertDialog(
             onDismissRequest = { showConfirmDeleteBatch = false },
-            title = { Text("Delete Selected Items") },
-            text = { Text("Are you sure you want to delete ${selectedBarcodes.size} selected item(s)?\n\nIf you delete them, they will also be removed from any active shopping baskets.") },
+            title = { Text(strings.deleteSelectedItemsTitle) },
+            text = { Text(String.format(Locale.US, strings.deleteSelectedItemsConfirmFmt, selectedBarcodes.size)) },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -330,12 +332,12 @@ fun ItemsScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete Selected")
+                    Text(strings.deleteSelected)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDeleteBatch = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -435,7 +437,7 @@ private fun PieceItemCard(
                 ) {
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (isExpanded) "Collapse details" else "Expand details",
+                        contentDescription = if (isExpanded) LocalAppStrings.current.collapse else LocalAppStrings.current.expand,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -449,13 +451,13 @@ private fun PieceItemCard(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Barcode: ${piece.barcode}",
+                        text = "${LocalAppStrings.current.barcodeLabel} ${piece.barcode}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (piece.location.isNotBlank() && piece.location != "Default Bin") {
                         Text(
-                            text = "Category: ${piece.location}",
+                            text = "${LocalAppStrings.current.categoryLabel} ${piece.location}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -482,7 +484,7 @@ private fun PieceItemCard(
                         ) {
                             Icon(
                                 Icons.Default.Edit,
-                                contentDescription = "Edit",
+                                contentDescription = LocalAppStrings.current.edit,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -494,7 +496,7 @@ private fun PieceItemCard(
                         ) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Delete",
+                                contentDescription = LocalAppStrings.current.delete,
                                 tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(18.dp)
                             )

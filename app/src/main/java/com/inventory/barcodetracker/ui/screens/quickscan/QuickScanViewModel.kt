@@ -16,6 +16,7 @@ import com.inventory.barcodetracker.scanner.ScanResult
 import com.inventory.barcodetracker.service.AppUpdateInfo
 import com.inventory.barcodetracker.service.OpenFoodFactsService
 import com.inventory.barcodetracker.service.UpdateCheckService
+import com.inventory.barcodetracker.ui.i18n.AppStrings
 import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,6 +33,7 @@ import kotlinx.coroutines.launch
 
 sealed class ScannedItemState {
     object Idle : ScannedItemState()
+    data class Loading(val barcode: String) : ScannedItemState()
     data class FoundPiece(val piece: PieceEntity) : ScannedItemState()
     data class FoundProduct(val product: ProductEntity) : ScannedItemState()
     data class NotFound(
@@ -39,6 +41,7 @@ sealed class ScannedItemState {
         val initialName: String = "",
         val initialBrand: String = "",
         val initialCategory: String = "Grocery",
+        val apisUnavailable: Boolean = false,
     ) : ScannedItemState()
 }
 
@@ -48,8 +51,20 @@ class QuickScanViewModel(
     private val currencyPreferences: CurrencyPreferences,
 ) : ViewModel() {
 
+    private val strings: AppStrings
+        get() = AppStrings.forLanguage(currencyPreferences.appLanguage.value)
+
     val currencySymbol: StateFlow<String> = currencyPreferences.currencySymbol
     val budgetLimit: StateFlow<Double> = currencyPreferences.budgetLimit
+    val appLanguage: StateFlow<String> = currencyPreferences.appLanguage
+
+    fun setAppLanguage(language: String) {
+        currencyPreferences.setAppLanguage(language)
+    }
+
+    fun setCurrencySymbol(symbol: String) {
+        currencyPreferences.setCurrencySymbol(symbol)
+    }
 
     val savedOffers: StateFlow<List<OfferEntity>> = repository.allOffers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -156,12 +171,12 @@ class QuickScanViewModel(
             if (pending != null) {
                 _pendingBasketItem.value = null
                 addPieceToList(id, pending.piece, pending.quantity)
-                _snackbarMessages.emit("Created basket \"$formattedName\" & added ${pending.piece.name}")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmCreatedBasketAddedFmt, formattedName, pending.piece.name))
                 if (pending.fromScanner) {
                     _scanAnotherPromptItem.value = pending.piece.name
                 }
             } else {
-                _snackbarMessages.emit("Created basket \"$formattedName\"")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmCreatedBasketFmt, formattedName))
             }
         }
     }
@@ -195,7 +210,7 @@ class QuickScanViewModel(
             val newId = repository.copyShoppingList(listId, formattedName)
             _activeListId.value = newId
             _selectedListIds.value = _selectedListIds.value + newId
-            _snackbarMessages.emit("Duplicated basket as \"$formattedName\"")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmDuplicatedBasketFmt, formattedName))
         }
     }
 
@@ -205,7 +220,7 @@ class QuickScanViewModel(
             if (existing != null) {
                 val formattedName = currencyPreferences.formatText(newName)
                 repository.upsertShoppingList(existing.copy(name = formattedName))
-                _snackbarMessages.emit("Renamed basket to \"$formattedName\"")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmRenamedBasketFmt, formattedName))
             }
         }
     }
@@ -215,7 +230,7 @@ class QuickScanViewModel(
             val existing = repository.getAllShoppingListsSync().firstOrNull { it.id == listId }
             if (existing != null) {
                 repository.upsertShoppingList(existing.copy(budgetLimit = limit))
-                val msg = if (limit > 0) "Budget limit set to ${currencySymbol.value}${String.format(Locale.US, "%.2f", limit)} for \"${existing.name}\"" else "Budget cleared for \"${existing.name}\""
+                val msg = if (limit > 0) String.format(Locale.US, strings.vmBudgetSetFmt, currencySymbol.value, limit, existing.name) else String.format(Locale.US, strings.vmBudgetClearedFmt, existing.name)
                 _snackbarMessages.emit(msg)
             }
         }
@@ -230,7 +245,7 @@ class QuickScanViewModel(
                     repository.upsertShoppingList(list.copy(budgetLimit = limit))
                 }
                 val symbol = currencySymbol.value
-                val msg = if (limit > 0) "Set ${symbol}${String.format(Locale.US, "%.2f", limit)} budget limit for ${lists.size} selected basket(s)" else "Cleared budget for ${lists.size} selected basket(s)"
+                val msg = if (limit > 0) String.format(Locale.US, strings.vmBudgetSetMultiFmt, symbol, limit, lists.size) else String.format(Locale.US, strings.vmBudgetClearedMultiFmt, lists.size)
                 _snackbarMessages.emit(msg)
             }
         }
@@ -255,7 +270,7 @@ class QuickScanViewModel(
                 )
             )
             val symbol = currencySymbol.value
-            _snackbarMessages.emit("Applied $titleClean (-${symbol}${String.format(Locale.US, "%.2f", voucher.fixedPrice)}) to Basket!")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmAppliedVoucherBasketFmt, titleClean, symbol, voucher.fixedPrice))
         }
     }
 
@@ -276,7 +291,7 @@ class QuickScanViewModel(
     fun removeShoppingListItem(listId: Long, barcode: String) {
         viewModelScope.launch {
             repository.removeShoppingListItem(listId, barcode)
-            _snackbarMessages.emit("Removed item/voucher from basket")
+            _snackbarMessages.emit(strings.vmRemovedItemOrVoucher)
         }
     }
 
@@ -285,7 +300,7 @@ class QuickScanViewModel(
             repository.deleteShoppingList(list)
             if (_activeListId.value == list.id) _activeListId.value = null
             _selectedListIds.value = _selectedListIds.value - list.id
-            _snackbarMessages.emit("Deleted basket \"${list.name}\"")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmDeletedBasketFmt, list.name))
         }
     }
 
@@ -295,7 +310,7 @@ class QuickScanViewModel(
             if (selected.isNotEmpty()) {
                 repository.deleteShoppingListsByIds(selected)
                 _selectedListIds.value = emptySet()
-                _snackbarMessages.emit("Deleted ${selected.size} selected basket(s)")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmDeletedBasketsFmt, selected.size))
             }
         }
     }
@@ -312,7 +327,7 @@ class QuickScanViewModel(
         if (_appliedCartVouchers.value.none { it.id == voucher.id && voucher.id != 0L }) {
             _appliedCartVouchers.value = _appliedCartVouchers.value + voucher
             viewModelScope.launch {
-                _snackbarMessages.emit("Applied ${voucher.title} (-${currencySymbol.value}${String.format(Locale.US, "%.2f", voucher.fixedPrice)}) to Basket!")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmAppliedVoucherFmt, voucher.title, currencySymbol.value, voucher.fixedPrice))
             }
         }
     }
@@ -320,7 +335,7 @@ class QuickScanViewModel(
     fun removeCartVoucher(voucher: OfferEntity) {
         _appliedCartVouchers.value = _appliedCartVouchers.value.filter { it != voucher }
         viewModelScope.launch {
-            _snackbarMessages.emit("Removed voucher ${voucher.title}")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmRemovedVoucherFmt, voucher.title))
         }
     }
 
@@ -430,8 +445,12 @@ class QuickScanViewModel(
 
                 val priceInfo = if (updated.unitPrice > 0) String.format(Locale.US, " (%s%.2f)", symbol, updated.unitPrice) else ""
                 val basketCount = targetLists.size
-                val basketMsg = if (basketCount > 1) " to $basketCount selected baskets" else " to Basket"
-                _snackbarMessages.emit("✓ Added ${updated.name}$priceInfo$basketMsg")
+                val msg = if (basketCount > 1) {
+                    String.format(Locale.US, strings.vmAddedToBasketsMultiFmt, updated.name, priceInfo, basketCount)
+                } else {
+                    String.format(Locale.US, strings.vmAddedToBasketSingleFmt, updated.name, priceInfo)
+                }
+                _snackbarMessages.emit(msg)
                 if (fromScanner) {
                     _scanAnotherPromptItem.value = updated.name
                 }
@@ -443,28 +462,46 @@ class QuickScanViewModel(
                 repository.adjustProductStock(product.productSku, 1)
                 val updated = repository.getProductBySku(product.productSku) ?: product
                 val priceInfo = if (updated.unitPrice > 0) String.format(Locale.US, " (%s%.2f)", symbol, updated.unitPrice) else ""
-                _snackbarMessages.emit("✓ Added ${updated.name}$priceInfo to Basket (In cart: ${updated.stockQuantity})")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmAddedToBasketCartFmt, updated.name, priceInfo, updated.stockQuantity))
                 return@launch
             }
 
-            // 3. Not in local database -> Query Open Food Facts API
-            val onlineProduct = OpenFoodFactsService.lookupBarcode(trimmed)
+            // 3. Not in local database -> Show loading & query Open*Facts APIs in parallel
+            _scannedItemState.value = ScannedItemState.Loading(trimmed)
+            val outcome = OpenFoodFactsService.lookupBarcodeWithStatus(trimmed)
+            // Only update if user hasn't dismissed or switched to manual entry
+            if (_scannedItemState.value !is ScannedItemState.Loading) return@launch
+            val onlineProduct = outcome.product
             if (onlineProduct != null) {
-                _snackbarMessages.emit("Found online: ${onlineProduct.name}. Enter price to save.")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmFoundOnlineFmt, onlineProduct.name))
                 _scannedItemState.value = ScannedItemState.NotFound(
                     barcode = trimmed,
                     initialName = onlineProduct.name,
                     initialBrand = onlineProduct.brand,
                     initialCategory = onlineProduct.category,
+                    apisUnavailable = false,
                 )
             } else {
-                _scannedItemState.value = ScannedItemState.NotFound(trimmed)
+                _scannedItemState.value = ScannedItemState.NotFound(
+                    barcode = trimmed,
+                    apisUnavailable = outcome.apisUnavailable,
+                )
             }
         }
     }
 
     fun dismissScannedSheet() {
         _scannedItemState.value = ScannedItemState.Idle
+    }
+
+    fun skipLookupToManualEntry() {
+        val current = _scannedItemState.value
+        if (current is ScannedItemState.Loading) {
+            _scannedItemState.value = ScannedItemState.NotFound(
+                barcode = current.barcode,
+                apisUnavailable = false,
+            )
+        }
     }
 
     fun adjustPieceStock(barcode: String, delta: Int) {
@@ -487,7 +524,7 @@ class QuickScanViewModel(
                     addPieceToList(listId, piece, delta)
                 }
             }
-            _snackbarMessages.emit("Cart quantity updated ($delta)")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmCartQtyUpdatedFmt, delta.toString()))
         }
     }
 
@@ -498,7 +535,7 @@ class QuickScanViewModel(
             updated?.let {
                 _scannedItemState.value = ScannedItemState.FoundProduct(it)
             }
-            _snackbarMessages.emit("Product stock updated ($delta)")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmProductStockUpdatedFmt, delta.toString()))
         }
     }
 
@@ -518,7 +555,7 @@ class QuickScanViewModel(
             for (listId in targetLists) {
                 addPieceToList(listId, piece, maxOf(1, piece.stockQuantity))
             }
-            _snackbarMessages.emit("✓ Added ${piece.name} to Basket")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmAddedPieceToBasketFmt, piece.name))
             if (fromScanner) {
                 _scanAnotherPromptItem.value = piece.name
             }
@@ -532,7 +569,7 @@ class QuickScanViewModel(
             updated?.let {
                 _scannedItemState.value = ScannedItemState.FoundPiece(it)
             }
-            _snackbarMessages.emit("Applied deal \"${offer.displayBadge}\"")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmAppliedDealFmt, offer.displayBadge))
         }
     }
 
@@ -544,7 +581,7 @@ class QuickScanViewModel(
         viewModelScope.launch {
             val listItems = repository.getItemsForListSync(list.id)
             if (listItems.isEmpty()) {
-                _snackbarMessages.emit("List \"${list.name}\" is empty!")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmListEmptyFmt, list.name))
                 return@launch
             }
 
@@ -631,7 +668,7 @@ class QuickScanViewModel(
             )
             resetClearedBasketPieceQuantities(list.id)
             repository.clearShoppingListItems(list.id)
-            _snackbarMessages.emit("Saved \"${list.name}\" ($symbol${String.format(Locale.US, "%.2f", netTotalCost)}) to History!")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmSavedBasketToHistoryFmt, list.name, symbol, netTotalCost))
         }
     }
 
@@ -650,7 +687,7 @@ class QuickScanViewModel(
         viewModelScope.launch {
             resetClearedBasketPieceQuantities(list.id)
             repository.clearShoppingListItems(list.id)
-            _snackbarMessages.emit("Cleared basket \"${list.name}\"")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmClearedBasketFmt, list.name))
         }
     }
 
@@ -669,7 +706,7 @@ class QuickScanViewModel(
                 }
             }
             if (count == 0) {
-                _snackbarMessages.emit("Selected basket(s) are empty!")
+                _snackbarMessages.emit(strings.vmSelectedBasketsEmpty)
             }
         }
     }
@@ -683,7 +720,7 @@ class QuickScanViewModel(
                 resetClearedBasketPieceQuantities(id)
                 repository.clearShoppingListItems(id)
             }
-            _snackbarMessages.emit("Cleared items from ${selectedIds.size} selected basket(s)")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmClearedSelectedBasketsFmt, selectedIds.size))
         }
     }
 
@@ -691,7 +728,7 @@ class QuickScanViewModel(
         viewModelScope.launch {
             repository.upsertProduct(product)
             _scannedItemState.value = ScannedItemState.FoundProduct(product)
-            _snackbarMessages.emit("Created product ${product.name}")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmCreatedProductFmt, product.name))
         }
     }
 
@@ -734,11 +771,11 @@ class QuickScanViewModel(
             repository.checkoutCartAndSaveTrip(
                 totalCost = finalBasketCost,
                 itemCount = itemCount,
-                itemsSummary = summaryText.ifEmpty { "Purchased items" },
+                itemsSummary = summaryText.ifEmpty { strings.vmPurchasedItemsFallback },
                 currencySymbol = symbol,
             )
             _appliedCartVouchers.value = emptyList()
-            _snackbarMessages.emit("Basket saved to History! Items remain in Items.")
+            _snackbarMessages.emit(strings.vmSavedToHistoryKeepItems)
         }
     }
 
@@ -746,7 +783,7 @@ class QuickScanViewModel(
         viewModelScope.launch {
             repository.resetCartQuantities()
             _appliedCartVouchers.value = emptyList()
-            _snackbarMessages.emit("Basket cleared. Items remain saved in Items.")
+            _snackbarMessages.emit(strings.vmBasketClearedKeepItems)
         }
     }
 }

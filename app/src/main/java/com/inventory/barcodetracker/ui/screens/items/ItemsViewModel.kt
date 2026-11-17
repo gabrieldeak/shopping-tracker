@@ -8,6 +8,7 @@ import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
 import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
 import com.inventory.barcodetracker.data.repository.InventoryRepository
+import com.inventory.barcodetracker.ui.i18n.AppStrings
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -23,6 +24,9 @@ class ItemsViewModel(
     private val repository: InventoryRepository,
     private val currencyPreferences: CurrencyPreferences,
 ) : ViewModel() {
+
+    private val strings: AppStrings
+        get() = AppStrings.forLanguage(currencyPreferences.appLanguage.value)
 
     val currencySymbol: StateFlow<String> = currencyPreferences.currencySymbol
 
@@ -112,9 +116,9 @@ class ItemsViewModel(
             repository.upsertPiece(formattedPiece)
             if (updateBasketsPrice) {
                 repository.updateShoppingListItemPrice(formattedPiece.barcode, formattedPiece.unitPrice)
-                _snackbarMessages.emit("Saved ${formattedPiece.name} & updated price in active baskets")
+                _snackbarMessages.emit(String.format(java.util.Locale.US, strings.vmSavedPieceUpdatedBasketsFmt, formattedPiece.name))
             } else {
-                _snackbarMessages.emit("Saved ${formattedPiece.name}")
+                _snackbarMessages.emit(String.format(java.util.Locale.US, strings.vmSavedPieceFmt, formattedPiece.name))
             }
         }
     }
@@ -123,9 +127,9 @@ class ItemsViewModel(
         viewModelScope.launch {
             try {
                 repository.deletePiece(piece)
-                _snackbarMessages.emit("Deleted ${piece.name}")
+                _snackbarMessages.emit(String.format(java.util.Locale.US, strings.vmDeletedPieceFmt, piece.name))
             } catch (_: Exception) {
-                _snackbarMessages.emit("Cannot delete item: it is currently linked to an assembled product.")
+                _snackbarMessages.emit(strings.vmCannotDeleteLinkedItem)
             }
         }
     }
@@ -137,9 +141,9 @@ class ItemsViewModel(
                 try {
                     repository.deletePiecesByBarcodes(selected)
                     _selectedBarcodes.value = emptySet()
-                    _snackbarMessages.emit("Deleted ${selected.size} selected item(s)")
+                    _snackbarMessages.emit(String.format(java.util.Locale.US, strings.vmDeletedSelectedItemsFmt, selected.size))
                 } catch (_: Exception) {
-                    _snackbarMessages.emit("Could not delete some items linked to product BOMs")
+                    _snackbarMessages.emit(strings.vmCouldNotDeleteLinkedItems)
                 }
             }
         }
@@ -176,7 +180,7 @@ class ItemsViewModel(
             }
             val totalAdded = selectedBarcodesList.size
             _selectedBarcodes.value = emptySet()
-            _snackbarMessages.emit("Added $totalAdded item(s) to selected shopping basket(s)!")
+            _snackbarMessages.emit(String.format(java.util.Locale.US, strings.vmAddedItemsToBasketsFmt, totalAdded))
         }
     }
 }

@@ -25,6 +25,7 @@ import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.service.OfferRecognitionService
 import com.inventory.barcodetracker.service.TextRecognitionService
 import com.inventory.barcodetracker.ui.components.VerticalScrollbarContainer
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -36,6 +37,7 @@ fun OfferDialog(
     onDismiss: () -> Unit,
     onSave: (OfferEntity) -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     val isEditing = initialOffer != null
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
@@ -54,14 +56,14 @@ fun OfferDialog(
     var dropdownExpanded by remember { mutableStateOf(false) }
 
     val offerTypesMap = listOf(
-        "THREE_FOR_TWO" to "Buy X Pay Y (e.g. 3 for 2)",
-        "MULTI_BUY_FIXED" to "Multi-Buy Bundle (e.g. 2 for $currencySymbol 5)",
-        "REDUCED_PRICE" to "Special Reduced Price (e.g. Reduced to $currencySymbol 2.50)",
-        "PERCENT_OFF" to "Percentage Discount (e.g. 20% Off)",
-        "VOUCHER" to "🎟️ Basket Discount Voucher ($currencySymbol Off)"
+        "THREE_FOR_TWO" to strings.offerBuyXPayY,
+        "MULTI_BUY_FIXED" to String.format(Locale.US, strings.offerMultiBuyBundleFmt, currencySymbol),
+        "REDUCED_PRICE" to String.format(Locale.US, strings.offerReducedLongFmt, currencySymbol),
+        "PERCENT_OFF" to strings.offerPercentLong,
+        "VOUCHER" to String.format(Locale.US, strings.offerVoucherLongFmt, currencySymbol)
     )
 
-    val currentTypeLabel = offerTypesMap.firstOrNull { it.first == offerType }?.second ?: "Select Promotion Type"
+    val currentTypeLabel = offerTypesMap.firstOrNull { it.first == offerType }?.second ?: strings.selectPromotionType
 
     val cameraOfferLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
@@ -76,10 +78,10 @@ fun OfferDialog(
                     if (recognizedOffer.payQty > 0) offerPayQty = recognizedOffer.payQty.toString()
                     if (recognizedOffer.fixedPrice > 0.0) offerFixedPrice = String.format(Locale.US, "%.2f", recognizedOffer.fixedPrice)
                     if (recognizedOffer.percentOff > 0.0) offerPercentOff = String.format(Locale.US, "%.0f", recognizedOffer.percentOff)
-                    detectedOfferMessage = "Auto-detected offer: \"${recognizedOffer.detectedText}\""
+                    detectedOfferMessage = String.format(Locale.US, strings.autoDetectedOfferFmt, recognizedOffer.detectedText)
                     if (title.isBlank()) title = recognizedOffer.detectedText
                 } else {
-                    detectedOfferMessage = "Could not match deal from label text. Select deal manually below."
+                    detectedOfferMessage = strings.couldNotMatchDeal
                 }
             }
         }
@@ -106,7 +108,7 @@ fun OfferDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (isEditing) "Edit Offer / Deal" else "Create New Store Offer",
+                        text = if (isEditing) strings.editOfferDeal else strings.createNewStoreOffer,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -114,7 +116,7 @@ fun OfferDialog(
                     IconButton(onClick = { cameraOfferLauncher.launch(null) }) {
                         Icon(
                             Icons.Default.PhotoCamera,
-                            contentDescription = "Scan Offer Label with Camera",
+                            contentDescription = strings.scanOfferLabelDesc,
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -144,7 +146,7 @@ fun OfferDialog(
                             value = currentTypeLabel,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Promotion Type *") },
+                            label = { Text(strings.promotionTypeRequired) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
                             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
                             modifier = Modifier
@@ -185,8 +187,8 @@ fun OfferDialog(
                     AppOutlinedTextField(
                         value = title,
                         onValueChange = { title = it },
-                        label = { Text("Offer Title / Name (Optional)") },
-                        placeholder = { Text("e.g. Tesco 3 for 2 Grill Deal") },
+                        label = { Text(strings.offerTitleOptional) },
+                        placeholder = { Text(strings.offerTitlePlaceholder) },
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -195,8 +197,8 @@ fun OfferDialog(
                     AppOutlinedTextField(
                         value = storeName,
                         onValueChange = { storeName = it },
-                        label = { Text("Store / Supermarket (Optional)") },
-                        placeholder = { Text("e.g. Tesco, Sainsbury's, Asda") },
+                        label = { Text(strings.storeOptional) },
+                        placeholder = { Text(strings.storePlaceholder) },
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -205,8 +207,8 @@ fun OfferDialog(
                     AppOutlinedTextField(
                         value = notes,
                         onValueChange = { notes = it },
-                        label = { Text("Notes / Description (Optional)") },
-                        placeholder = { Text("e.g. Valid until Sunday") },
+                        label = { Text(strings.notesOptional) },
+                        placeholder = { Text(strings.notesPlaceholder) },
                         keyboardOptions = KeyboardCapitalization.Sentences.let { KeyboardOptions(capitalization = it) },
                         maxLines = 2,
                         modifier = Modifier.fillMaxWidth()
@@ -222,7 +224,7 @@ fun OfferDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel")
+                        Text(strings.cancel)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     AppButton(
@@ -242,7 +244,7 @@ fun OfferDialog(
                             onSave(offer)
                         }
                     ) {
-                        Text("Save Offer")
+                        Text(strings.saveOffer)
                     }
                 }
             }

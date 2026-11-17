@@ -6,6 +6,7 @@ import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
 import com.inventory.barcodetracker.data.repository.InventoryRepository
+import com.inventory.barcodetracker.ui.i18n.AppStrings
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -22,6 +23,9 @@ class OffersViewModel(
     private val repository: InventoryRepository,
     private val currencyPreferences: CurrencyPreferences,
 ) : ViewModel() {
+
+    private val strings: AppStrings
+        get() = AppStrings.forLanguage(currencyPreferences.appLanguage.value)
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -87,7 +91,7 @@ class OffersViewModel(
             )
             repository.upsertOffer(formattedOffer)
             val label = formattedOffer.title.ifBlank { formattedOffer.getDisplayBadge(currencySymbol.value) }
-            _snackbarMessages.emit("Offer \"$label\" saved successfully.")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmOfferSavedFmt, label))
         }
     }
 
@@ -96,7 +100,7 @@ class OffersViewModel(
             repository.deleteOffer(offer)
             _selectedOfferIds.value = _selectedOfferIds.value - offer.id
             val label = offer.title.ifBlank { offer.getDisplayBadge(currencySymbol.value) }
-            _snackbarMessages.emit("Offer \"$label\" deleted.")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmOfferDeletedFmt, label))
         }
     }
 
@@ -106,7 +110,7 @@ class OffersViewModel(
             if (selected.isNotEmpty()) {
                 repository.deleteOffersByIds(selected)
                 _selectedOfferIds.value = emptySet()
-                _snackbarMessages.emit("Deleted ${selected.size} selected offer(s).")
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmDeletedOffersFmt, selected.size))
             }
         }
     }
@@ -115,7 +119,7 @@ class OffersViewModel(
         viewModelScope.launch {
             repository.applyOfferToPiece(barcode, offer)
             val piece = repository.getPieceByBarcode(barcode)
-            _snackbarMessages.emit("Applied deal \"${offer.displayBadge}\" to ${piece?.name ?: barcode}.")
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmAppliedDealToItemFmt, offer.displayBadge, piece?.name ?: barcode))
         }
     }
 }

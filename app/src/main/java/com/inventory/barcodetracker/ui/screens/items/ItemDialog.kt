@@ -47,6 +47,7 @@ import com.inventory.barcodetracker.service.OfferRecognitionService
 import com.inventory.barcodetracker.service.TextRecognitionService
 import com.inventory.barcodetracker.ui.components.OcrTextEditDialog
 import com.inventory.barcodetracker.ui.components.VerticalScrollbarContainer
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -59,6 +60,7 @@ fun ItemDialog(
     onDismiss: () -> Unit,
     onSave: (PieceEntity, Boolean) -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     val isEditing = initialPiece != null
     val context = LocalContext.current
     val barcodeScannerService = remember(context) { BarcodeScannerService(context) }
@@ -116,9 +118,9 @@ fun ItemDialog(
                     if (recognizedOffer.payQty > 0) offerPayQty = recognizedOffer.payQty.toString()
                     if (recognizedOffer.fixedPrice > 0.0) offerFixedPrice = String.format(Locale.US, "%.2f", recognizedOffer.fixedPrice)
                     if (recognizedOffer.percentOff > 0.0) offerPercentOff = String.format(Locale.US, "%.0f", recognizedOffer.percentOff)
-                    detectedOfferMessage = "Auto-detected offer: \"${recognizedOffer.detectedText}\""
+                    detectedOfferMessage = String.format(Locale.US, strings.autoDetectedOfferFmt, recognizedOffer.detectedText)
                 } else {
-                    detectedOfferMessage = "Could not match deal from label text. Select deal manually below."
+                    detectedOfferMessage = strings.couldNotMatchDeal
                 }
             }
         }
@@ -140,7 +142,7 @@ fun ItemDialog(
             ) {
                 // Title Row
                 Text(
-                    text = if (isEditing) "Edit Shopping Item" else "Add New Shopping Item",
+                    text = if (isEditing) strings.editShoppingItem else strings.addNewShoppingItem,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -155,7 +157,7 @@ fun ItemDialog(
                         AppOutlinedTextField(
                             value = barcode,
                             onValueChange = {},
-                            label = { Text("Barcode / Item Code") },
+                            label = { Text(strings.barcodeItemCodeLabel) },
                             enabled = false,
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
@@ -186,7 +188,7 @@ fun ItemDialog(
                                     ) {
                                         if (barcode.isEmpty()) {
                                             Text(
-                                                text = "Barcode / Item Code (Optional)",
+                                                text = strings.barcodeItemCodeOptional,
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                                 maxLines = 1
@@ -216,7 +218,7 @@ fun ItemDialog(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Clear,
-                                                contentDescription = "Clear barcode",
+                                                contentDescription = strings.clearBarcodeDesc,
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -250,14 +252,14 @@ fun ItemDialog(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.QrCodeScanner,
-                                                contentDescription = "Scan Barcode",
+                                                contentDescription = strings.scanBarcodeDesc,
                                                 modifier = Modifier.size(18.dp)
                                             )
                                             AnimatedVisibility(visible = barcode.isEmpty()) {
                                                 Row {
                                                     Spacer(modifier = Modifier.width(6.dp))
                                                     Text(
-                                                        text = "Scan",
+                                                        text = strings.scanButton,
                                                         style = MaterialTheme.typography.labelLarge,
                                                         fontWeight = FontWeight.SemiBold,
                                                         maxLines = 1
@@ -277,7 +279,7 @@ fun ItemDialog(
                                 )
                             } else {
                                 Text(
-                                    text = "Auto-generated if left blank",
+                                    text = strings.autoGeneratedHint,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 12.dp)
@@ -292,12 +294,12 @@ fun ItemDialog(
                             name = it
                             if (it.isNotBlank()) nameError = null
                         },
-                        label = { Text("Item Name *") },
+                        label = { Text(strings.itemNameRequiredLabel) },
                         trailingIcon = {
                             IconButton(onClick = { cameraOcrLauncher.launch(null) }) {
                                 Icon(
                                     Icons.Default.PhotoCamera,
-                                    contentDescription = "Scan Product Name with Camera",
+                                    contentDescription = strings.scanProductNameDesc,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -312,7 +314,7 @@ fun ItemDialog(
                     AppOutlinedTextField(
                         value = unitPrice,
                         onValueChange = { unitPrice = it },
-                        label = { Text("Price ($currencySymbol)") },
+                        label = { Text(String.format(Locale.US, strings.priceLabelFmt, currencySymbol)) },
                         prefix = { Text(currencySymbol) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
@@ -322,8 +324,8 @@ fun ItemDialog(
                     AppOutlinedTextField(
                         value = category,
                         onValueChange = { category = it },
-                        label = { Text("Category / Store Section") },
-                        placeholder = { Text("e.g. Dairy, Produce, Bakery") },
+                        label = { Text(strings.categorySectionLabel) },
+                        placeholder = { Text(strings.categoryPlaceholder) },
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -332,7 +334,7 @@ fun ItemDialog(
                     AppOutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
-                        label = { Text("Notes / Brand") },
+                        label = { Text(strings.notesBrandLabel) },
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                         maxLines = 2,
                         modifier = Modifier.fillMaxWidth()
@@ -346,7 +348,7 @@ fun ItemDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Store Special Offer / Multi-Buy",
+                            text = strings.storeSpecialOfferTitle,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -354,7 +356,7 @@ fun ItemDialog(
                         IconButton(onClick = { cameraOfferLauncher.launch(null) }) {
                             Icon(
                                 Icons.Default.PhotoCamera,
-                                contentDescription = "Scan Offer Label with Camera",
+                                contentDescription = strings.scanOfferLabelDesc,
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -383,7 +385,7 @@ fun ItemDialog(
                             offerPayQty = if (offer.payQty > 0) offer.payQty.toString() else ""
                             offerFixedPrice = if (offer.fixedPrice > 0.0) String.format(Locale.US, "%.2f", offer.fixedPrice) else ""
                             offerPercentOff = if (offer.percentOff > 0.0) String.format(Locale.US, "%.0f", offer.percentOff) else ""
-                            detectedOfferMessage = "Selected deal: \"${offer.title}\""
+                            detectedOfferMessage = String.format(Locale.US, strings.selectedDealFmt, offer.title)
                         },
                         onExpanded = {
                             coroutineScope.launch {
@@ -420,13 +422,13 @@ fun ItemDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel")
+                        Text(strings.cancel)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     AppButton(
                         onClick = {
                             if (name.isBlank()) {
-                                nameError = "Item name is required"
+                                nameError = strings.itemNameRequiredError
                                 return@AppButton
                             }
 
@@ -456,7 +458,7 @@ fun ItemDialog(
                             }
                         }
                     ) {
-                        Text("Save Item")
+                        Text(strings.saveItem)
                     }
                 }
             }
@@ -479,10 +481,10 @@ fun ItemDialog(
     pendingPieceToSave?.let { piece ->
         AlertDialog(
             onDismissRequest = { pendingPieceToSave = null },
-            title = { Text("Update Price in Active Baskets?") },
+            title = { Text(strings.updatePriceInBasketsTitle) },
             text = {
                 Text(
-                    "You updated the unit price of \"${piece.name}\" to $currencySymbol${String.format(Locale.US, "%.2f", piece.unitPrice)}.\n\nWould you like to update the price of this item across all active shopping baskets on the main screen as well?"
+                    String.format(Locale.US, strings.updatePriceInBasketsBodyFmt, piece.name, currencySymbol, piece.unitPrice)
                 )
             },
             confirmButton = {
@@ -492,7 +494,7 @@ fun ItemDialog(
                         pendingPieceToSave = null
                     }
                 ) {
-                    Text("Update Baskets & Save")
+                    Text(strings.updateBasketsAndSave)
                 }
             },
             dismissButton = {
@@ -501,7 +503,7 @@ fun ItemDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = { pendingPieceToSave = null }) {
-                        Text("Cancel")
+                        Text(strings.cancel)
                     }
                     TextButton(
                         onClick = {
@@ -509,7 +511,7 @@ fun ItemDialog(
                             pendingPieceToSave = null
                         }
                     ) {
-                        Text("Save Item Only")
+                        Text(strings.saveItemOnly)
                     }
                 }
             }

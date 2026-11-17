@@ -1,6 +1,9 @@
 package com.inventory.barcodetracker.service
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -11,6 +14,11 @@ data class OpenFoodFactsProduct(
     val name: String,
     val brand: String,
     val category: String,
+)
+
+data class BarcodeLookupOutcome(
+    val product: OpenFoodFactsProduct?,
+    val apisUnavailable: Boolean,
 )
 
 data class EndpointHealthStatus(
@@ -113,33 +121,49 @@ object OpenFoodFactsService {
         }
     }
 
-    suspend fun lookupBarcode(barcode: String): OpenFoodFactsProduct? = withContext(Dispatchers.IO) {
-        val cleanCode = barcode.trim()
-        if (cleanCode.isBlank()) return@withContext null
-
-        for (config in LOOKUP_HOSTS) {
-            lookupOnHost(config.host, cleanCode)?.let { return@withContext it }
-        }
-        return@withContext null
+    private sealed interface HostLookupResult {
+        data class Found(val product: OpenFoodFactsProduct) : HostLookupResult
+        data object NotFound : HostLookupResult
+        data object Unavailable : HostLookupResult
     }
 
-    private fun lookupOnHost(host: String, cleanCode: String): OpenFoodFactsProduct? {
+    suspend fun lookupBarcode(barcode: String): OpenFoodFactsProduct? =
+        lookupBarcodeWithStatus(barcode).product
+
+    suspend fun lookupBarcodeWithStatus(barcode: String): BarcodeLookupOutcome = coroutineScope {
+        val cleanCode = barcode.trim()
+        if (cleanCode.isBlank()) return@coroutineScope BarcodeLookupOutcome(null, apisUnavailable = false)
+
+        val outcomes = LOOKUP_HOSTS.map { config ->
+            async(Dispatchers.IO) { lookupOnHost(config.host, cleanCode) }
+        }.awaitAll()
+
+        val found = outcomes.filterIsInstance<HostLookupResult.Found>().firstOrNull()
+        if (found != null) {
+            return@coroutineScope BarcodeLookupOutcome(found.product, apisUnavailable = false)
+        }
+        val anyResponded = outcomes.any { it is HostLookupResult.NotFound }
+        BarcodeLookupOutcome(null, apisUnavailable = !anyResponded)
+    }
+
+    private fun lookupOnHost(host: String, cleanCode: String): HostLookupResult {
         try {
             val url = URL("https://$host/api/v2/product/$cleanCode.json?$FIELDS_QUERY")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.connectTimeout = 3000
-            connection.readTimeout = 3000
+            connection.connectTimeout = 2000
+            connection.readTimeout = 2000
             connection.setRequestProperty(
                 "User-Agent",
                 "ShoppingTracker - Android - Version ${UpdateCheckService.CURRENT_VERSION}"
             )
 
-            if (connection.responseCode == 200) {
+            val code = connection.responseCode
+            if (code == 200) {
                 val responseText = connection.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(responseText)
                 if (json.optInt("status", 0) == 1) {
-                    val product = json.optJSONObject("product") ?: return null
+                    val product = json.optJSONObject("product") ?: return HostLookupResult.NotFound
                     fun JSONObject.optCleanString(key: String): String =
                         if (isNull(key)) "" else optString(key, "").trim()
 
@@ -156,18 +180,23 @@ object OpenFoodFactsService {
                     }
 
                     if (name.isNotBlank()) {
-                        return OpenFoodFactsProduct(
-                            barcode = cleanCode,
-                            name = name,
-                            brand = brands,
-                            category = primaryCategory,
+                        return HostLookupResult.Found(
+                            OpenFoodFactsProduct(
+                                barcode = cleanCode,
+                                name = name,
+                                brand = brands,
+                                category = primaryCategory,
+                            )
                         )
                     }
                 }
+                return HostLookupResult.NotFound
+            } else if (code == 404) {
+                return HostLookupResult.NotFound
             }
         } catch (_: Exception) {
             // Network unavailable or timeout -> try next host
         }
-        return null
+        return HostLookupResult.Unavailable
     }
 }

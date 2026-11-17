@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 
 @Composable
 fun OcrTextEditDialog(
@@ -19,11 +20,12 @@ fun OcrTextEditDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     var editableText by remember(initialText) { mutableStateOf(initialText) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Recognized Product Text") },
+        title = { Text(strings.recognizedProductText) },
         text = {
             Column(
                 modifier = Modifier
@@ -34,7 +36,7 @@ fun OcrTextEditDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "All text found by OCR is added to the editable box below. Edit, add, or delete words to set your product name:",
+                    text = strings.ocrEditInstructions,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -42,7 +44,7 @@ fun OcrTextEditDialog(
                 AppOutlinedTextField(
                     value = editableText,
                     onValueChange = { editableText = it },
-                    label = { Text("Product Name") },
+                    label = { Text(strings.productNameLabel) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 4
@@ -58,20 +60,20 @@ fun OcrTextEditDialog(
                     ) {
                         Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Clear")
+                        Text(strings.clearAction)
                     }
                     TextButton(
                         onClick = { editableText = linesDetected.joinToString(" ") }
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Reset All")
+                        Text(strings.resetAll)
                     }
                 }
 
                 if (linesDetected.size > 1) {
                     Text(
-                        text = "Individual lines detected (tap to set):",
+                        text = strings.individualLinesDetected,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -96,12 +98,12 @@ fun OcrTextEditDialog(
                 onClick = { onConfirm(editableText.trim()) },
                 enabled = editableText.isNotBlank()
             ) {
-                Text("Use as Name")
+                Text(strings.useAsName)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(strings.cancel)
             }
         }
     )

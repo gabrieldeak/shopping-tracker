@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.R
 import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -50,6 +51,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel,
     snackbarHostState: SnackbarHostState,
 ) {
+    val strings = LocalAppStrings.current
     val context = LocalContext.current
     val contentResolver = context.contentResolver
 
@@ -62,6 +64,8 @@ fun SettingsScreen(
     var showBudgetDialog by remember { mutableStateOf(false) }
     var customCurrencyText by remember { mutableStateOf("") }
     var budgetInputText by remember { mutableStateOf("") }
+    var restorePickerTarget by remember { mutableStateOf<String?>(null) } // "JSON", "DB", "CSV_ITEMS", "CSV_HISTORY"
+    val availableBackups by viewModel.availableBackups.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.snackbarMessages.collect { msg ->
@@ -73,38 +77,50 @@ fun SettingsScreen(
     val exportItemsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
     ) { uri: Uri? ->
-        uri?.let { viewModel.exportItems(contentResolver, it) }
+        uri?.let { viewModel.exportItems(context, contentResolver, it) }
     }
 
     val exportHistoryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
     ) { uri: Uri? ->
-        uri?.let { viewModel.exportHistory(contentResolver, it) }
+        uri?.let { viewModel.exportHistory(context, contentResolver, it) }
     }
 
     // --- Import Launchers ---
     val importItemsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { viewModel.importItems(contentResolver, it) }
+        uri?.let {
+            if (viewModel.validateAndNotifyWrongType(context, it, SettingsViewModel.BackupFileType.CSV)) {
+                viewModel.importItems(contentResolver, it)
+            }
+        }
     }
 
     val importHistoryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { viewModel.importHistory(contentResolver, it) }
+        uri?.let {
+            if (viewModel.validateAndNotifyWrongType(context, it, SettingsViewModel.BackupFileType.CSV)) {
+                viewModel.importHistory(contentResolver, it)
+            }
+        }
     }
 
     val exportFullBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri: Uri? ->
-        uri?.let { viewModel.exportFullBackup(contentResolver, it) }
+        uri?.let { viewModel.exportFullBackup(context, contentResolver, it) }
     }
 
     val restoreFullBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { viewModel.restoreFullBackup(context, contentResolver, it) }
+        uri?.let {
+            if (viewModel.validateAndNotifyWrongType(context, it, SettingsViewModel.BackupFileType.JSON)) {
+                viewModel.restoreFullBackup(context, contentResolver, it)
+            }
+        }
     }
 
     val exportDatabaseLauncher = rememberLauncherForActivityResult(
@@ -116,7 +132,11 @@ fun SettingsScreen(
     val restoreDatabaseLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { viewModel.importRawDatabase(context, contentResolver, it) }
+        uri?.let {
+            if (viewModel.validateAndNotifyWrongType(context, it, SettingsViewModel.BackupFileType.DB)) {
+                viewModel.importRawDatabase(context, contentResolver, it)
+            }
+        }
     }
 
     Scaffold(
@@ -133,13 +153,13 @@ fun SettingsScreen(
                         ) {
                             Icon(
                                 Icons.Default.ShoppingCart,
-                                contentDescription = "App Logo",
+                                contentDescription = strings.appLogoDesc,
                                 tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Settings & Preferences")
+                        Text(strings.settingsTitle)
                     }
                 }
             )
@@ -155,7 +175,7 @@ fun SettingsScreen(
         ) {
             // Section 0: Currency Preference & Shopping Budget
             Text(
-                text = "Shopping & Currency Preferences",
+                text = strings.currencyAndBudget,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -169,13 +189,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Active Currency Symbol: \"$currentCurrency\"",
+                        text = String.format(java.util.Locale.US, strings.activeCurrencyFmt, currentCurrency),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Choose the currency symbol used across basket totals and item prices.",
+                        text = strings.currencyDescription,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -199,7 +219,7 @@ fun SettingsScreen(
                                 customCurrencyText = currentCurrency
                                 showCustomCurrencyDialog = true
                             },
-                            label = { Text("Custom...") }
+                            label = { Text(strings.customCurrencyChip) }
                         )
                     }
                 }
@@ -213,13 +233,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = if (budgetLimit > 0) String.format(java.util.Locale.US, "Shopping Budget Limit: %s%.2f", currentCurrency, budgetLimit) else "Shopping Budget Limit: No Limit Set",
+                        text = if (budgetLimit > 0) String.format(java.util.Locale.US, strings.shoppingBudgetLimitFmt, currentCurrency, budgetLimit) else strings.noShoppingBudgetLimit,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Set a spending limit for your shopping basket. You'll get an alert when scanned items reach or exceed this amount.",
+                        text = strings.budgetDescription,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -233,13 +253,13 @@ fun SettingsScreen(
                                 showBudgetDialog = true
                             }
                         ) {
-                            Text(if (budgetLimit > 0) "Change Budget Limit" else "Set Budget Limit")
+                            Text(if (budgetLimit > 0) strings.changeBudgetLimit else strings.setBudgetLimit)
                         }
                         if (budgetLimit > 0) {
                             AppOutlinedButton(
                                 onClick = { viewModel.setBudgetLimit(0.0) }
                             ) {
-                                Text("Clear Limit")
+                                Text(strings.clearLimit)
                             }
                         }
                     }
@@ -254,13 +274,13 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "App Appearance Theme",
+                        text = strings.appAppearanceTheme,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Switch between System Default, Light Theme, or Dark Theme.",
+                        text = strings.themeDescription,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -273,21 +293,21 @@ fun SettingsScreen(
                             onClick = { viewModel.setThemeMode("system") },
                             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3)
                         ) {
-                            Text("System")
+                            Text(strings.themeSystem)
                         }
                         SegmentedButton(
                             selected = themeMode == "light",
                             onClick = { viewModel.setThemeMode("light") },
                             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3)
                         ) {
-                            Text("Light ☀️")
+                            Text(strings.themeLight)
                         }
                         SegmentedButton(
                             selected = themeMode == "dark",
                             onClick = { viewModel.setThemeMode("dark") },
                             shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3)
                         ) {
-                            Text("Dark 🌙")
+                            Text(strings.themeDark)
                         }
                     }
                 }
@@ -301,29 +321,29 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Text Capitalization Mode",
+                        text = strings.textCapitalizationMode,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Automatically format basket names, items, and store offer titles when typing or creating records.",
+                        text = strings.capitalizationDescription,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    val capitalizationOptions = remember {
+                    val capitalizationOptions = remember(strings.languageCode) {
                         listOf(
-                            "TITLE_CASE" to "Title Case (Every Word)",
-                            "FIRST_LETTER" to "First Letter Only",
-                            "NONE" to "As Typed (Manual)"
+                            "TITLE_CASE" to strings.capTitleCase,
+                            "FIRST_LETTER" to strings.capFirstLetter,
+                            "NONE" to strings.capNone
                         )
                     }
                     var capitalizationExpanded by remember { mutableStateOf(false) }
                     val selectedCapLabel = capitalizationOptions.firstOrNull { it.first == capitalizationMode }?.second
-                        ?: "Title Case (Every Word)"
+                        ?: strings.capTitleCase
 
                     ExposedDropdownMenuBox(
                         expanded = capitalizationExpanded,
@@ -372,7 +392,7 @@ fun SettingsScreen(
 
             // Section: Full Backup & Restore
             Text(
-                text = "Full Backup & Database Restore",
+                text = strings.fullBackupAndRestore,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -380,35 +400,41 @@ fun SettingsScreen(
 
             // JSON Full Backup Card
             FullBackupActionCard(
-                title = "Complete JSON Backup",
-                subtitle = "Portable backup of items, baskets, deals, receipts & settings.",
+                title = strings.completeJsonBackup,
+                subtitle = strings.completeJsonBackupSub,
                 badgeText = "JSON",
                 icon = Icons.Default.CloudUpload,
                 iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
                 iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                 onSave = { exportFullBackupLauncher.launch("barcode_tracker_backup.json") },
                 onShare = { viewModel.shareFullBackup(context) },
-                onRestore = { restoreFullBackupLauncher.launch(arrayOf("application/json", "*/*")) }
+                onRestore = {
+                    viewModel.loadAvailableBackups(context, SettingsViewModel.BackupFileType.JSON)
+                    restorePickerTarget = "JSON"
+                }
             )
 
             // Raw SQLite DB File Card
             FullBackupActionCard(
-                title = "SQLite Database Snapshot",
-                subtitle = "Direct 1:1 backup & restore of shopping_tracker.db.",
+                title = strings.sqliteSnapshot,
+                subtitle = strings.sqliteSnapshotSub,
                 badgeText = ".DB",
                 icon = Icons.Default.Save,
                 iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                 iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
                 onSave = { exportDatabaseLauncher.launch("shopping_tracker.db") },
                 onShare = { viewModel.shareRawDatabase(context) },
-                onRestore = { restoreDatabaseLauncher.launch(arrayOf("*/*")) }
+                onRestore = {
+                    viewModel.loadAvailableBackups(context, SettingsViewModel.BackupFileType.DB)
+                    restorePickerTarget = "DB"
+                }
             )
 
             HorizontalDivider()
 
             // Section: CSV Export & Import
             Text(
-                text = "CSV Backup & Data Export",
+                text = strings.csvBackupAndExport,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -416,27 +442,33 @@ fun SettingsScreen(
 
             // My Items Catalog Card
             DataTransferCard(
-                title = "Items Catalog",
-                subtitle = "shopping_items.csv · Barcode, Name, Price, Category, Notes",
+                title = strings.itemsCatalogCsvTitle,
+                subtitle = strings.itemsCatalogCsvSub,
                 icon = Icons.Default.Inventory2,
                 onExport = { exportItemsLauncher.launch("shopping_items.csv") },
-                onImport = { importItemsLauncher.launch(arrayOf("text/*", "text/comma-separated-values", "text/csv", "application/csv")) }
+                onImport = {
+                    viewModel.loadAvailableBackups(context, SettingsViewModel.BackupFileType.CSV)
+                    restorePickerTarget = "CSV_ITEMS"
+                }
             )
 
             // Shopping History Card
             DataTransferCard(
-                title = "Shopping History & Receipts",
-                subtitle = "shopping_history.csv · Date, Total Cost, Items, Summary",
+                title = strings.historyCsvTitle,
+                subtitle = strings.historyCsvSub,
                 icon = Icons.AutoMirrored.Filled.ReceiptLong,
                 onExport = { exportHistoryLauncher.launch("shopping_history.csv") },
-                onImport = { importHistoryLauncher.launch(arrayOf("text/*", "text/comma-separated-values", "text/csv", "application/csv")) }
+                onImport = {
+                    viewModel.loadAvailableBackups(context, SettingsViewModel.BackupFileType.CSV)
+                    restorePickerTarget = "CSV_HISTORY"
+                }
             )
 
             HorizontalDivider()
 
             // Section 2: Demo / Sample Data Seeding
             Text(
-                text = "Demo & Seed Data",
+                text = strings.demoAndSeedData,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -450,11 +482,11 @@ fun SettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Seed Sample Grocery Data", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(strings.seedSampleDataTitle, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Pre-populates sample items (Steak Burgers, Cheese Slices, Olive Oil, Milk) so you can test scanning, basket pricing, and budget limits immediately.",
+                        strings.seedSampleDataDesc,
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -462,7 +494,7 @@ fun SettingsScreen(
                         onClick = viewModel::seedSampleData,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                     ) {
-                        Text("Load Sample Data")
+                        Text(strings.loadSampleData)
                     }
                 }
             }
@@ -471,7 +503,7 @@ fun SettingsScreen(
 
             // Section 3: Reset / Wipe Database
             Text(
-                text = "Danger Zone",
+                text = strings.dangerZone,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.error
@@ -485,11 +517,11 @@ fun SettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Wipe All Local Data", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                        Text(strings.wipeAllLocalData, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Permanently deletes all shopping baskets, catalog items, offers, and receipt history from this device.",
+                        strings.wipeAllLocalDataDesc,
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -497,7 +529,7 @@ fun SettingsScreen(
                         onClick = { showClearConfirmDialog = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text("Clear All Data")
+                        Text(strings.clearAllData)
                     }
                 }
             }
@@ -506,7 +538,7 @@ fun SettingsScreen(
 
             // Section: External Services & Diagnostics
             Text(
-                text = "External Services & Diagnostics",
+                text = strings.externalServices,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -544,13 +576,13 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Barcode Lookup APIs",
+                                text = strings.barcodeLookupApis,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Tests OpenFoodFacts (.org & .net), OpenProductsFacts & OpenBeautyFacts.",
+                                text = strings.barcodeLookupApisDesc,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -562,7 +594,7 @@ fun SettingsScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Clear,
-                                    contentDescription = "Clear health check results",
+                                    contentDescription = strings.clearHealthResultsDesc,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -590,7 +622,7 @@ fun SettingsScreen(
                                         strokeWidth = 2.dp
                                     )
                                     Text(
-                                        text = "Testing barcode lookup APIs...",
+                                        text = strings.testingBarcodeApis,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -618,9 +650,9 @@ fun SettingsScreen(
                                         ) {
                                             Text(
                                                 text = if (endpoint.isHealthy) {
-                                                    "${endpoint.name} · Healthy (HTTP ${endpoint.statusCode}, ${endpoint.latencyMs} ms)"
+                                                    String.format(java.util.Locale.US, strings.healthyResultFmt, endpoint.name, endpoint.statusCode ?: 0, endpoint.latencyMs)
                                                 } else {
-                                                    "${endpoint.name} · ${endpoint.errorMessage ?: "HTTP ${endpoint.statusCode}"} (${endpoint.latencyMs} ms)"
+                                                    String.format(java.util.Locale.US, strings.failedResultFmt, endpoint.name, endpoint.errorMessage ?: "HTTP ${endpoint.statusCode}", endpoint.latencyMs)
                                                 },
                                                 style = MaterialTheme.typography.labelMedium,
                                                 fontWeight = FontWeight.Bold,
@@ -632,7 +664,7 @@ fun SettingsScreen(
                                             )
                                             if (!endpoint.sampleProductName.isNullOrBlank()) {
                                                 Text(
-                                                    text = "Sample (${endpoint.sampleBarcode ?: ""}): ${endpoint.sampleProductName}",
+                                                    text = String.format(java.util.Locale.US, strings.sampleResultFmt, endpoint.sampleBarcode ?: "", endpoint.sampleProductName),
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -652,9 +684,9 @@ fun SettingsScreen(
                     ) {
                         Text(
                             text = if (healthState is SettingsViewModel.BarcodeHealthState.Checking) {
-                                "Checking..."
+                                strings.checkingApis
                             } else {
-                                "Run Barcode API Health Check"
+                                strings.runBarcodeHealthCheck
                             }
                         )
                     }
@@ -665,7 +697,7 @@ fun SettingsScreen(
 
             // Section 4: About & Developer Info
             Text(
-                text = "About & Developer Info",
+                text = strings.aboutDeveloper,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -712,7 +744,7 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Shopping Tracker",
+                                    text = strings.appDisplayName,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -731,7 +763,7 @@ fun SettingsScreen(
                                 }
                             }
                             Text(
-                                text = "Offline-first shopping & inventory tracker",
+                                text = strings.appTagline,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -744,7 +776,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        listOf("Jetpack Compose", "Room DB", "ML Kit OCR", "Offline-First").forEach { tag ->
+                        listOf(strings.tagJetpackCompose, strings.tagRoomDb, strings.tagMlKitOcr, strings.tagOfflineFirst).forEach { tag ->
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
                                 color = MaterialTheme.colorScheme.surfaceContainer
@@ -769,7 +801,7 @@ fun SettingsScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Developed & Designed by",
+                                text = strings.developedByLabel,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -797,7 +829,7 @@ fun SettingsScreen(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Vibe coded with AI",
+                                    text = strings.vibeCodedWithAi,
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer
@@ -816,7 +848,7 @@ fun SettingsScreen(
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Share App APK", fontWeight = FontWeight.Bold)
+                        Text(strings.shareAppApk, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -826,18 +858,18 @@ fun SettingsScreen(
     if (showBudgetDialog) {
         AlertDialog(
             onDismissRequest = { showBudgetDialog = false },
-            title = { Text("Set Shopping Budget Limit") },
+            title = { Text(strings.setBudgetDialogTitle) },
             text = {
                 Column {
                     Text(
-                        "Set a target spending limit for your shopping basket. You will receive a visual alert when your basket total reaches or exceeds this limit.",
+                        strings.setBudgetDialogBody,
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     AppOutlinedTextField(
                         value = budgetInputText,
                         onValueChange = { budgetInputText = it },
-                        label = { Text("Target Budget ($currentCurrency)") },
+                        label = { Text(String.format(java.util.Locale.US, strings.targetBudgetLabelFmt, currentCurrency)) },
                         prefix = { Text(currentCurrency) },
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
                         singleLine = true,
@@ -853,12 +885,12 @@ fun SettingsScreen(
                         showBudgetDialog = false
                     }
                 ) {
-                    Text("Save Target")
+                    Text(strings.saveTarget)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showBudgetDialog = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -867,15 +899,15 @@ fun SettingsScreen(
     if (showCustomCurrencyDialog) {
         AlertDialog(
             onDismissRequest = { showCustomCurrencyDialog = false },
-            title = { Text("Set Custom Currency Symbol") },
+            title = { Text(strings.setCustomCurrencyTitle) },
             text = {
                 Column {
-                    Text("Enter a custom currency symbol or code (e.g. CAD, AUD, kr, ₪):", style = MaterialTheme.typography.bodySmall)
+                    Text(strings.setCustomCurrencyBody, style = MaterialTheme.typography.bodySmall)
                     Spacer(modifier = Modifier.height(12.dp))
                     AppOutlinedTextField(
                         value = customCurrencyText,
                         onValueChange = { customCurrencyText = it },
-                        label = { Text("Currency Symbol / Code") },
+                        label = { Text(strings.currencySymbolLabel) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -892,12 +924,12 @@ fun SettingsScreen(
                     },
                     enabled = customCurrencyText.isNotBlank()
                 ) {
-                    Text("Save")
+                    Text(strings.save)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCustomCurrencyDialog = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -906,8 +938,8 @@ fun SettingsScreen(
     if (showClearConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showClearConfirmDialog = false },
-            title = { Text("Confirm Data Wipe") },
-            text = { Text("Are you sure you want to delete all local data? All baskets, catalog items, offers, and shopping history will be permanently removed.") },
+            title = { Text(strings.confirmDataWipeTitle) },
+            text = { Text(strings.confirmDataWipeBody) },
             confirmButton = {
                 AppButton(
                     onClick = {
@@ -916,12 +948,130 @@ fun SettingsScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Clear All")
+                    Text(strings.clearAllBtn)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirmDialog = false }) {
-                    Text("Cancel")
+                    Text(strings.cancel)
+                }
+            }
+        )
+    }
+
+    restorePickerTarget?.let { target ->
+        val expectedType = when (target) {
+            "JSON" -> SettingsViewModel.BackupFileType.JSON
+            "DB" -> SettingsViewModel.BackupFileType.DB
+            else -> SettingsViewModel.BackupFileType.CSV
+        }
+        val dateFormat = remember { java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()) }
+
+        AlertDialog(
+            onDismissRequest = { restorePickerTarget = null },
+            title = { Text(String.format(java.util.Locale.US, strings.restorePickerTitleFmt, expectedType.label)) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (availableBackups.isEmpty()) {
+                        Text(
+                            text = String.format(java.util.Locale.US, strings.noRecentFilesFoundFmt, expectedType.label),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(
+                            text = strings.availableFilesByDate,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        availableBackups.forEach { file ->
+                            Surface(
+                                onClick = {
+                                    restorePickerTarget = null
+                                    when (target) {
+                                        "JSON" -> viewModel.restoreFullBackup(context, contentResolver, file.uri)
+                                        "DB" -> viewModel.importRawDatabase(context, contentResolver, file.uri)
+                                        "CSV_ITEMS" -> viewModel.importItems(contentResolver, file.uri)
+                                        "CSV_HISTORY" -> viewModel.importHistory(contentResolver, file.uri)
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = file.displayName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                        val sizeKb = maxOf(1L, file.sizeBytes / 1024L)
+                                        Text(
+                                            text = "${dateFormat.format(java.util.Date(file.modifiedAtMillis))} • ${sizeKb} KB",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer
+                                    ) {
+                                        Text(
+                                            text = file.type.label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    AppOutlinedButton(
+                        onClick = {
+                            restorePickerTarget = null
+                            when (target) {
+                                "JSON" -> restoreFullBackupLauncher.launch(arrayOf("application/json", "text/plain"))
+                                "DB" -> restoreDatabaseLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "application/vnd.sqlite3", "*/*"))
+                                "CSV_ITEMS" -> importItemsLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv", "text/*"))
+                                "CSV_HISTORY" -> importHistoryLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv", "text/*"))
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(strings.browseDeviceCloud)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { restorePickerTarget = null }) {
+                    Text(strings.cancel)
                 }
             }
         )
@@ -1003,34 +1153,52 @@ private fun FullBackupActionCard(
             Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 AppButton(
                     onClick = onSave,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Save", maxLines = 1)
+                    Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        LocalAppStrings.current.save,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
                 }
                 AppOutlinedButton(
                     onClick = onShare,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Share", maxLines = 1)
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        LocalAppStrings.current.share,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
                 }
                 AppFilledTonalButton(
                     onClick = onRestore,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Restore", maxLines = 1)
+                    Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        LocalAppStrings.current.restore,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
                 }
             }
         }
@@ -1089,7 +1257,7 @@ private fun DataTransferCard(
                 ) {
                     Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Export CSV", maxLines = 1)
+                    Text(LocalAppStrings.current.exportCsvBtn, maxLines = 1)
                 }
                 AppFilledTonalButton(
                     onClick = onImport,
@@ -1098,7 +1266,7 @@ private fun DataTransferCard(
                 ) {
                     Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Import CSV", maxLines = 1)
+                    Text(LocalAppStrings.current.importCsvBtn, maxLines = 1)
                 }
             }
         }

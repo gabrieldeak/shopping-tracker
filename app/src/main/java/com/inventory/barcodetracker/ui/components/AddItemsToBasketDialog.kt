@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
+import java.util.Locale
 
 @Composable
 fun AddItemsToBasketDialog(
@@ -20,6 +22,7 @@ fun AddItemsToBasketDialog(
     onDismiss: () -> Unit,
     onConfirmAdd: (List<Long>) -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     val checkedListIds = remember { mutableStateMapOf<Long, Boolean>() }
 
     LaunchedEffect(shoppingLists) {
@@ -34,7 +37,7 @@ fun AddItemsToBasketDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Add to Shopping Basket(s)")
+                Text(strings.addToBasketsTitle)
             }
         },
         text = {
@@ -46,14 +49,14 @@ fun AddItemsToBasketDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    "Select which shopping basket(s) to add $selectedCount selected item(s) into:",
+                    String.format(Locale.US, strings.addToBasketsPromptFmt, selectedCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 if (shoppingLists.isEmpty()) {
                     Text(
-                        "No shopping baskets exist yet on the main screen.",
+                        strings.noBasketsExistYet,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.error
@@ -102,12 +105,12 @@ fun AddItemsToBasketDialog(
                 },
                 enabled = checkedListIds.any { it.value }
             ) {
-                Text("Add Items")
+                Text(strings.addItems)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(strings.cancel)
             }
         }
     )

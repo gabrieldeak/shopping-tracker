@@ -32,6 +32,11 @@ class CurrencyPreferences(context: Context) {
     )
     val capitalizationMode: StateFlow<String> = _capitalizationMode.asStateFlow()
 
+    private val _appLanguage = MutableStateFlow(
+        prefs.getString(KEY_APP_LANGUAGE, "en") ?: "en",
+    )
+    val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
+
     fun setCurrencySymbol(symbol: String) {
         val trimmed = symbol.trim().ifEmpty { "£" }
         prefs.edit { putString(KEY_CURRENCY_SYMBOL, trimmed) }
@@ -56,6 +61,12 @@ class CurrencyPreferences(context: Context) {
         _capitalizationMode.value = validMode
     }
 
+    fun setAppLanguage(language: String) {
+        val validLang = if (language in listOf("en", "ro")) language else "en"
+        prefs.edit { putString(KEY_APP_LANGUAGE, validLang) }
+        _appLanguage.value = validLang
+    }
+
     fun formatText(text: String): String {
         return formatTextWithMode(text, _capitalizationMode.value)
     }
@@ -65,6 +76,7 @@ class CurrencyPreferences(context: Context) {
         private const val KEY_BUDGET_LIMIT = "budget_limit"
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_CAPITALIZATION_MODE = "capitalization_mode"
+        private const val KEY_APP_LANGUAGE = "app_language"
 
         val POPULAR_CURRENCIES = listOf(
             "RON" to "Romanian Leu (RON)",

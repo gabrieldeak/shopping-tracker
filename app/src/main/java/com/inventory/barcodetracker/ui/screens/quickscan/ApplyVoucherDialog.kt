@@ -23,6 +23,7 @@ import com.inventory.barcodetracker.ui.components.AppFilledTonalButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
 import com.inventory.barcodetracker.ui.components.VerticalScrollbarContainer
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import java.util.Locale
 
 @Composable
@@ -32,6 +33,7 @@ fun ApplyVoucherDialog(
     onDismiss: () -> Unit,
     onApplyVoucher: (OfferEntity) -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     var customNameText by remember { mutableStateOf("") }
     var customAmountText by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
@@ -72,13 +74,13 @@ fun ApplyVoucherDialog(
                     }
                     Column {
                         Text(
-                            text = "Apply Discount Voucher",
+                            text = strings.applyDiscountVoucher,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Reduce your basket total with a voucher",
+                            text = strings.reduceBasketTotalHint,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -91,7 +93,7 @@ fun ApplyVoucherDialog(
                 ) {
                     // Quick Presets
                     Text(
-                        text = "Quick Presets",
+                        text = strings.quickPresets,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -106,7 +108,7 @@ fun ApplyVoucherDialog(
                                 onClick = {
                                     onApplyVoucher(
                                         OfferEntity(
-                                            title = "$currencySymbol$preset Voucher",
+                                            title = "$currencySymbol$preset ${strings.voucherSuffix}",
                                             offerType = "VOUCHER",
                                             fixedPrice = preset.toDouble()
                                         )
@@ -130,7 +132,7 @@ fun ApplyVoucherDialog(
                     if (savedVouchers.isNotEmpty()) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
                         Text(
-                            text = "Saved Vouchers Library",
+                            text = strings.savedVouchersLibrary,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -192,7 +194,7 @@ fun ApplyVoucherDialog(
 
                     // Custom Voucher Input
                     Text(
-                        text = "Custom Voucher",
+                        text = strings.customVoucher,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -201,8 +203,8 @@ fun ApplyVoucherDialog(
                     AppOutlinedTextField(
                         value = customNameText,
                         onValueChange = { customNameText = it },
-                        label = { Text("Voucher Name (Optional)") },
-                        placeholder = { Text("e.g. Coupon, Clubcard Voucher") },
+                        label = { Text(strings.voucherNameOptional) },
+                        placeholder = { Text(strings.voucherNamePlaceholder) },
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -211,7 +213,7 @@ fun ApplyVoucherDialog(
                     AppOutlinedTextField(
                         value = customAmountText,
                         onValueChange = { customAmountText = it },
-                        label = { Text("Discount Amount") },
+                        label = { Text(strings.discountAmount) },
                         prefix = { Text(currencySymbol) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
@@ -232,14 +234,14 @@ fun ApplyVoucherDialog(
                             .weight(1f)
                             .height(44.dp)
                     ) {
-                        Text("Cancel", fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        Text(strings.cancel, fontWeight = FontWeight.SemiBold, maxLines = 1)
                     }
 
                     AppButton(
                         onClick = {
                             if (customAmount > 0.0) {
                                 val name = customNameText.trim().ifEmpty {
-                                    "$currencySymbol${String.format(Locale.US, "%.2f", customAmount)} Voucher"
+                                    "$currencySymbol${String.format(Locale.US, "%.2f", customAmount)} ${strings.voucherSuffix}"
                                 }
                                 onApplyVoucher(
                                     OfferEntity(
@@ -257,7 +259,7 @@ fun ApplyVoucherDialog(
                             .weight(1f)
                             .height(44.dp)
                     ) {
-                        Text("Apply", fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(strings.apply, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
             }

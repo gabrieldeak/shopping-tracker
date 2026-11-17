@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
+import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,6 +31,7 @@ fun ApplyOfferToItemDialog(
     onDismiss: () -> Unit,
     onApplyToItem: (barcode: String) -> Unit,
 ) {
+    val strings = LocalAppStrings.current
     var searchQuery by remember { mutableStateOf("") }
 
     val filteredPieces = remember(searchQuery, pieces) {
@@ -52,7 +54,7 @@ fun ApplyOfferToItemDialog(
         onDismissRequest = onDismiss,
         title = {
             Column {
-                Text("Apply Offer to Product")
+                Text(strings.applyOfferToProduct)
                 Text(
                     text = if (offer.title.isNotBlank()) "${offer.title} (${offer.getDisplayBadge(currencySymbol)})" else offer.getDisplayBadge(currencySymbol),
                     style = MaterialTheme.typography.bodyMedium,
@@ -71,12 +73,12 @@ fun ApplyOfferToItemDialog(
                 AppOutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search product name, barcode...") },
+                    placeholder = { Text(strings.searchProductPlaceholder) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                Icon(Icons.Default.Clear, contentDescription = strings.clearAction)
                             }
                         }
                     },
@@ -95,7 +97,7 @@ fun ApplyOfferToItemDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "No products found",
+                            strings.noProductsFound,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -137,9 +139,9 @@ fun ApplyOfferToItemDialog(
                                         Column {
                                             Text(piece.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                                             val priceText = if (piece.unitPrice > 0) " • $currencySymbol${String.format(Locale.US, "%.2f", piece.unitPrice)}" else ""
-                                            Text("Code: ${piece.barcode}$priceText", style = MaterialTheme.typography.labelSmall)
+                                            Text("${strings.codePrefix} ${piece.barcode}$priceText", style = MaterialTheme.typography.labelSmall)
                                             if (piece.offerType != "NONE" && piece.offerDescription.isNotBlank()) {
-                                                Text("Active Offer: ${piece.offerDescription}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                                Text(String.format(Locale.US, strings.activeOfferFmt, piece.offerDescription), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                                             }
                                         }
                                     }
@@ -148,7 +150,7 @@ fun ApplyOfferToItemDialog(
                                         onClick = { onApplyToItem(piece.barcode) },
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                                     ) {
-                                        Text("Apply Deal")
+                                        Text(strings.applyDeal)
                                     }
                                 }
                             }
@@ -160,7 +162,7 @@ fun ApplyOfferToItemDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(strings.close)
             }
         }
     )

@@ -31,6 +31,7 @@ data class FullBackupPayload(
     val budgetLimit: Double,
     val themeMode: String,
     val capitalizationMode: String = "TITLE_CASE",
+    val appLanguage: String = "en",
 )
 
 object BackupRestoreService {
@@ -49,6 +50,7 @@ object BackupRestoreService {
         budgetLimit: Double,
         themeMode: String,
         capitalizationMode: String = "TITLE_CASE",
+        appLanguage: String = "en",
     ) {
         val rootJson = JSONObject()
         rootJson.put("version", 2)
@@ -57,6 +59,7 @@ object BackupRestoreService {
         rootJson.put("budgetLimit", budgetLimit)
         rootJson.put("themeMode", themeMode)
         rootJson.put("capitalizationMode", capitalizationMode)
+        rootJson.put("appLanguage", appLanguage)
 
         // 1. Pieces Array
         val piecesArr = JSONArray()
@@ -205,6 +208,7 @@ object BackupRestoreService {
         val budgetLimit = root.optDouble("budgetLimit", 0.0)
         val themeMode = root.optString("themeMode", "system")
         val capitalizationMode = root.optString("capitalizationMode", "TITLE_CASE")
+        val appLanguage = root.optString("appLanguage", "en")
 
         // Parse Pieces
         val piecesList = mutableListOf<PieceEntity>()
@@ -384,6 +388,7 @@ object BackupRestoreService {
             budgetLimit = budgetLimit,
             themeMode = themeMode,
             capitalizationMode = capitalizationMode,
+            appLanguage = appLanguage,
         )
     }
 
@@ -397,7 +402,12 @@ object BackupRestoreService {
         offers: List<OfferEntity>,
         offerHistory: List<ProductOfferHistoryEntity>,
         shoppingLists: List<ShoppingListEntity> = emptyList(),
-        shoppingListItems: List<ShoppingListItemEntity> = emptyList()
+        shoppingListItems: List<ShoppingListItemEntity> = emptyList(),
+        currencySymbol: String = "£",
+        budgetLimit: Double = 0.0,
+        themeMode: String = "system",
+        capitalizationMode: String = "TITLE_CASE",
+        appLanguage: String = "en",
     ) {
         val tempFile = File.createTempFile("export_db", ".db", context.cacheDir)
         if (tempFile.exists()) tempFile.delete()
@@ -632,6 +642,30 @@ object BackupRestoreService {
                 stmtListItem.executeInsert()
             }
 
+            // 9. App Preferences Table (currency, language, budget, theme, capitalization)
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `app_preferences` (
+                    `key` TEXT NOT NULL PRIMARY KEY,
+                    `value` TEXT NOT NULL
+                )
+                """.trimIndent()
+            )
+            val stmtPref = db.compileStatement("INSERT OR REPLACE INTO `app_preferences` VALUES (?, ?)")
+            val prefsMap = mapOf(
+                "currencySymbol" to currencySymbol,
+                "budgetLimit" to budgetLimit.toString(),
+                "themeMode" to themeMode,
+                "capitalizationMode" to capitalizationMode,
+                "appLanguage" to appLanguage,
+            )
+            for ((k, v) in prefsMap) {
+                stmtPref.clearBindings()
+                stmtPref.bindString(1, k)
+                stmtPref.bindString(2, v)
+                stmtPref.executeInsert()
+            }
+
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -848,6 +882,27 @@ object BackupRestoreService {
             cursor.close()
         } catch (_: Exception) {}
 
+        var restoredCurrency = ""
+        var restoredBudget = 0.0
+        var restoredTheme = "system"
+        var restoredCapitalization = "TITLE_CASE"
+        var restoredLanguage = "en"
+        try {
+            val cursor = db.rawQuery("SELECT `key`, `value` FROM app_preferences", null)
+            while (cursor.moveToNext()) {
+                val k = cursor.getString(0) ?: continue
+                val v = cursor.getString(1) ?: continue
+                when (k) {
+                    "currencySymbol" -> restoredCurrency = v
+                    "budgetLimit" -> restoredBudget = v.toDoubleOrNull() ?: 0.0
+                    "themeMode" -> restoredTheme = v
+                    "capitalizationMode" -> restoredCapitalization = v
+                    "appLanguage" -> restoredLanguage = v
+                }
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+
         db.close()
         tempFile.delete()
 
@@ -860,9 +915,11 @@ object BackupRestoreService {
             offerHistory = historyList,
             shoppingLists = shoppingLists,
             shoppingListItems = shoppingListItems,
-            currencySymbol = "$",
-            budgetLimit = 0.0,
-            themeMode = "system"
+            currencySymbol = restoredCurrency,
+            budgetLimit = restoredBudget,
+            themeMode = restoredTheme,
+            capitalizationMode = restoredCapitalization,
+            appLanguage = restoredLanguage,
         )
     }
 }
