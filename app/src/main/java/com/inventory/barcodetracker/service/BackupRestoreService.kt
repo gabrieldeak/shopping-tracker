@@ -180,6 +180,7 @@ object BackupRestoreService {
             obj.put("offerPercentOff", item.offerPercentOff)
             obj.put("addedAt", item.addedAt)
             obj.put("isChecked", item.isChecked)
+            obj.put("offerGroupId", item.offerGroupId)
             listItemsArr.put(obj)
         }
         rootJson.put("shoppingListItems", listItemsArr)
@@ -369,7 +370,8 @@ object BackupRestoreService {
                         offerFixedPrice = obj.optDouble("offerFixedPrice", 0.0),
                         offerPercentOff = obj.optDouble("offerPercentOff", 0.0),
                         addedAt = obj.optLong("addedAt", System.currentTimeMillis()),
-                        isChecked = obj.optBoolean("isChecked", false)
+                        isChecked = obj.optBoolean("isChecked", false),
+                        offerGroupId = obj.optString("offerGroupId", "")
                     )
                 )
             }
@@ -621,11 +623,12 @@ object BackupRestoreService {
                     `offerPercentOff` REAL NOT NULL,
                     `addedAt` INTEGER NOT NULL,
                     `isChecked` INTEGER NOT NULL DEFAULT 0,
+                    `offerGroupId` TEXT NOT NULL DEFAULT '',
                     PRIMARY KEY(`listId`, `barcode`)
                 )
                 """.trimIndent()
             )
-            val stmtListItem = db.compileStatement("INSERT OR REPLACE INTO `shopping_list_items` VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            val stmtListItem = db.compileStatement("INSERT OR REPLACE INTO `shopping_list_items` VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
             for (item in shoppingListItems) {
                 stmtListItem.clearBindings()
                 stmtListItem.bindLong(1, item.listId)
@@ -639,6 +642,7 @@ object BackupRestoreService {
                 stmtListItem.bindDouble(9, item.offerPercentOff)
                 stmtListItem.bindLong(10, item.addedAt)
                 stmtListItem.bindLong(11, if (item.isChecked) 1L else 0L)
+                stmtListItem.bindString(12, item.offerGroupId)
                 stmtListItem.executeInsert()
             }
 
@@ -875,7 +879,8 @@ object BackupRestoreService {
                         offerFixedPrice = cursor.optDbl("offerFixedPrice"),
                         offerPercentOff = cursor.optDbl("offerPercentOff"),
                         addedAt = cursor.optLong("addedAt", System.currentTimeMillis()),
-                        isChecked = cursor.optInt("isChecked") != 0
+                        isChecked = cursor.optInt("isChecked") != 0,
+                        offerGroupId = cursor.optStr("offerGroupId", "")
                     )
                 )
             }

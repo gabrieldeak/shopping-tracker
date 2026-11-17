@@ -456,6 +456,16 @@ interface AppStrings {
     val noRecentFilesFoundFmt: String
     val browseDeviceCloud: String
     val wrongFileTypeFmt: String
+    val mixAndMatchBtn: String
+    val mixAndMatchTitle: String
+    val mixAndMatchSubtitle: String
+    val selectItemsToCombine: String
+    val needTwoItemsHint: String
+    val applyMixAndMatch: String
+    val mixAndMatchBadge: String
+    val ungroupDealDesc: String
+    val vmAppliedMixAndMatchFmt: String
+    val vmUngroupedDeal: String
     fun offerTypeLabel(typeKey: String, currencySymbol: String): String = when (typeKey) {
         "THREE_FOR_TWO" -> offerBuyXPayY
         "MULTI_BUY_FIXED" -> String.format(Locale.US, offerMultiBuyFmt, currencySymbol)
@@ -562,7 +572,7 @@ object EnglishUkStrings : AppStrings {
     override val quantityInShoppingBasket = "Quantity in Shopping Basket"
     override val inCartFmt = "%d in cart"
     override val itemSubtotal = "Item Subtotal"
-    override val savedFmt = "Saved %s%.2f"
+    override val savedFmt = "-%s%.2f"
     override val addStoreOfferLabel = "Add Store Special Offer / Deal"
     override val activeOfferFmt = "Active Offer: %s"
     override val hide = "Hide"
@@ -628,7 +638,7 @@ object EnglishUkStrings : AppStrings {
     override val checkItemDesc = "Check item"
     override val collapseItemDesc = "Collapse item"
     override val expandItemDesc = "Expand item"
-    override val savedWithDealFmt = "Saved %s%.2f with deal"
+    override val savedWithDealFmt = "-%s%.2f"
     override val removeItemDesc = "Remove item"
     override val decreaseQtyDesc = "Decrease quantity"
     override val increaseQtyDesc = "Increase quantity"
@@ -913,6 +923,16 @@ object EnglishUkStrings : AppStrings {
     override val noRecentFilesFoundFmt = "No %s files found in app-accessible storage yet. Use 'Browse Device / Cloud' below to pick a file from any folder."
     override val browseDeviceCloud = "Browse Device / Cloud..."
     override val wrongFileTypeFmt = "Selected file (%s) does not match expected %s format."
+    override val mixAndMatchBtn = "Mix & Match"
+    override val mixAndMatchTitle = "Mix & Match Multi-Item Offer"
+    override val mixAndMatchSubtitle = "Combine 2 or more items in this basket under one shared deal (e.g. Red + Green Grapes for £4)."
+    override val selectItemsToCombine = "1. Select Items to Combine"
+    override val needTwoItemsHint = "Select at least 2 items to create a Mix & Match deal."
+    override val applyMixAndMatch = "Apply Mix & Match"
+    override val mixAndMatchBadge = "Mix & Match"
+    override val ungroupDealDesc = "Ungroup Mix & Match deal"
+    override val vmAppliedMixAndMatchFmt = "Applied Mix & Match (%s) to %d items!"
+    override val vmUngroupedDeal = "Removed Mix & Match grouping"
 }
 
 object RomanianStrings : AppStrings {
@@ -1005,7 +1025,7 @@ object RomanianStrings : AppStrings {
     override val quantityInShoppingBasket = "Cantitate în coș"
     override val inCartFmt = "%d în coș"
     override val itemSubtotal = "Subtotal produs"
-    override val savedFmt = "Economisit %s%.2f"
+    override val savedFmt = "-%s%.2f"
     override val addStoreOfferLabel = "Adaugă Ofertă / Promoție"
     override val activeOfferFmt = "Ofertă activă: %s"
     override val hide = "Ascunde"
@@ -1071,7 +1091,7 @@ object RomanianStrings : AppStrings {
     override val checkItemDesc = "Bifează produs"
     override val collapseItemDesc = "Restrânge produs"
     override val expandItemDesc = "Extinde produs"
-    override val savedWithDealFmt = "Economisit %s%.2f cu oferta"
+    override val savedWithDealFmt = "-%s%.2f"
     override val removeItemDesc = "Elimină produs"
     override val decreaseQtyDesc = "Scade cantitatea"
     override val increaseQtyDesc = "Crește cantitatea"
@@ -1356,6 +1376,16 @@ object RomanianStrings : AppStrings {
     override val noRecentFilesFoundFmt = "Nu s-au găsit fișiere %s accesibile direct. Folosiți 'Răsfoiește dispozitiv / Cloud' mai jos pentru a alege din orice locație."
     override val browseDeviceCloud = "Răsfoiește dispozitiv / Cloud..."
     override val wrongFileTypeFmt = "Fișierul selectat (%s) nu corespunde formatului %s așteptat."
+    override val mixAndMatchBtn = "Ofertă Combinată"
+    override val mixAndMatchTitle = "Ofertă Combinată"
+    override val mixAndMatchSubtitle = "Combină 2 sau mai multe produse din coș sub o singură ofertă (ex. Struguri Roșii + Verzi 2 la 20 RON)."
+    override val selectItemsToCombine = "1. Selectează Produsele"
+    override val needTwoItemsHint = "Selectați cel puțin 2 produse pentru o ofertă combinată."
+    override val applyMixAndMatch = "Aplică Oferta"
+    override val mixAndMatchBadge = "Ofertă Combinată"
+    override val ungroupDealDesc = "Anulează gruparea ofertei"
+    override val vmAppliedMixAndMatchFmt = "Ofertă Combinată (%s) aplicată pe %d produse!"
+    override val vmUngroupedDeal = "Gruparea ofertei a fost eliminată"
 }
 
 val LocalAppStrings = staticCompositionLocalOf<AppStrings> { EnglishUkStrings }

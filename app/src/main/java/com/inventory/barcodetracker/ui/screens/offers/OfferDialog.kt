@@ -25,6 +25,7 @@ import com.inventory.barcodetracker.data.local.entity.OfferEntity
 import com.inventory.barcodetracker.service.OfferRecognitionService
 import com.inventory.barcodetracker.service.TextRecognitionService
 import com.inventory.barcodetracker.ui.components.VerticalScrollbarContainer
+import com.inventory.barcodetracker.ui.components.isOfferInputValid
 import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -242,7 +243,9 @@ fun OfferDialog(
                                 createdAt = initialOffer?.createdAt ?: System.currentTimeMillis()
                             )
                             onSave(offer)
-                        }
+                        },
+                        enabled = offerType != "NONE" &&
+                            isOfferInputValid(offerType, offerBuyQty, offerPayQty, offerFixedPrice, offerPercentOff)
                     ) {
                         Text(strings.saveOffer)
                     }

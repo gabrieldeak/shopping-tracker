@@ -74,6 +74,14 @@ fun QuickScanScreen(
     val strings = LocalAppStrings.current
     var showLanguageMenu by remember { mutableStateOf(false) }
     var pendingCurrencySwitchPrompt by remember { mutableStateOf<String?>(null) }
+    var listForMixAndMatch by remember { mutableStateOf<ShoppingListEntity?>(null) }
+    var selectedSearchBarcodes by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isBlank()) {
+            selectedSearchBarcodes = emptySet()
+        }
+    }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -332,6 +340,64 @@ fun QuickScanScreen(
                 }
             }
 
+            AnimatedVisibility(visible = searchQuery.isNotBlank() && selectedSearchBarcodes.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${selectedSearchBarcodes.size} ${strings.selectedSuffix}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AppOutlinedButton(
+                                onClick = { selectedSearchBarcodes = emptySet() },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Text(strings.clearAction, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
+                            AppButton(
+                                onClick = {
+                                    viewModel.addPiecesToSelectedBaskets(selectedSearchBarcodes.toList())
+                                    selectedSearchBarcodes = emptySet()
+                                },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    String.format(Locale.US, strings.addCountFmt, selectedSearchBarcodes.size),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -380,10 +446,26 @@ fun QuickScanScreen(
                             )
                         }
                         items(matchingPieces, key = { "piece_${it.barcode}" }) { piece ->
+                            val isSelected = selectedSearchBarcodes.contains(piece.barcode)
+                            val toggleSelection = {
+                                selectedSearchBarcodes = if (isSelected) {
+                                    selectedSearchBarcodes - piece.barcode
+                                } else {
+                                    selectedSearchBarcodes + piece.barcode
+                                }
+                            }
                             SearchPieceCard(
                                 piece = piece,
                                 currencySymbol = currencySymbol,
-                                onClick = { viewModel.adjustPieceStock(piece.barcode, 1) }
+                                isSelected = isSelected,
+                                onToggleSelect = toggleSelection,
+                                onClick = {
+                                    if (selectedSearchBarcodes.isNotEmpty()) {
+                                        toggleSelection()
+                                    } else {
+                                        viewModel.adjustPieceStock(piece.barcode, 1)
+                                    }
+                                }
                             )
                         }
                     }
@@ -564,6 +646,10 @@ fun QuickScanScreen(
                             onSetBudget = {
                                 listForBudgetDialog = list
                                 budgetInputText = if (list.budgetLimit > 0) String.format(Locale.US, "%.2f", list.budgetLimit) else if (budgetLimit > 0) String.format(Locale.US, "%.2f", budgetLimit) else ""
+                            },
+                            onOpenMixAndMatch = { listForMixAndMatch = list },
+                            onUngroupMixAndMatch = { groupId ->
+                                viewModel.clearMixAndMatchGroup(list.id, groupId)
                             },
                             onRemoveItem = { barcode ->
                                 viewModel.removeShoppingListItem(list.id, barcode)
@@ -1056,6 +1142,28 @@ fun QuickScanScreen(
         )
     }
 
+    listForMixAndMatch?.let { targetList ->
+        MixAndMatchOfferDialog(
+            itemsInList = allShoppingListItems.filter { it.listId == targetList.id },
+            pieceMap = allPiecesMap,
+            savedOffers = savedOffers,
+            currencySymbol = currencySymbol,
+            onDismiss = { listForMixAndMatch = null },
+            onApply = { barcodes, offerType, buyQty, payQty, fixedPrice, percentOff ->
+                viewModel.applyMixAndMatchOffer(
+                    listId = targetList.id,
+                    barcodes = barcodes,
+                    offerType = offerType,
+                    buyQty = buyQty,
+                    payQty = payQty,
+                    fixedPrice = fixedPrice,
+                    percentOff = percentOff,
+                )
+                listForMixAndMatch = null
+            }
+        )
+    }
+
     pendingCurrencySwitchPrompt?.let { targetCurrency ->
         val targetLangName = if (targetCurrency == "RON") strings.languageNameRomanian else strings.languageNameEnglish
         AlertDialog(
@@ -1088,6 +1196,8 @@ fun QuickScanScreen(
 private fun SearchPieceCard(
     piece: PieceEntity,
     currencySymbol: String = "$",
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {},
     onClick: () -> Unit,
 ) {
     val strings = LocalAppStrings.current
@@ -1096,22 +1206,28 @@ private fun SearchPieceCard(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(horizontal = 10.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggleSelect() },
+                modifier = Modifier.size(34.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
             Icon(
                 Icons.Default.Inventory2,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(26.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(piece.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 val priceInfo = if (piece.unitPrice > 0) String.format(Locale.US, " • %s%.2f${strings.eachSuffix}", currencySymbol, piece.unitPrice) else ""

@@ -75,19 +75,6 @@ fun HistoryScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(strings.historyTitle)
                     }
-                },
-                actions = {
-                    if (selectedTripIds.isNotEmpty()) {
-                        AppButton(
-                            onClick = { showConfirmDeleteBatch = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("${strings.deleteSelected} (${selectedTripIds.size})", fontWeight = FontWeight.Bold)
-                        }
-                    }
                 }
             )
         }
@@ -121,6 +108,18 @@ fun HistoryScreen(
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
+                    }
+
+                    if (selectedTripIds.isNotEmpty()) {
+                        AppButton(
+                            onClick = { showConfirmDeleteBatch = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(String.format(Locale.US, strings.deleteCountFmt, selectedTripIds.size), fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
                     }
                 }
             }
@@ -348,80 +347,172 @@ private fun TripItemCard(
 
                     if (trip.itemsSummary.isNotBlank()) {
                         Spacer(modifier = Modifier.height(10.dp))
-                        val itemLines = trip.itemsSummary
-                            .split("\n")
-                            .map { it.trim() }
-                            .filter { it.isNotBlank() && !it.startsWith("Basket:", ignoreCase = true) }
+                        val rawLines = trip.itemsSummary.split("\n").map { it.trim() }
+                        val blocks = mutableListOf<HistoryReceiptBlock>()
+                        var currentGroupHeader: String? = null
+                        var currentGroupItems = mutableListOf<ParsedHistoryItem>()
+
+                        fun flushGroup() {
+                            currentGroupHeader?.let { hdr ->
+                                blocks.add(HistoryReceiptBlock.MixMatchGroup(hdr, currentGroupItems.toList()))
+                            }
+                            currentGroupHeader = null
+                            currentGroupItems = mutableListOf()
+                        }
+
+                        for (line in rawLines) {
+                            if (line.startsWith("Basket:", ignoreCase = true) || line.startsWith("List:", ignoreCase = true)) continue
+                            if (line.isBlank()) {
+                                flushGroup()
+                                continue
+                            }
+                            if (line.startsWith("🏷️ Mix & Match:")) {
+                                flushGroup()
+                                currentGroupHeader = line.removePrefix("🏷️ Mix & Match:").trim()
+                                continue
+                            }
+                            val parsed = parseHistoryItemLine(line)
+                            if (currentGroupHeader != null) {
+                                currentGroupItems.add(parsed)
+                            } else {
+                                blocks.add(HistoryReceiptBlock.SingleItem(parsed))
+                            }
+                        }
+                        flushGroup()
+
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            itemLines.forEach { line ->
-                                val parsed = parseHistoryItemLine(line)
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = parsed.name,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                            blocks.forEach { block ->
+                                when (block) {
+                                    is HistoryReceiptBlock.MixMatchGroup -> {
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
                                             )
-                                            if (parsed.qty != null || parsed.offerTag.isNotBlank()) {
-                                                Spacer(modifier = Modifier.height(2.dp))
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(8.dp),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
                                                 Row(
+                                                    modifier = Modifier.fillMaxWidth(),
                                                     verticalAlignment = Alignment.CenterVertically,
                                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                                 ) {
-                                                    if (parsed.qty != null) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    ) {
                                                         Text(
-                                                            text = "${strings.qtyLabel} ${parsed.qty}",
+                                                            text = "🏷️ ${strings.mixAndMatchBadge}",
                                                             style = MaterialTheme.typography.labelSmall,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onPrimary,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                            maxLines = 1
                                                         )
                                                     }
-                                                    if (parsed.offerTag.isNotBlank()) {
-                                                        Surface(
-                                                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                                                            shape = RoundedCornerShape(6.dp)
-                                                        ) {
-                                                            Text(
-                                                                text = parsed.offerTag,
-                                                                style = MaterialTheme.typography.labelSmall,
-                                                                fontWeight = FontWeight.SemiBold,
-                                                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
-                                                                maxLines = 1,
-                                                                overflow = TextOverflow.Ellipsis
-                                                            )
-                                                        }
-                                                    }
+                                                    Text(
+                                                        text = block.headerDetail,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                block.items.forEach { parsed ->
+                                                    HistoryItemRow(parsed = parsed, qtyLabel = strings.qtyLabel)
                                                 }
                                             }
                                         }
-                                        if (parsed.price.isNotBlank()) {
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = parsed.price,
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
+                                    }
+                                    is HistoryReceiptBlock.SingleItem -> {
+                                        HistoryItemRow(parsed = block.item, qtyLabel = strings.qtyLabel)
                                     }
                                 }
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+private sealed interface HistoryReceiptBlock {
+    data class MixMatchGroup(val headerDetail: String, val items: List<ParsedHistoryItem>) : HistoryReceiptBlock
+    data class SingleItem(val item: ParsedHistoryItem) : HistoryReceiptBlock
+}
+
+@Composable
+private fun HistoryItemRow(
+    parsed: ParsedHistoryItem,
+    qtyLabel: String,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = parsed.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (parsed.qty != null || parsed.offerTag.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (parsed.qty != null) {
+                            Text(
+                                text = "$qtyLabel ${parsed.qty}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (parsed.offerTag.isNotBlank()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = parsed.offerTag,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (parsed.price.isNotBlank()) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = parsed.price,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }

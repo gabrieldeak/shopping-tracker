@@ -7,8 +7,10 @@ import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
+import com.inventory.barcodetracker.data.local.entity.calculateBasketSummary
 import com.inventory.barcodetracker.data.local.entity.calculateItemSavings
 import com.inventory.barcodetracker.data.local.entity.calculateItemTotal
+import com.inventory.barcodetracker.data.local.entity.formatOfferBadge
 import com.inventory.barcodetracker.data.local.preferences.CurrencyPreferences
 import com.inventory.barcodetracker.data.repository.InventoryRepository
 import com.inventory.barcodetracker.scanner.BarcodeScannerService
@@ -274,6 +276,57 @@ class QuickScanViewModel(
         }
     }
 
+    fun applyMixAndMatchOffer(
+        listId: Long,
+        barcodes: List<String>,
+        offerType: String,
+        buyQty: Int,
+        payQty: Int,
+        fixedPrice: Double,
+        percentOff: Double,
+    ) {
+        if (barcodes.size < 2 || offerType == "NONE") return
+        viewModelScope.launch {
+            val groupId = "MM_${System.currentTimeMillis()}"
+            val items = repository.getItemsForListSync(listId)
+            val targetSet = barcodes.toSet()
+            val updated = items.filter { targetSet.contains(it.barcode) }.map { item ->
+                item.copy(
+                    offerGroupId = groupId,
+                    offerType = offerType,
+                    offerBuyQty = buyQty,
+                    offerPayQty = payQty,
+                    offerFixedPrice = fixedPrice,
+                    offerPercentOff = percentOff,
+                )
+            }
+            for (u in updated) {
+                repository.upsertShoppingListItem(u)
+            }
+            val badge = formatOfferBadge(offerType, buyQty, payQty, fixedPrice, percentOff, currencySymbol.value)
+            _snackbarMessages.emit(String.format(Locale.US, strings.vmAppliedMixAndMatchFmt, badge, updated.size))
+        }
+    }
+
+    fun clearMixAndMatchGroup(listId: Long, groupId: String) {
+        viewModelScope.launch {
+            val items = repository.getItemsForListSync(listId).filter { it.offerGroupId == groupId }
+            for (item in items) {
+                repository.upsertShoppingListItem(
+                    item.copy(
+                        offerGroupId = "",
+                        offerType = "NO_OFFER",
+                        offerBuyQty = 0,
+                        offerPayQty = 0,
+                        offerFixedPrice = 0.0,
+                        offerPercentOff = 0.0,
+                    )
+                )
+            }
+            _snackbarMessages.emit(strings.vmUngroupedDeal)
+        }
+    }
+
     fun toggleBasketItemChecked(listId: Long, barcode: String, isChecked: Boolean) {
         viewModelScope.launch {
             repository.setShoppingListItemChecked(listId, barcode, isChecked)
@@ -528,6 +581,29 @@ class QuickScanViewModel(
         }
     }
 
+    fun addPiecesToSelectedBaskets(barcodes: List<String>) {
+        if (barcodes.isEmpty()) return
+        viewModelScope.launch {
+            val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
+            if (targetLists.isEmpty()) {
+                _snackbarMessages.emit(strings.noBasketSelectedHint)
+                return@launch
+            }
+            var addedCount = 0
+            for (barcode in barcodes) {
+                val piece = repository.getPieceByBarcode(barcode) ?: continue
+                repository.adjustPieceStock(barcode, 1)
+                for (listId in targetLists) {
+                    addPieceToList(listId, piece, 1)
+                }
+                addedCount++
+            }
+            if (addedCount > 0) {
+                _snackbarMessages.emit(String.format(Locale.US, strings.vmAddedItemsToBasketsFmt, addedCount))
+            }
+        }
+    }
+
     fun adjustProductStock(sku: String, delta: Int) {
         viewModelScope.launch {
             repository.adjustProductStock(sku, delta)
@@ -587,8 +663,24 @@ class QuickScanViewModel(
 
             val symbol = currencySymbol.value
             val pieceMap = repository.getAllPiecesSync().associateBy { it.barcode }
+            val basketSummary = calculateBasketSummary(listItems, pieceMap, symbol)
 
-            val itemLines = listItems.map { item ->
+            val itemLines = mutableListOf<String>()
+            // 1. Mix & Match groups
+            for (group in basketSummary.groupPricings.values) {
+                val savingsPart = if (group.savings > 0) " (-$symbol${String.format(Locale.US, "%.2f", group.savings)})" else ""
+                itemLines.add("🏷️ Mix & Match: ${group.offerDescription}$savingsPart")
+                for (item in group.items) {
+                    val piece = pieceMap[item.barcode]
+                    val displayName = piece?.name ?: item.barcode
+                    val unitP = if (item.unitPrice > 0) item.unitPrice else (piece?.unitPrice ?: 0.0)
+                    itemLines.add("• $displayName (x${item.quantity}) — $symbol${String.format(Locale.US, "%.2f", unitP * item.quantity)}")
+                }
+                itemLines.add("")
+            }
+
+            // 2. Ungrouped regular items & vouchers
+            for (item in listItems.filter { it.offerGroupId.isBlank() }) {
                 if (item.offerType == "VOUCHER" || item.unitPrice < 0) {
                     val voucherName = item.barcode
                         .removePrefix("VOUCHER_")
@@ -597,10 +689,14 @@ class QuickScanViewModel(
                         .replace(Regex("""(\$|£|€|RON)\s+"""), "$1")
                         .trim()
                     val discountVal = kotlin.math.abs(item.unitPrice)
-                    "• 🎟️ Voucher ($voucherName) — -$symbol${String.format(Locale.US, "%.2f", discountVal)}"
+                    itemLines.add("• 🎟️ Voucher ($voucherName) — -$symbol${String.format(Locale.US, "%.2f", discountVal)}")
                 } else {
                     val piece = pieceMap[item.barcode]
-                    val effOfferType = if (item.offerType != "NONE") item.offerType else (piece?.offerType ?: "NONE")
+                    val effOfferType = when (item.offerType) {
+                        "NO_OFFER" -> "NONE"
+                        "NONE" -> piece?.offerType ?: "NONE"
+                        else -> item.offerType
+                    }
                     val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else (piece?.offerBuyQty ?: 0)
                     val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else (piece?.offerPayQty ?: 0)
                     val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else (piece?.offerFixedPrice ?: 0.0)
@@ -621,42 +717,13 @@ class QuickScanViewModel(
                     val lineSavings = mergedPiece?.savings ?: item.calculateItemSavings(null)
                     val offerDesc = mergedPiece?.getOfferDescription(symbol) ?: ""
 
-                    val savingTag = if (offerDesc.isNotBlank()) " [$offerDesc" + (if (lineSavings > 0) " — saved $symbol${String.format(Locale.US, "%.2f", lineSavings)}" else "") + "]" else ""
-                    "• $displayName (x${item.quantity})$savingTag — $symbol${String.format(Locale.US, "%.2f", lineTotal)}"
+                    val savingTag = if (offerDesc.isNotBlank()) " [$offerDesc" + (if (lineSavings > 0) " — -$symbol${String.format(Locale.US, "%.2f", lineSavings)}" else "") + "]" else ""
+                    itemLines.add("• $displayName (x${item.quantity})$savingTag — $symbol${String.format(Locale.US, "%.2f", lineTotal)}")
                 }
             }
 
             val summaryText = "Basket: ${list.name}\n" + itemLines.joinToString("\n")
-
-            val netTotalCost = maxOf(
-                0.0,
-                listItems.sumOf { item ->
-                    if (item.offerType == "VOUCHER" || item.unitPrice < 0) {
-                        item.unitPrice
-                    } else {
-                        val piece = pieceMap[item.barcode]
-                        if (piece != null) {
-                            val effOfferType = if (item.offerType != "NONE") item.offerType else piece.offerType
-                            val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else piece.offerBuyQty
-                            val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else piece.offerPayQty
-                            val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else piece.offerFixedPrice
-                            val effPercentOff = if (item.offerPercentOff > 0.0) item.offerPercentOff else piece.offerPercentOff
-
-                            piece.copy(
-                                stockQuantity = item.quantity,
-                                unitPrice = if (item.unitPrice > 0) item.unitPrice else piece.unitPrice,
-                                offerType = effOfferType,
-                                offerBuyQty = effBuyQty,
-                                offerPayQty = effPayQty,
-                                offerFixedPrice = effFixedPrice,
-                                offerPercentOff = effPercentOff
-                            ).calculatedTotal
-                        } else {
-                            item.calculateItemTotal(null)
-                        }
-                    }
-                }
-            )
+            val netTotalCost = basketSummary.regularItemsSubtotal
 
             val itemCount = listItems.filter { it.offerType != "VOUCHER" && it.unitPrice >= 0 }.sumOf { it.quantity }
 

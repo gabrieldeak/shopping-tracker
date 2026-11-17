@@ -375,8 +375,67 @@ class InventoryRepository(
         val summaryLines = trip.itemsSummary.split("\n")
         val currentPieces = inventoryDao.getAllPiecesSync().associateBy { it.name.lowercase() }
 
+        var currentGroupId = ""
+        var currentOfferType = "NONE"
+        var currentBuyQty = 0
+        var currentPayQty = 0
+        var currentFixedPrice = 0.0
+        var currentPercentOff = 0.0
+
         for (line in summaryLines) {
             val trimmed = line.trim()
+            if (trimmed.isEmpty()) {
+                currentGroupId = ""
+                currentOfferType = "NONE"
+                currentBuyQty = 0
+                currentPayQty = 0
+                currentFixedPrice = 0.0
+                currentPercentOff = 0.0
+                continue
+            }
+            if (trimmed.startsWith("🏷️ Mix & Match:")) {
+                val detail = trimmed.removePrefix("🏷️ Mix & Match:").trim()
+                currentGroupId = "MM_${System.currentTimeMillis()}_${(100..999).random()}"
+                val multiBuyMatch = Regex("""(\d+)\s+for\s+(?:[£$€]|RON)?\s*([\d.]+)""").find(detail)
+                val buyPayMatch = Regex("""(\d+)\s+for\s+(\d+)""").find(detail)
+                val pctMatch = Regex("""([\d.]+)%\s*Off""", RegexOption.IGNORE_CASE).find(detail)
+                val reducedMatch = Regex("""Now\s+(?:[£$€]|RON)?\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(detail)
+
+                when {
+                    multiBuyMatch != null && !detail.matches(Regex("""^\d+\s+for\s+\d+(\s.*)?$""")) -> {
+                        currentOfferType = "MULTI_BUY_FIXED"
+                        currentBuyQty = multiBuyMatch.groupValues[1].toIntOrNull() ?: 2
+                        currentPayQty = 0
+                        currentFixedPrice = multiBuyMatch.groupValues[2].toDoubleOrNull() ?: 0.0
+                        currentPercentOff = 0.0
+                    }
+                    buyPayMatch != null -> {
+                        currentOfferType = "THREE_FOR_TWO"
+                        currentBuyQty = buyPayMatch.groupValues[1].toIntOrNull() ?: 3
+                        currentPayQty = buyPayMatch.groupValues[2].toIntOrNull() ?: 2
+                        currentFixedPrice = 0.0
+                        currentPercentOff = 0.0
+                    }
+                    pctMatch != null -> {
+                        currentOfferType = "PERCENT_OFF"
+                        currentBuyQty = 0
+                        currentPayQty = 0
+                        currentFixedPrice = 0.0
+                        currentPercentOff = pctMatch.groupValues[1].toDoubleOrNull() ?: 0.0
+                    }
+                    reducedMatch != null -> {
+                        currentOfferType = "REDUCED_PRICE"
+                        currentBuyQty = 0
+                        currentPayQty = 0
+                        currentFixedPrice = reducedMatch.groupValues[1].toDoubleOrNull() ?: 0.0
+                        currentPercentOff = 0.0
+                    }
+                    else -> {
+                        currentGroupId = ""
+                    }
+                }
+                continue
+            }
             if (!trimmed.startsWith("•")) continue
             val regex = Regex("""•\s*(.*?)\s*\(x(\d+)\)""")
             val match = regex.find(trimmed) ?: continue
@@ -406,7 +465,14 @@ class InventoryRepository(
                     listId = targetListId,
                     barcode = barcode,
                     quantity = qty,
-                    addedAt = System.currentTimeMillis()
+                    unitPrice = existing?.unitPrice ?: 0.0,
+                    offerType = if (currentGroupId.isNotBlank()) currentOfferType else "NONE",
+                    offerBuyQty = if (currentGroupId.isNotBlank()) currentBuyQty else 0,
+                    offerPayQty = if (currentGroupId.isNotBlank()) currentPayQty else 0,
+                    offerFixedPrice = if (currentGroupId.isNotBlank()) currentFixedPrice else 0.0,
+                    offerPercentOff = if (currentGroupId.isNotBlank()) currentPercentOff else 0.0,
+                    addedAt = System.currentTimeMillis(),
+                    offerGroupId = currentGroupId
                 )
             )
         }

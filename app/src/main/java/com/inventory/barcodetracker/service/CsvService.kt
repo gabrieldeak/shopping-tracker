@@ -289,17 +289,39 @@ object CsvService {
             val summaryIdx = header.indexOf("itemssummary")
             val symbolIdx = header.indexOf("currencysymbol")
 
+            val recordBuffer = StringBuilder()
+            var inQuotes = false
             var line: String?
             while (reader.readLine().also { line = it } != null) {
-                val l = line?.trim() ?: continue
-                if (l.isEmpty()) continue
-                val cols = parseCsvLine(l)
+                val raw = line ?: continue
+                if (recordBuffer.isEmpty() && raw.trim().isEmpty()) continue
+                if (recordBuffer.isNotEmpty()) {
+                    recordBuffer.append('\n')
+                }
+                recordBuffer.append(raw)
+
+                var i = 0
+                while (i < raw.length) {
+                    if (raw[i] == '"') {
+                        if (i + 1 < raw.length && raw[i + 1] == '"') {
+                            i++ // escaped quote
+                        } else {
+                            inQuotes = !inQuotes
+                        }
+                    }
+                    i++
+                }
+                if (inQuotes) continue
+
+                val record = recordBuffer.toString()
+                recordBuffer.clear()
+                val cols = parseCsvLine(record)
 
                 val date = if (dateIdx in cols.indices) cols[dateIdx].toLongOrNull() ?: System.currentTimeMillis() else System.currentTimeMillis()
                 val cost = if (costIdx in cols.indices) cols[costIdx].toDoubleOrNull() ?: 0.0 else 0.0
                 val count = if (countIdx in cols.indices) cols[countIdx].toIntOrNull() ?: 0 else 0
                 val summary = if (summaryIdx in cols.indices) cols[summaryIdx] else ""
-                val symbol = if (symbolIdx in cols.indices && cols[symbolIdx].isNotBlank()) cols[symbolIdx] else "$"
+                val symbol = if (symbolIdx in cols.indices && cols[symbolIdx].isNotBlank()) cols[symbolIdx] else "£"
 
                 trips.add(
                     ShoppingTripEntity(

@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListItemEntity
+import com.inventory.barcodetracker.data.local.entity.calculateBasketSummary
 import com.inventory.barcodetracker.data.local.entity.calculateItemSavings
 import com.inventory.barcodetracker.data.local.entity.calculateItemTotal
 import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
@@ -56,6 +57,8 @@ fun ShoppingListCard(
     onDelete: () -> Unit,
     onApplyVoucher: () -> Unit = {},
     onSetBudget: () -> Unit = {},
+    onOpenMixAndMatch: () -> Unit = {},
+    onUngroupMixAndMatch: (String) -> Unit = {},
     onRemoveItem: (String) -> Unit = {},
     onToggleItemChecked: (String, Boolean) -> Unit = { _, _ -> },
     onAdjustItemQuantity: (String, Int) -> Unit = { _, _ -> },
@@ -66,59 +69,11 @@ fun ShoppingListCard(
     var itemPendingDelete by remember { mutableStateOf<Pair<ShoppingListItemEntity, String>?>(null) }
 
     val totalCount = itemsInList.filter { it.offerType != "VOUCHER" && it.unitPrice >= 0 }.sumOf { it.quantity }
-
-    val itemsSubtotal = maxOf(
-        0.0,
-        itemsInList.sumOf { item ->
-            if (item.offerType == "VOUCHER" || item.unitPrice < 0) {
-                item.unitPrice
-            } else {
-                val piece = pieceMap[item.barcode]
-                if (piece != null) {
-                    val effOfferType = if (item.offerType != "NONE") item.offerType else piece.offerType
-                    val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else piece.offerBuyQty
-                    val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else piece.offerPayQty
-                    val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else piece.offerFixedPrice
-                    val effPercentOff = if (item.offerPercentOff > 0.0) item.offerPercentOff else piece.offerPercentOff
-
-                    piece.copy(
-                        stockQuantity = item.quantity,
-                        unitPrice = if (item.unitPrice > 0) item.unitPrice else piece.unitPrice,
-                        offerType = effOfferType,
-                        offerBuyQty = effBuyQty,
-                        offerPayQty = effPayQty,
-                        offerFixedPrice = effFixedPrice,
-                        offerPercentOff = effPercentOff
-                    ).calculatedTotal
-                } else {
-                    item.calculateItemTotal(null)
-                }
-            }
-        }
-    )
-
-    val totalSavings = itemsInList.filter { it.offerType != "VOUCHER" && it.unitPrice >= 0 }.sumOf { item ->
-        val piece = pieceMap[item.barcode]
-        if (piece != null) {
-            val effOfferType = if (item.offerType != "NONE") item.offerType else piece.offerType
-            val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else piece.offerBuyQty
-            val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else piece.offerPayQty
-            val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else piece.offerFixedPrice
-            val effPercentOff = if (item.offerPercentOff > 0.0) item.offerPercentOff else piece.offerPercentOff
-
-            piece.copy(
-                stockQuantity = item.quantity,
-                unitPrice = if (item.unitPrice > 0) item.unitPrice else piece.unitPrice,
-                offerType = effOfferType,
-                offerBuyQty = effBuyQty,
-                offerPayQty = effPayQty,
-                offerFixedPrice = effFixedPrice,
-                offerPercentOff = effPercentOff
-            ).savings
-        } else {
-            item.calculateItemSavings(null)
-        }
+    val basketSummary = remember(itemsInList, pieceMap, currencySymbol) {
+        calculateBasketSummary(itemsInList, pieceMap, currencySymbol)
     }
+    val itemsSubtotal = basketSummary.regularItemsSubtotal
+    val totalSavings = basketSummary.totalSavings
 
     val effectiveBudgetLimit = when {
         list.budgetLimit < 0.0 -> 0.0
@@ -323,32 +278,17 @@ fun ShoppingListCard(
                         val regularItems = remember(itemsInList) {
                             itemsInList.filter { it.offerType != "VOUCHER" && it.unitPrice >= 0 }
                         }
-                        val uncheckedItems = remember(regularItems) { regularItems.filter { !it.isChecked } }
-                        val checkedItems = remember(regularItems) { regularItems.filter { it.isChecked } }
+                        val ungroupedRegular = remember(regularItems) {
+                            regularItems.filter { it.offerGroupId.isBlank() }
+                        }
+                        val uncheckedItems = remember(ungroupedRegular) { ungroupedRegular.filter { !it.isChecked } }
+                        val checkedItems = remember(ungroupedRegular) { ungroupedRegular.filter { it.isChecked } }
                         val voucherItems = remember(itemsInList) {
                             itemsInList.filter { it.offerType == "VOUCHER" || it.unitPrice < 0 }
                         }
 
-                        fun itemLineTotal(item: ShoppingListItemEntity): Double {
-                            val piece = pieceMap[item.barcode] ?: return item.calculateItemTotal(null)
-                            val effOfferType = if (item.offerType != "NONE") item.offerType else piece.offerType
-                            val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else piece.offerBuyQty
-                            val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else piece.offerPayQty
-                            val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else piece.offerFixedPrice
-                            val effPercentOff = if (item.offerPercentOff > 0.0) item.offerPercentOff else piece.offerPercentOff
-                            return piece.copy(
-                                stockQuantity = item.quantity,
-                                unitPrice = if (item.unitPrice > 0) item.unitPrice else piece.unitPrice,
-                                offerType = effOfferType,
-                                offerBuyQty = effBuyQty,
-                                offerPayQty = effPayQty,
-                                offerFixedPrice = effFixedPrice,
-                                offerPercentOff = effPercentOff
-                            ).calculatedTotal
-                        }
-
-                        val uncheckedTotal = uncheckedItems.sumOf { itemLineTotal(it) }
-                        val checkedTotal = checkedItems.sumOf { itemLineTotal(it) }
+                        val uncheckedTotal = basketSummary.uncheckedTotal
+                        val checkedTotal = basketSummary.checkedTotal
 
                         if (regularItems.isEmpty() && voucherItems.isEmpty()) {
                             Text(
@@ -357,19 +297,117 @@ fun ShoppingListCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
+                            // Mix & Match Deal Groups
+                            if (basketSummary.groupPricings.isNotEmpty()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    basketSummary.groupPricings.values.forEach { group ->
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f))
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(8.dp),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.weight(1f),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        Surface(
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        ) {
+                                                            Text(
+                                                                text = "🏷️ ${strings.mixAndMatchBadge}",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.onPrimary,
+                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                                maxLines = 1
+                                                            )
+                                                        }
+                                                        Text(
+                                                            text = group.offerDescription,
+                                                            style = MaterialTheme.typography.labelMedium,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        if (group.savings > 0) {
+                                                            Text(
+                                                                text = String.format(Locale.US, strings.savedFmt, currencySymbol, group.savings),
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.tertiary
+                                                            )
+                                                        }
+                                                        IconButton(
+                                                            onClick = { onUngroupMixAndMatch(group.groupId) },
+                                                            modifier = Modifier.size(24.dp)
+                                                        ) {
+                                                            Icon(
+                                                                Icons.Default.Clear,
+                                                                contentDescription = strings.ungroupDealDesc,
+                                                                modifier = Modifier.size(14.dp),
+                                                                tint = MaterialTheme.colorScheme.error
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                group.items.forEach { item ->
+                                                    key(item.barcode) {
+                                                        val piece = pieceMap[item.barcode]
+                                                        val displayName = piece?.name ?: item.barcode
+                                                        BasketItemRow(
+                                                            item = item,
+                                                            piece = piece,
+                                                            currencySymbol = currencySymbol,
+                                                            showOfferBadge = false,
+                                                            onToggleChecked = { onToggleItemChecked(item.barcode, !item.isChecked) },
+                                                            onRequestDelete = { itemPendingDelete = item to displayName },
+                                                            onAdjustQuantity = { delta -> onAdjustItemQuantity(item.barcode, delta) }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (uncheckedItems.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                }
+                            }
+
                             // Unchecked Items
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 uncheckedItems.forEach { item ->
-                                    val piece = pieceMap[item.barcode]
-                                    val displayName = piece?.name ?: item.barcode
-                                    BasketItemRow(
-                                        item = item,
-                                        piece = piece,
-                                        currencySymbol = currencySymbol,
-                                        onToggleChecked = { onToggleItemChecked(item.barcode, !item.isChecked) },
-                                        onRequestDelete = { itemPendingDelete = item to displayName },
-                                        onAdjustQuantity = { delta -> onAdjustItemQuantity(item.barcode, delta) }
-                                    )
+                                    key(item.barcode) {
+                                        val piece = pieceMap[item.barcode]
+                                        val displayName = piece?.name ?: item.barcode
+                                        BasketItemRow(
+                                            item = item,
+                                            piece = piece,
+                                            currencySymbol = currencySymbol,
+                                            onToggleChecked = { onToggleItemChecked(item.barcode, !item.isChecked) },
+                                            onRequestDelete = { itemPendingDelete = item to displayName },
+                                            onAdjustQuantity = { delta -> onAdjustItemQuantity(item.barcode, delta) }
+                                        )
+                                    }
                                 }
                             }
 
@@ -590,6 +628,23 @@ fun ShoppingListCard(
                             }
                         }
 
+                        if (regularItems.size >= 2) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            AppOutlinedButton(
+                                onClick = onOpenMixAndMatch,
+                                colors = actionColors,
+                                border = actionBorder,
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(34.dp)
+                            ) {
+                                Icon(Icons.Default.LocalOffer, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(strings.mixAndMatchBtn, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(6.dp))
 
                         // Swipe Gesture Instruction Hint
@@ -648,13 +703,18 @@ private fun BasketItemRow(
     item: ShoppingListItemEntity,
     piece: PieceEntity?,
     currencySymbol: String,
+    showOfferBadge: Boolean = true,
     onToggleChecked: () -> Unit,
     onRequestDelete: () -> Unit,
     onAdjustQuantity: (Int) -> Unit,
 ) {
     var itemExpanded by remember { mutableStateOf(false) }
 
-    val effOfferType = if (item.offerType != "NONE") item.offerType else (piece?.offerType ?: "NONE")
+    val effOfferType = when (item.offerType) {
+        "NO_OFFER" -> "NONE"
+        "NONE" -> piece?.offerType ?: "NONE"
+        else -> item.offerType
+    }
     val effBuyQty = if (item.offerBuyQty > 0) item.offerBuyQty else (piece?.offerBuyQty ?: 0)
     val effPayQty = if (item.offerPayQty > 0) item.offerPayQty else (piece?.offerPayQty ?: 0)
     val effFixedPrice = if (item.offerFixedPrice > 0.0) item.offerFixedPrice else (piece?.offerFixedPrice ?: 0.0)
@@ -777,7 +837,7 @@ private fun BasketItemRow(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            if (offerDesc.isNotBlank()) {
+                            if (showOfferBadge && offerDesc.isNotBlank()) {
                                 Surface(
                                     color = MaterialTheme.colorScheme.tertiaryContainer,
                                     shape = RoundedCornerShape(6.dp)

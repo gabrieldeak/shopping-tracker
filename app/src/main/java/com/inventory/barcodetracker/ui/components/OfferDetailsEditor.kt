@@ -16,6 +16,40 @@ import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import java.util.Locale
 
 /**
+ * Validates that all required numeric inputs for the chosen offerType are present and sensible.
+ */
+fun isOfferInputValid(
+    offerType: String,
+    buyQtyText: String,
+    payQtyText: String,
+    fixedPriceText: String,
+    percentOffText: String,
+): Boolean {
+    return when (offerType) {
+        "NONE" -> true
+        "THREE_FOR_TWO" -> {
+            val buy = buyQtyText.toIntOrNull() ?: 0
+            val pay = payQtyText.toIntOrNull() ?: 0
+            buy >= 2 && pay in 1 until buy
+        }
+        "MULTI_BUY_FIXED" -> {
+            val buy = buyQtyText.toIntOrNull() ?: 0
+            val price = fixedPriceText.toDoubleOrNull() ?: 0.0
+            buy >= 2 && price > 0.0
+        }
+        "REDUCED_PRICE", "VOUCHER" -> {
+            val price = fixedPriceText.toDoubleOrNull() ?: 0.0
+            price > 0.0
+        }
+        "PERCENT_OFF" -> {
+            val pct = percentOffText.toDoubleOrNull() ?: 0.0
+            pct > 0.0 && pct <= 100.0
+        }
+        else -> false
+    }
+}
+
+/**
  * Shared parameter editor for store offers and multi-buy rules matching app text-field styling.
  * All inputs start empty (no prepopulated defaults) with optional preset pills.
  */
