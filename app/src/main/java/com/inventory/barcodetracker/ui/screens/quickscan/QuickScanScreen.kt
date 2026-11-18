@@ -111,9 +111,10 @@ fun QuickScanScreen(
     var showDatePickerModal by remember { mutableStateOf(false) }
 
     val pendingBasketItem by viewModel.pendingBasketItem.collectAsStateWithLifecycle()
+    val pendingBasketBarcodes by viewModel.pendingBasketBarcodes.collectAsStateWithLifecycle()
     val scanAnotherPromptItem by viewModel.scanAnotherPromptItem.collectAsStateWithLifecycle()
-    LaunchedEffect(pendingBasketItem) {
-        if (pendingBasketItem != null) {
+    LaunchedEffect(pendingBasketItem, pendingBasketBarcodes) {
+        if (pendingBasketItem != null || pendingBasketBarcodes.isNotEmpty()) {
             newListNameText = ""
             showCreateListDialog = true
         }
@@ -816,7 +817,7 @@ fun QuickScanScreen(
             confirmButton = {
                 AppButton(
                     onClick = {
-                        val hadPending = pendingBasketItem != null
+                        val hadPending = pendingBasketItem != null || pendingBasketBarcodes.isNotEmpty()
                         viewModel.createShoppingList(generatedName)
                         showCreateListDialog = false
                         if (hadPending && searchQuery.isNotBlank()) {

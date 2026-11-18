@@ -444,4 +444,96 @@ class ShoppingTrackerE2ETest {
         composeRule.onNodeWithText("Pay Qty").performTextInput("2")
         composeRule.onNodeWithText("Save Offer").assertIsEnabled()
     }
+
+    @Test
+    fun testMultiSelectAddWithNoBasketPromptsCreateAndRemovingItemPrunesMixAndMatch() {
+        // 1. Add two items to catalog while no baskets exist
+        composeRule.onNodeWithText("Items").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Search catalog by name or barcode...").fetchSemanticsNodes().isNotEmpty()
+        }
+        listOf("Red Apples" to "2.20", "Green Apples" to "2.30").forEach { (name, price) ->
+            composeRule.waitUntil(timeoutMillis = 5000) {
+                composeRule.onAllNodesWithContentDescription("Add Item").fetchSemanticsNodes().isNotEmpty()
+            }
+            composeRule.waitForIdle()
+            composeRule.onNodeWithContentDescription("Add Item")
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+            composeRule.waitUntil(timeoutMillis = 5000) {
+                composeRule.onAllNodesWithText("Item Name *").fetchSemanticsNodes().isNotEmpty()
+            }
+            composeRule.onNodeWithText("Item Name *").performTextInput(name)
+            composeRule.onNodeWithText("Price (", substring = true).performTextInput(price)
+            composeRule.onNodeWithText("Save Item").performClick()
+            composeRule.waitUntil(timeoutMillis = 3000) {
+                composeRule.onAllNodesWithText("Item Name *").fetchSemanticsNodes().isEmpty() &&
+                    composeRule.onAllNodesWithText(name).fetchSemanticsNodes().isNotEmpty()
+            }
+            androidx.test.espresso.Espresso.closeSoftKeyboard()
+            Thread.sleep(300)
+        }
+
+        // 2. Search "Apples" on Quick Scan with NO baskets -> select both -> tap Add (2) -> prompts Create Basket
+        composeRule.onNodeWithText("Quick Scan").performClick()
+        composeRule.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Apples")
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodes(isToggleable() and isOff()).fetchSemanticsNodes().size >= 2
+        }
+        val checkboxes = composeRule.onAllNodes(isToggleable())
+        checkboxes[0].performClick()
+        checkboxes[1].performClick()
+
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Add (2)").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Add (2)").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Basket Name / Store").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Basket Name / Store").performTextInput("Orchard")
+        composeRule.onNodeWithText("Create Basket").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Create Basket").fetchSemanticsNodes().isEmpty() &&
+                composeRule.onAllNodesWithText("Orchard", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+
+        // 3. Expand Orchard -> apply Mix & Match 2 for £4.00
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithContentDescription("Expand").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Expand")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Mix & Match").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Mix & Match")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Apply Mix & Match").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Red Apples").onLast().performClick()
+        composeRule.onAllNodesWithText("Green Apples").onLast().performClick()
+        composeRule.onNodeWithText("Bundle Price").performTextInput("4.00")
+        composeRule.onNodeWithText("Apply Mix & Match").assertIsEnabled().performClick()
+
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithContentDescription("Ungroup Mix & Match deal").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // 4. Swipe left to remove Green Apples -> only 1 item remains -> Mix & Match grouping is auto-removed
+        composeRule.onAllNodesWithText("Green Apples").onFirst().performTouchInput { swipeLeft() }
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Remove Item").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Remove").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithContentDescription("Ungroup Mix & Match deal").fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onAllNodesWithText("2 for £4.00").assertCountEquals(0)
+        composeRule.onNodeWithText("Red Apples").assertIsDisplayed()
+    }
 }

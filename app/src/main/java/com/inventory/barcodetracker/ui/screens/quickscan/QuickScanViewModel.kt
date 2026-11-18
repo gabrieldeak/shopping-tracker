@@ -115,6 +115,9 @@ class QuickScanViewModel(
     private val _pendingBasketItem = MutableStateFlow<PendingBasketItem?>(null)
     val pendingBasketItem: StateFlow<PendingBasketItem?> = _pendingBasketItem.asStateFlow()
 
+    private val _pendingBasketBarcodes = MutableStateFlow<List<String>>(emptyList())
+    val pendingBasketBarcodes: StateFlow<List<String>> = _pendingBasketBarcodes.asStateFlow()
+
     private val _scanAnotherPromptItem = MutableStateFlow<String?>(null)
     val scanAnotherPromptItem: StateFlow<String?> = _scanAnotherPromptItem.asStateFlow()
 
@@ -122,6 +125,7 @@ class QuickScanViewModel(
 
     fun clearPendingBasketItem() {
         _pendingBasketItem.value = null
+        _pendingBasketBarcodes.value = emptyList()
     }
 
     fun dismissScanAnotherPrompt() {
@@ -170,12 +174,27 @@ class QuickScanViewModel(
             _selectedListIds.value = _selectedListIds.value + id
 
             val pending = _pendingBasketItem.value
+            val pendingBatch = _pendingBasketBarcodes.value
             if (pending != null) {
                 _pendingBasketItem.value = null
                 addPieceToList(id, pending.piece, pending.quantity)
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmCreatedBasketAddedFmt, formattedName, pending.piece.name))
                 if (pending.fromScanner) {
                     _scanAnotherPromptItem.value = pending.piece.name
+                }
+            } else if (pendingBatch.isNotEmpty()) {
+                _pendingBasketBarcodes.value = emptyList()
+                var addedCount = 0
+                for (barcode in pendingBatch) {
+                    val piece = repository.getPieceByBarcode(barcode) ?: continue
+                    repository.adjustPieceStock(barcode, 1)
+                    addPieceToList(id, piece, 1)
+                    addedCount++
+                }
+                if (addedCount > 0) {
+                    _snackbarMessages.emit(String.format(Locale.US, strings.vmAddedItemsToBasketsFmt, addedCount))
+                } else {
+                    _snackbarMessages.emit(String.format(Locale.US, strings.vmCreatedBasketFmt, formattedName))
                 }
             } else {
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmCreatedBasketFmt, formattedName))
@@ -586,7 +605,7 @@ class QuickScanViewModel(
         viewModelScope.launch {
             val targetLists = _selectedListIds.value.ifEmpty { _activeListId.value?.let { setOf(it) } ?: emptySet() }
             if (targetLists.isEmpty()) {
-                _snackbarMessages.emit(strings.noBasketSelectedHint)
+                _pendingBasketBarcodes.value = barcodes
                 return@launch
             }
             var addedCount = 0

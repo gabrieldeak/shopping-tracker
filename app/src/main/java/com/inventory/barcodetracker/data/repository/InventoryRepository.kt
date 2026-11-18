@@ -29,12 +29,18 @@ class InventoryRepository(
 
     suspend fun deletePiece(piece: PieceEntity) {
         inventoryDao.removeShoppingListItemsByBarcodes(listOf(piece.barcode))
+        for (list in inventoryDao.getAllShoppingListsSync()) {
+            pruneInvalidMixAndMatchGroupsForList(list.id)
+        }
         inventoryDao.deletePiece(piece)
     }
 
     suspend fun deletePiecesByBarcodes(barcodes: List<String>) {
         if (barcodes.isEmpty()) return
         inventoryDao.removeShoppingListItemsByBarcodes(barcodes)
+        for (list in inventoryDao.getAllShoppingListsSync()) {
+            pruneInvalidMixAndMatchGroupsForList(list.id)
+        }
         inventoryDao.deletePiecesByBarcodes(barcodes)
     }
 
@@ -342,6 +348,7 @@ class InventoryRepository(
         } else {
             inventoryDao.updateShoppingListItemQuantity(listId, barcode, quantity)
         }
+        pruneInvalidMixAndMatchGroupsForList(listId)
     }
 
     suspend fun importShoppingListItems(items: List<ShoppingListItemEntity>) {
@@ -350,6 +357,36 @@ class InventoryRepository(
 
     suspend fun removeShoppingListItem(listId: Long, barcode: String) {
         inventoryDao.removeShoppingListItem(listId, barcode)
+        pruneInvalidMixAndMatchGroupsForList(listId)
+    }
+
+    private suspend fun pruneInvalidMixAndMatchGroupsForList(listId: Long) {
+        val items = inventoryDao.getItemsForListSync(listId)
+        val grouped = items.filter { it.offerGroupId.isNotBlank() }.groupBy { it.offerGroupId }
+        for ((_, groupItems) in grouped) {
+            val rep = groupItems.first()
+            val totalUnits = groupItems.sumOf { it.quantity }
+            val hasEnoughDistinctItems = groupItems.size >= 2
+            val hasEnoughTotalUnits = when (rep.offerType) {
+                "THREE_FOR_TWO" -> totalUnits >= (if (rep.offerBuyQty > 0) rep.offerBuyQty else 3)
+                "MULTI_BUY_FIXED" -> totalUnits >= (if (rep.offerBuyQty > 0) rep.offerBuyQty else 2)
+                else -> true
+            }
+            if (!hasEnoughDistinctItems || !hasEnoughTotalUnits) {
+                for (item in groupItems) {
+                    inventoryDao.upsertShoppingListItem(
+                        item.copy(
+                            offerGroupId = "",
+                            offerType = "NO_OFFER",
+                            offerBuyQty = 0,
+                            offerPayQty = 0,
+                            offerFixedPrice = 0.0,
+                            offerPercentOff = 0.0,
+                        )
+                    )
+                }
+            }
+        }
     }
 
     suspend fun clearShoppingListItems(listId: Long) {
