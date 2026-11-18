@@ -82,6 +82,15 @@ app/src/main/java/com/inventory/barcodetracker/
 ```bash
 ./gradlew connectedDebugAndroidTest
 ```
+Covers 8 end-to-end Compose UI flows in [`ShoppingTrackerE2ETest.kt`](app/src/androidTest/java/com/inventory/barcodetracker/ShoppingTrackerE2ETest.kt):
+- Empty state, basket creation, catalog item add/search, item check/uncheck, and swipe-to-remove
+- Empty-basket prompt when adding a searched item
+- Multi-select search batch-add (`Add (2)`), `Mix & Match` deal creation/validation, History `Mix & Match` box, `Make Active` reactivation, and ungrouping
+- History itemized receipt expansion and `Make Active` reload
+- Offers creation with optional title, empty-field validation, and card expansion
+- Settings `Clear All Data` resetting active basket and selection bar
+- Runtime `EN` ↔ `RO` language switcher and currency switch prompt (`RON` / `£`)
+
 Test results are published automatically in GitHub Actions via [android-tests.yml](.github/workflows/android-tests.yml).
 
 ---

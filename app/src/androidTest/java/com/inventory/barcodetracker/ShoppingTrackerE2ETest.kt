@@ -38,6 +38,9 @@ class ShoppingTrackerE2ETest {
         val repository = InventoryRepository(database.inventoryDao())
         val scannerService = BarcodeScannerService(context)
         val preferences = CurrencyPreferences(context)
+        preferences.setAppLanguage("en")
+        preferences.setCurrencySymbol("£")
+        preferences.setBudgetLimit(0.0)
 
         testContainer = object : AppContainer {
             override val inventoryRepository: InventoryRepository = repository
@@ -148,8 +151,15 @@ class ShoppingTrackerE2ETest {
         }
 
         // Expand card details
-        composeRule.onNodeWithContentDescription("Expand details").performClick()
-        composeRule.onNodeWithText("Apply to Item").assertIsDisplayed()
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithContentDescription("Expand").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Expand")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Apply to Item").fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithContentDescription("Edit").fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithContentDescription("Edit").assertIsDisplayed()
     }
 
@@ -184,16 +194,16 @@ class ShoppingTrackerE2ETest {
         }
         composeRule.onNodeWithContentDescription("Expand items").performClick()
         composeRule.waitUntil(timeoutMillis = 3000) {
-            composeRule.onAllNodesWithText("Reload Basket").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Make Active").fetchSemanticsNodes().isNotEmpty()
         }
 
         // Verify itemized card & top actions
-        composeRule.onNodeWithText("Reload Basket").assertIsDisplayed()
+        composeRule.onNodeWithText("Make Active").assertIsDisplayed()
         composeRule.onAllNodesWithText("Sourdough Bread").onLast().assertIsDisplayed()
         composeRule.onNodeWithText("Qty: 1").assertIsDisplayed()
 
-        // Reload Basket back to Quick Scan
-        composeRule.onNodeWithText("Reload Basket").performClick()
+        // Make Active back to Quick Scan
+        composeRule.onNodeWithText("Make Active").performClick()
         composeRule.onNodeWithText("Quick Scan").performClick()
         composeRule.waitUntil(timeoutMillis = 3000) {
             composeRule.onAllNodesWithText("Weekend Run", substring = true).fetchSemanticsNodes().isNotEmpty()
@@ -203,8 +213,13 @@ class ShoppingTrackerE2ETest {
     @Test
     fun testSettingsClearAllDataClearsSelectionBar() {
         // Create a basket (auto-selected -> shows "1 selected")
-        composeRule.onNodeWithText("New Basket").performClick()
-        composeRule.waitUntil(timeoutMillis = 3000) {
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("New Basket").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("New Basket")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        composeRule.waitUntil(timeoutMillis = 5000) {
             composeRule.onAllNodesWithText("Basket Name / Store").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Basket Name / Store").performTextInput("Temp Basket")
@@ -265,5 +280,168 @@ class ShoppingTrackerE2ETest {
             composeRule.onAllNodesWithText("Butter").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Qty: 1").assertIsDisplayed()
+    }
+
+    @Test
+    fun testLanguageSwitcherAndCurrencyPrompt() {
+        // Default is English (UK) with £
+        composeRule.onNodeWithText("🇬🇧 EN").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("🇷🇴 Română").performClick()
+
+        // Currency switch prompt appears (since currency is £, not RON)
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Schimbați moneda?").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Schimbă în RON").performClick()
+
+        // UI & bottom tabs are translated to Romanian
+        composeRule.onNodeWithText("Coș Nou").assertIsDisplayed()
+        composeRule.onNodeWithText("Istoric").assertIsDisplayed()
+        composeRule.onNodeWithText("Setări").assertIsDisplayed()
+
+        // Switch back to English (UK) -> prompts to switch back to £
+        composeRule.onNodeWithText("🇷🇴 RO").performClick()
+        composeRule.onNodeWithText("🇬🇧 English (UK)").performClick()
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Switch Currency?").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Switch to £").performClick()
+        composeRule.onNodeWithText("New Basket").assertIsDisplayed()
+    }
+
+    @Test
+    fun testMultiSelectSearchBatchAddAndMixAndMatchHistoryFlow() {
+        // 1. Create basket
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("New Basket").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("New Basket").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Basket Name / Store").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Basket Name / Store").performTextInput("Fruit Run")
+        composeRule.onNodeWithText("Create Basket").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Create Basket").fetchSemanticsNodes().isEmpty() &&
+                composeRule.onAllNodesWithText("Fruit Run", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // 2. Add two grape varieties to catalog
+        composeRule.onNodeWithText("Items").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Search catalog by name or barcode...").fetchSemanticsNodes().isNotEmpty()
+        }
+        listOf("Red Grapes" to "2.50", "Green Grapes" to "2.48").forEach { (name, price) ->
+            composeRule.waitUntil(timeoutMillis = 5000) {
+                composeRule.onAllNodesWithContentDescription("Add Item").fetchSemanticsNodes().isNotEmpty()
+            }
+            composeRule.waitForIdle()
+            composeRule.onNodeWithContentDescription("Add Item")
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+            composeRule.waitUntil(timeoutMillis = 5000) {
+                composeRule.onAllNodesWithText("Item Name *").fetchSemanticsNodes().isNotEmpty()
+            }
+            composeRule.onNodeWithText("Item Name *").performTextInput(name)
+            composeRule.onNodeWithText("Price (", substring = true).performTextInput(price)
+            composeRule.onNodeWithText("Save Item").performClick()
+            composeRule.waitUntil(timeoutMillis = 3000) {
+                composeRule.onAllNodesWithText("Item Name *").fetchSemanticsNodes().isEmpty() &&
+                    composeRule.onAllNodesWithText(name).fetchSemanticsNodes().isNotEmpty()
+            }
+            androidx.test.espresso.Espresso.closeSoftKeyboard()
+            Thread.sleep(300)
+        }
+
+        // 3. Search "Grapes" on Quick Scan -> check both items -> tap Add (2)
+        composeRule.onNodeWithText("Quick Scan").performClick()
+        composeRule.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Grapes")
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodes(isToggleable() and isOff()).fetchSemanticsNodes().size >= 2
+        }
+        val checkboxes = composeRule.onAllNodes(isToggleable())
+        checkboxes[0].performClick()
+        checkboxes[1].performClick()
+
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Add (2)").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Add (2)").performClick()
+        composeRule.onNodeWithContentDescription("Clear search").performClick()
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+
+        // 4. Expand basket -> open Mix & Match -> select both -> apply 2 for £4.00
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithContentDescription("Expand").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Expand")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Mix & Match").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Mix & Match")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Apply Mix & Match").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // Apply Mix & Match should be disabled before selecting 2 items & entering price
+        composeRule.onNodeWithText("Apply Mix & Match").assertIsNotEnabled()
+        composeRule.onAllNodesWithText("Red Grapes").onLast().performClick()
+        composeRule.onAllNodesWithText("Green Grapes").onLast().performClick()
+        composeRule.onNodeWithText("Apply Mix & Match").assertIsNotEnabled() // Bundle Price still empty!
+
+        composeRule.onNodeWithText("Bundle Price").performTextInput("4.00")
+        composeRule.onNodeWithText("Apply Mix & Match").assertIsEnabled().performClick()
+
+        // Verify basket savings & total
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("• Saved £0.98").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("£4.00").assertIsDisplayed()
+
+        // 5. Save to History -> verify Mix & Match box in History -> Make Active
+        composeRule.onNodeWithText("Save").performClick()
+        composeRule.onNodeWithText("History").performClick()
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithContentDescription("Expand items").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Expand items").performClick()
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("🏷️ Mix & Match").fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodesWithText("Make Active").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Make Active")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+
+        // 6. Back on Quick Scan -> Mix & Match group is preserved, and ungrouping removes it cleanly
+        composeRule.onNodeWithText("Quick Scan").performClick()
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithText("Fruit Run", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        if (composeRule.onAllNodesWithContentDescription("Expand").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onNodeWithContentDescription("Expand")
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        }
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithContentDescription("Ungroup Mix & Match deal").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithContentDescription("Ungroup Mix & Match deal").performClick()
+        composeRule.waitUntil(timeoutMillis = 3000) {
+            composeRule.onAllNodesWithContentDescription("Ungroup Mix & Match deal").fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onAllNodesWithText("2 for £4.00").assertCountEquals(0)
+    }
+
+    @Test
+    fun testOfferValidationDisablesSaveWhenEmpty() {
+        composeRule.onNodeWithText("Offers").performClick()
+        composeRule.onNodeWithContentDescription("Add Offer").performClick()
+        composeRule.onNodeWithText("Save Offer").assertIsNotEnabled()
+
+        composeRule.onNodeWithText("Buy Qty").performTextInput("3")
+        composeRule.onNodeWithText("Save Offer").assertIsNotEnabled()
+
+        composeRule.onNodeWithText("Pay Qty").performTextInput("2")
+        composeRule.onNodeWithText("Save Offer").assertIsEnabled()
     }
 }
