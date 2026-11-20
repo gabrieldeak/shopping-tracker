@@ -466,6 +466,12 @@ interface AppStrings {
     val ungroupDealDesc: String
     val vmAppliedMixAndMatchFmt: String
     val vmUngroupedDeal: String
+    val onboardingTitle: String
+    val onboardingSubtitle: String
+    val onboardingLanguageLabel: String
+    val onboardingCurrencyLabel: String
+    val onboardingCustomCurrencyLabel: String
+    val onboardingGetStarted: String
     fun offerTypeLabel(typeKey: String, currencySymbol: String): String = when (typeKey) {
         "THREE_FOR_TWO" -> offerBuyXPayY
         "MULTI_BUY_FIXED" -> String.format(Locale.US, offerMultiBuyFmt, currencySymbol)
@@ -933,6 +939,12 @@ object EnglishUkStrings : AppStrings {
     override val ungroupDealDesc = "Ungroup Mix & Match deal"
     override val vmAppliedMixAndMatchFmt = "Applied Mix & Match (%s) to %d items!"
     override val vmUngroupedDeal = "Removed Mix & Match grouping"
+    override val onboardingTitle = "Welcome to Shopping Tracker"
+    override val onboardingSubtitle = "Choose your preferred language and currency to get started. You can change these anytime in Settings."
+    override val onboardingLanguageLabel = "Language"
+    override val onboardingCurrencyLabel = "Currency"
+    override val onboardingCustomCurrencyLabel = "Custom symbol (optional)"
+    override val onboardingGetStarted = "Get Started"
 }
 
 object RomanianStrings : AppStrings {
@@ -1386,6 +1398,12 @@ object RomanianStrings : AppStrings {
     override val ungroupDealDesc = "Anulează gruparea ofertei"
     override val vmAppliedMixAndMatchFmt = "Ofertă Combinată (%s) aplicată pe %d produse!"
     override val vmUngroupedDeal = "Gruparea ofertei a fost eliminată"
+    override val onboardingTitle = "Bine ai venit la Shopping Tracker"
+    override val onboardingSubtitle = "Alege limba și moneda preferată pentru a începe. Le poți schimba oricând din Setări."
+    override val onboardingLanguageLabel = "Limbă"
+    override val onboardingCurrencyLabel = "Monedă"
+    override val onboardingCustomCurrencyLabel = "Simbol personalizat (opțional)"
+    override val onboardingGetStarted = "Începe"
 }
 
 val LocalAppStrings = staticCompositionLocalOf<AppStrings> { EnglishUkStrings }

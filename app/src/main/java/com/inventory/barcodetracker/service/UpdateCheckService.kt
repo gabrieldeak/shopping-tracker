@@ -16,7 +16,7 @@ data class AppUpdateInfo(
 object UpdateCheckService {
 
     private const val GITHUB_API_URL = "https://api.github.com/repos/gabrieldeak/shopping-tracker/releases/latest"
-    const val CURRENT_VERSION = "3.0.0"
+    const val CURRENT_VERSION = "3.0.1"
 
     suspend fun checkForUpdates(): AppUpdateInfo {
         return withContext(Dispatchers.IO) {

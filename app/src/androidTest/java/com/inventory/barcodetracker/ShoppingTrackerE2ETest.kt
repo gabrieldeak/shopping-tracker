@@ -41,6 +41,7 @@ class ShoppingTrackerE2ETest {
         preferences.setAppLanguage("en")
         preferences.setCurrencySymbol("£")
         preferences.setBudgetLimit(0.0)
+        preferences.setOnboardingCompleted(true)
 
         testContainer = object : AppContainer {
             override val inventoryRepository: InventoryRepository = repository

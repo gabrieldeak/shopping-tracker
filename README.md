@@ -10,8 +10,9 @@ A local-first, offline-ready Android application built with **Kotlin** and **Jet
 
 ---
 
-## ✨ Key Features (Version 3.0.0)
+## ✨ Key Features (Version 3.0.1)
 
+- **First-Launch Language & Currency Setup**: Shown automatically on fresh installs or after clearing app data so new users can choose **English (UK)** / **Română** and their preferred currency (`£`, `RON`, `€`, `$`, or custom symbol) right away.
 - **5-Tab Swipeable Navigation**:
   - **Quick Scan** (`ui/screens/quickscan/`): Top-right **English (UK) / Română** language switcher (with optional currency switch prompt between `£` and `RON`), unified search + inline barcode scan bar, multi-select search results to add multiple items in one go, lookup loading indicator with **Cancel & Enter Manually** and API-unavailable info banner, expandable **Shopping Basket Cards** with live subtotals, **Mix & Match** multi-item offers (e.g. Red + Green Grapes `2 for £4.00`), budget progress, vouchers, duplicate, rename, finish & save, multi-select scan routing, automatic **Create Basket** prompt when adding an item with no baskets, and a **"Scan Another?"** prompt for rapid multi-item scanning.
   - **Items** (`ui/screens/items/`): Clean product catalog without global counts (quantities live inside each basket), optional barcodes, price & offer assignment, multi-select batch add-to-basket / delete, and cascade removal from active baskets on delete.

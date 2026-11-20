@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.inventory.barcodetracker.di.AppContainer
 import com.inventory.barcodetracker.ui.AppViewModelFactory
+import com.inventory.barcodetracker.ui.components.FirstLaunchSetupDialog
 import com.inventory.barcodetracker.ui.i18n.AppStrings
 import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import com.inventory.barcodetracker.ui.screens.history.HistoryScreen
@@ -68,9 +69,22 @@ fun AppNavHost(
         )
     )
     val appLanguage by appContainer.currencyPreferences.appLanguage.collectAsStateWithLifecycle()
+    val currentCurrency by appContainer.currencyPreferences.currencySymbol.collectAsStateWithLifecycle()
+    val hasCompletedOnboarding by appContainer.currencyPreferences.hasCompletedOnboarding.collectAsStateWithLifecycle()
     val strings = remember(appLanguage) { AppStrings.forLanguage(appLanguage) }
 
     CompositionLocalProvider(LocalAppStrings provides strings) {
+        if (!hasCompletedOnboarding) {
+            FirstLaunchSetupDialog(
+                initialLanguage = appLanguage,
+                initialCurrency = currentCurrency,
+                onComplete = { language, currency ->
+                    appContainer.currencyPreferences.setAppLanguage(language)
+                    appContainer.currencyPreferences.setCurrencySymbol(currency)
+                    appContainer.currencyPreferences.setOnboardingCompleted(true)
+                }
+            )
+        }
         Scaffold(
             modifier = modifier,
             snackbarHost = { SnackbarHost(snackbarHostState) },
