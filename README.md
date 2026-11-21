@@ -10,7 +10,7 @@ A local-first, offline-ready Android application built with **Kotlin** and **Jet
 
 ---
 
-## ✨ Key Features (Version 3.0.3)
+## ✨ Key Features (Version 3.0.4)
 
 - **First-Launch Language & Currency Setup + Quick Tutorial**: Shown automatically on fresh installs or after clearing app data to pick **English (UK)** / **Română** and preferred currency (`£`, `RON`, `€`, `$`, or custom symbol), followed by a skippable 5-step visual **Quick Tutorial** (`Tutorial Rapid`) with localized UI previews and a *"Don't show on next startup"* checkbox.
 - **5-Tab Swipeable Navigation**:
