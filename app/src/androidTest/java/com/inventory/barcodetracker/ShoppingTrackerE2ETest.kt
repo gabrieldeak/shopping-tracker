@@ -42,6 +42,7 @@ class ShoppingTrackerE2ETest {
         preferences.setCurrencySymbol("£")
         preferences.setBudgetLimit(0.0)
         preferences.setOnboardingCompleted(true)
+        preferences.setHideTutorialOnStartup(true)
 
         testContainer = object : AppContainer {
             override val inventoryRepository: InventoryRepository = repository

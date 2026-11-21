@@ -472,6 +472,23 @@ interface AppStrings {
     val onboardingCurrencyLabel: String
     val onboardingCustomCurrencyLabel: String
     val onboardingGetStarted: String
+    val tutorialHeaderTitle: String
+    val tutorialHeaderSubtitle: String
+    val tutorialSkip: String
+    val tutorialBack: String
+    val tutorialNext: String
+    val tutorialDone: String
+    val tutorialDontShowAgain: String
+    val tutorialStep1Title: String
+    val tutorialStep1Desc: String
+    val tutorialStep2Title: String
+    val tutorialStep2Desc: String
+    val tutorialStep3Title: String
+    val tutorialStep3Desc: String
+    val tutorialStep4Title: String
+    val tutorialStep4Desc: String
+    val tutorialStep5Title: String
+    val tutorialStep5Desc: String
     fun offerTypeLabel(typeKey: String, currencySymbol: String): String = when (typeKey) {
         "THREE_FOR_TWO" -> offerBuyXPayY
         "MULTI_BUY_FIXED" -> String.format(Locale.US, offerMultiBuyFmt, currencySymbol)
@@ -945,6 +962,23 @@ object EnglishUkStrings : AppStrings {
     override val onboardingCurrencyLabel = "Currency"
     override val onboardingCustomCurrencyLabel = "Custom symbol (optional)"
     override val onboardingGetStarted = "Get Started"
+    override val tutorialHeaderTitle = "Quick Tutorial"
+    override val tutorialHeaderSubtitle = "A quick tour of Shopping Tracker's key features"
+    override val tutorialSkip = "Skip"
+    override val tutorialBack = "Back"
+    override val tutorialNext = "Next"
+    override val tutorialDone = "Start Shopping"
+    override val tutorialDontShowAgain = "Don't show on next startup"
+    override val tutorialStep1Title = "Quick Scan & Smart Baskets"
+    override val tutorialStep1Desc = "Scan barcodes or search your catalog, multi-select items to add at once, and track live totals and budget limits per basket."
+    override val tutorialStep2Title = "Swipe to Check or Remove"
+    override val tutorialStep2Desc = "Swipe right on any basket item to check it off as you shop, or swipe left to remove it. Checked items collapse neatly out of the way."
+    override val tutorialStep3Title = "Mix & Match & Store Offers"
+    override val tutorialStep3Desc = "Combine different items under one Mix & Match deal (like 2 for £4), or scan shelf labels to save 3-for-2, % Off, and reduced-price offers."
+    override val tutorialStep4Title = "Catalog & Receipt History"
+    override val tutorialStep4Desc = "Save completed baskets to History as itemized receipts with Mix & Match groupings preserved, and tap Make Active to reuse any past basket."
+    override val tutorialStep5Title = "Backup, Restore & Export"
+    override val tutorialStep5Desc = "Keep your catalog, baskets, offers, and history safe with full JSON or SQLite backups and CSV export/import in Settings."
 }
 
 object RomanianStrings : AppStrings {
@@ -1404,6 +1438,23 @@ object RomanianStrings : AppStrings {
     override val onboardingCurrencyLabel = "Monedă"
     override val onboardingCustomCurrencyLabel = "Simbol personalizat (opțional)"
     override val onboardingGetStarted = "Începe"
+    override val tutorialHeaderTitle = "Tutorial Rapid"
+    override val tutorialHeaderSubtitle = "Un scurt tur al funcțiilor principale ale aplicației"
+    override val tutorialSkip = "Sari peste"
+    override val tutorialBack = "Înapoi"
+    override val tutorialNext = "Următorul"
+    override val tutorialDone = "Începe"
+    override val tutorialDontShowAgain = "Nu mai arăta la următoarea pornire"
+    override val tutorialStep1Title = "Scanare Rapidă & Coșuri"
+    override val tutorialStep1Desc = "Scanează coduri de bare sau caută în catalog, selectează mai multe produse odată și urmărește totalul și bugetul fiecărui coș."
+    override val tutorialStep2Title = "Glisează pentru Bifare sau Ștergere"
+    override val tutorialStep2Desc = "Glisează spre dreapta pe un produs pentru a-l bifa, sau spre stânga pentru a-l elimina. Produsele bifate se restrâng automat."
+    override val tutorialStep3Title = "Oferte Combinate & Promoții"
+    override val tutorialStep3Desc = "Combină produse diferite într-o Ofertă Combinată (ex. 2 la 20 RON), sau salvează oferte 3 la preț de 2, reduceri procentuale și preț redus."
+    override val tutorialStep4Title = "Catalog & Istoric Bonuri"
+    override val tutorialStep4Desc = "Salvează coșurile în Istoric ca bonuri detaliate cu ofertele combinate păstrate și apasă Activează Coșul pentru a reutiliza o listă."
+    override val tutorialStep5Title = "Backup, Restaurare & Export"
+    override val tutorialStep5Desc = "Păstrează în siguranță produsele, coșurile, ofertele și istoricul cu backup complet JSON/SQLite și export/import CSV din Setări."
 }
 
 val LocalAppStrings = staticCompositionLocalOf<AppStrings> { EnglishUkStrings }

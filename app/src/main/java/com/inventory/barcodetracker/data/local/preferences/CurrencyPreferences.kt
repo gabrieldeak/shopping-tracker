@@ -44,6 +44,11 @@ class CurrencyPreferences(context: Context) {
     )
     val hasCompletedOnboarding: StateFlow<Boolean> = _hasCompletedOnboarding.asStateFlow()
 
+    private val _hideTutorialOnStartup = MutableStateFlow(
+        prefs.getBoolean(KEY_HIDE_TUTORIAL_ON_STARTUP, false),
+    )
+    val hideTutorialOnStartup: StateFlow<Boolean> = _hideTutorialOnStartup.asStateFlow()
+
     fun setCurrencySymbol(symbol: String) {
         val trimmed = symbol.trim().ifEmpty { "£" }
         prefs.edit { putString(KEY_CURRENCY_SYMBOL, trimmed) }
@@ -79,6 +84,11 @@ class CurrencyPreferences(context: Context) {
         _hasCompletedOnboarding.value = completed
     }
 
+    fun setHideTutorialOnStartup(hide: Boolean) {
+        prefs.edit { putBoolean(KEY_HIDE_TUTORIAL_ON_STARTUP, hide) }
+        _hideTutorialOnStartup.value = hide
+    }
+
     fun formatText(text: String): String {
         return formatTextWithMode(text, _capitalizationMode.value)
     }
@@ -90,6 +100,7 @@ class CurrencyPreferences(context: Context) {
         private const val KEY_CAPITALIZATION_MODE = "capitalization_mode"
         private const val KEY_APP_LANGUAGE = "app_language"
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
+        private const val KEY_HIDE_TUTORIAL_ON_STARTUP = "hide_tutorial_on_startup"
 
         val POPULAR_CURRENCIES = listOf(
             "RON" to "Romanian Leu (RON)",

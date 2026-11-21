@@ -12,8 +12,8 @@ android {
         applicationId = "com.inventory.barcodetracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "3.0.1"
+        versionCode = 5
+        versionName = "3.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
