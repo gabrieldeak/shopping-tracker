@@ -9,13 +9,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -1054,7 +1058,12 @@ fun QuickScanScreen(
             onDismissRequest = viewModel::dismissUpdateBanner,
             title = { Text(String.format(Locale.US, strings.updateAvailableTitleFmt, update.latestTag)) },
             text = {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 280.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
                     Text(
                         String.format(Locale.US, strings.updateAvailableBodyFmt, update.latestTag),
                         style = MaterialTheme.typography.bodyMedium,
@@ -1071,21 +1080,46 @@ fun QuickScanScreen(
                 }
             },
             confirmButton = {
-                AppButton(
-                    onClick = {
-                        try {
-                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(update.downloadUrl))
-                            context.startActivity(intent)
-                        } catch (_: Exception) {}
-                        viewModel.dismissUpdateBanner()
-                    }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(strings.downloadUpdate)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissUpdateBanner) {
-                    Text(strings.later)
+                    AppOutlinedButton(
+                        onClick = viewModel::dismissUpdateBanner,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                    ) {
+                        Text(
+                            text = strings.later,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    AppButton(
+                        onClick = {
+                            try {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(update.downloadUrl))
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                            viewModel.dismissUpdateBanner()
+                        },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                    ) {
+                        Text(
+                            text = strings.downloadUpdate,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         )
