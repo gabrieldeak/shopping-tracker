@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Clear
@@ -31,6 +33,7 @@ import com.inventory.barcodetracker.ui.components.AppButton
 import com.inventory.barcodetracker.ui.components.AppFilledTonalButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
+import com.inventory.barcodetracker.ui.components.AppTutorialDialog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +62,8 @@ fun SettingsScreen(
     val budgetLimit by viewModel.budgetLimit.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val capitalizationMode by viewModel.capitalizationMode.collectAsStateWithLifecycle()
+    val hideTutorialOnStartup by viewModel.hideTutorialOnStartup.collectAsStateWithLifecycle()
+    var showTutorialDialog by remember { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     var showCustomCurrencyDialog by remember { mutableStateOf(false) }
     var showBudgetDialog by remember { mutableStateOf(false) }
@@ -838,6 +843,45 @@ fun SettingsScreen(
                         }
                     }
 
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    // Quick Tutorial Startup Preference & Replay Button
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { viewModel.setHideTutorialOnStartup(!hideTutorialOnStartup) }
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = !hideTutorialOnStartup,
+                                onCheckedChange = { showOnStartup ->
+                                    viewModel.setHideTutorialOnStartup(!showOnStartup)
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = strings.showTutorialOnStartupLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        AppOutlinedButton(
+                            onClick = { showTutorialDialog = true },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(42.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(strings.viewQuickTutorialBtn, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
                     // Share App APK Button
                     AppButton(
                         onClick = { viewModel.shareAppApk(context) },
@@ -853,6 +897,17 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showTutorialDialog) {
+        AppTutorialDialog(
+            currencySymbol = currentCurrency,
+            initialDontShowAgain = hideTutorialOnStartup,
+            onDismiss = { dontShowAgain ->
+                viewModel.setHideTutorialOnStartup(dontShowAgain)
+                showTutorialDialog = false
+            }
+        )
     }
 
     if (showBudgetDialog) {

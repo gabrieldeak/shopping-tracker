@@ -45,6 +45,11 @@ class SettingsViewModel(
     val themeMode: StateFlow<String> = currencyPreferences.themeMode
     val capitalizationMode: StateFlow<String> = currencyPreferences.capitalizationMode
     val appLanguage: StateFlow<String> = currencyPreferences.appLanguage
+    val hideTutorialOnStartup: StateFlow<Boolean> = currencyPreferences.hideTutorialOnStartup
+
+    fun setHideTutorialOnStartup(hide: Boolean) {
+        currencyPreferences.setHideTutorialOnStartup(hide)
+    }
 
     fun setCurrencySymbol(symbol: String) {
         currencyPreferences.setCurrencySymbol(symbol)

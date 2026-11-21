@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -32,12 +33,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun AppTutorialDialog(
     currencySymbol: String,
+    initialDontShowAgain: Boolean = false,
     onDismiss: (dontShowAgain: Boolean) -> Unit,
 ) {
     val strings = LocalAppStrings.current
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
-    var dontShowAgain by remember { mutableStateOf(false) }
+    var dontShowAgain by remember { mutableStateOf(initialDontShowAgain) }
 
     val titles = listOf(
         strings.tutorialStep1Title,
@@ -96,7 +98,7 @@ fun AppTutorialDialog(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                imageVector = Icons.Default.MenuBook,
+                                imageVector = Icons.AutoMirrored.Filled.MenuBook,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(20.dp),

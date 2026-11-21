@@ -489,6 +489,8 @@ interface AppStrings {
     val tutorialStep4Desc: String
     val tutorialStep5Title: String
     val tutorialStep5Desc: String
+    val showTutorialOnStartupLabel: String
+    val viewQuickTutorialBtn: String
     fun offerTypeLabel(typeKey: String, currencySymbol: String): String = when (typeKey) {
         "THREE_FOR_TWO" -> offerBuyXPayY
         "MULTI_BUY_FIXED" -> String.format(Locale.US, offerMultiBuyFmt, currencySymbol)
@@ -979,6 +981,8 @@ object EnglishUkStrings : AppStrings {
     override val tutorialStep4Desc = "Save completed baskets to History as itemized receipts with Mix & Match groupings preserved, and tap Make Active to reuse any past basket."
     override val tutorialStep5Title = "Backup, Restore & Export"
     override val tutorialStep5Desc = "Keep your catalog, baskets, offers, and history safe with full JSON or SQLite backups and CSV export/import in Settings."
+    override val showTutorialOnStartupLabel = "Show Quick Tutorial on next startup"
+    override val viewQuickTutorialBtn = "View Quick Tutorial"
 }
 
 object RomanianStrings : AppStrings {
@@ -1455,6 +1459,8 @@ object RomanianStrings : AppStrings {
     override val tutorialStep4Desc = "Salvează coșurile în Istoric ca bonuri detaliate cu ofertele combinate păstrate și apasă Activează Coșul pentru a reutiliza o listă."
     override val tutorialStep5Title = "Backup, Restaurare & Export"
     override val tutorialStep5Desc = "Păstrează în siguranță produsele, coșurile, ofertele și istoricul cu backup complet JSON/SQLite și export/import CSV din Setări."
+    override val showTutorialOnStartupLabel = "Arată Tutorialul Rapid la următoarea pornire"
+    override val viewQuickTutorialBtn = "Vezi Tutorialul Rapid"
 }
 
 val LocalAppStrings = staticCompositionLocalOf<AppStrings> { EnglishUkStrings }
