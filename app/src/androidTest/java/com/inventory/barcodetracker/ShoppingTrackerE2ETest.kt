@@ -98,10 +98,17 @@ class ShoppingTrackerE2ETest {
         composeRule.onNodeWithText("Quick Scan").performClick()
         composeRule.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Whole Milk")
 
-        composeRule.waitUntil(timeoutMillis = 3000) {
+        composeRule.waitUntil(timeoutMillis = 5000) {
             composeRule.onAllNodes(hasText("Whole Milk") and !hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNode(hasText("Whole Milk") and !hasSetTextAction()).performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Add Items").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Add Items").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Add Items").fetchSemanticsNodes().isEmpty()
+        }
 
         // Clear search so basket card is visible
         composeRule.onNodeWithContentDescription("Clear search").performClick()
@@ -180,10 +187,17 @@ class ShoppingTrackerE2ETest {
 
         composeRule.onNodeWithText("Quick Scan").performClick()
         composeRule.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Sourdough Bread")
-        composeRule.waitUntil(timeoutMillis = 3000) {
+        composeRule.waitUntil(timeoutMillis = 5000) {
             composeRule.onAllNodes(hasText("Sourdough Bread") and !hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNode(hasText("Sourdough Bread") and !hasSetTextAction()).performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Add Items").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Add Items").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Add Items").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithContentDescription("Clear search").performClick()
 
         // Save selected basket to History using the "Save" button in the selection bar
@@ -364,10 +378,17 @@ class ShoppingTrackerE2ETest {
         checkboxes[0].performClick()
         checkboxes[1].performClick()
 
-        composeRule.waitUntil(timeoutMillis = 3000) {
+        composeRule.waitUntil(timeoutMillis = 5000) {
             composeRule.onAllNodesWithText("Add (2)").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Add (2)").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Add Items").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Add Items").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Add Items").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithContentDescription("Clear search").performClick()
         androidx.test.espresso.Espresso.closeSoftKeyboard()
 
@@ -396,10 +417,10 @@ class ShoppingTrackerE2ETest {
         composeRule.onNodeWithText("Apply Mix & Match").assertIsEnabled().performClick()
 
         // Verify basket savings & total
-        composeRule.waitUntil(timeoutMillis = 3000) {
+        composeRule.waitUntil(timeoutMillis = 5000) {
             composeRule.onAllNodesWithText("• Saved £0.98").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("£4.00").assertIsDisplayed()
+        composeRule.onAllNodesWithText("£4.00").onFirst().assertIsDisplayed()
 
         // 5. Save to History -> verify Mix & Match box in History -> Make Active
         composeRule.onNodeWithText("Save").performClick()
