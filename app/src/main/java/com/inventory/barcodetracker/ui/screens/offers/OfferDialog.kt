@@ -190,7 +190,6 @@ fun OfferDialog(
                         onValueChange = { title = it },
                         label = { Text(strings.offerTitleOptional) },
                         placeholder = { Text(strings.offerTitlePlaceholder) },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -200,7 +199,6 @@ fun OfferDialog(
                         onValueChange = { storeName = it },
                         label = { Text(strings.storeOptional) },
                         placeholder = { Text(strings.storePlaceholder) },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -210,7 +208,6 @@ fun OfferDialog(
                         onValueChange = { notes = it },
                         label = { Text(strings.notesOptional) },
                         placeholder = { Text(strings.notesPlaceholder) },
-                        keyboardOptions = KeyboardCapitalization.Sentences.let { KeyboardOptions(capitalization = it) },
                         maxLines = 2,
                         modifier = Modifier.fillMaxWidth()
                     )

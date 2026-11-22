@@ -180,7 +180,15 @@ fun MixAndMatchOfferDialog(
                         offerType = offerType,
                         currencySymbol = currencySymbol,
                         savedOffers = savedOffers,
-                        onSelectBuiltInType = { offerType = it },
+                        onSelectBuiltInType = { typeKey ->
+                            offerType = typeKey
+                            if (typeKey == "NONE") {
+                                offerBuyQty = ""
+                                offerPayQty = ""
+                                offerFixedPrice = ""
+                                offerPercentOff = ""
+                            }
+                        },
                         onSelectSavedOffer = { offer ->
                             offerType = offer.offerType
                             offerBuyQty = if (offer.buyQty > 0) offer.buyQty.toString() else ""

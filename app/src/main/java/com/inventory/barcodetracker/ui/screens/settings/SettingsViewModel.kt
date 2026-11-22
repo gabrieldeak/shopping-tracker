@@ -1,5 +1,6 @@
 package com.inventory.barcodetracker.ui.screens.settings
 
+import android.content.ClipData
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
@@ -277,7 +278,7 @@ class SettingsViewModel(
                     }
                     recordRecentBackupUri(context, uri)
                 }
-                val savedName = resolveDisplayName(contentResolver, uri, "shopping_items.csv")
+                val savedName = resolveDisplayName(contentResolver, uri, datedFileName("shopping_items", "csv"))
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmExportedFileFmt, savedName))
             } catch (e: Exception) {
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedExportItemsFmt, e.message ?: ""))
@@ -312,7 +313,7 @@ class SettingsViewModel(
                     }
                     recordRecentBackupUri(context, uri)
                 }
-                val savedName = resolveDisplayName(contentResolver, uri, "shopping_history.csv")
+                val savedName = resolveDisplayName(contentResolver, uri, datedFileName("shopping_history", "csv"))
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmExportedFileFmt, savedName))
             } catch (e: Exception) {
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedExportHistoryFmt, e.message ?: ""))
@@ -370,7 +371,7 @@ class SettingsViewModel(
                     }
                     recordRecentBackupUri(context, uri)
                 }
-                val savedName = resolveDisplayName(contentResolver, uri, "barcode_tracker_backup.json")
+                val savedName = resolveDisplayName(contentResolver, uri, datedFileName("barcode_tracker_backup", "json"))
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmSavedBackupFileFmt, savedName))
             } catch (e: Exception) {
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedExportBackupFmt, e.message ?: ""))
@@ -456,7 +457,7 @@ class SettingsViewModel(
                     }
                     recordRecentBackupUri(context, uri)
                 }
-                val savedName = resolveDisplayName(contentResolver, uri, "shopping_tracker.db")
+                val savedName = resolveDisplayName(contentResolver, uri, datedFileName("shopping_tracker", "db"))
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmSavedDbFileFmt, savedName))
             } catch (e: Exception) {
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedExportDbFmt, e.message ?: ""))
@@ -495,7 +496,7 @@ class SettingsViewModel(
                 val file = withContext(Dispatchers.IO) {
                     val cacheDir = File(context.cacheDir, "shared_backups")
                     cacheDir.mkdirs()
-                    val backupFile = File(cacheDir, "barcode_tracker_backup.json")
+                    val backupFile = File(cacheDir, datedFileName("barcode_tracker_backup", "json"))
 
                     val pieces = repository.getAllPiecesSync()
                     val products = repository.getAllProductsSync()
@@ -530,17 +531,20 @@ class SettingsViewModel(
                 val contentUri = FileProvider.getUriForFile(
                     context,
                     "${context.packageName}.fileprovider",
-                    file
+                    file,
+                    file.name
                 )
 
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/json"
                     putExtra(Intent.EXTRA_STREAM, contentUri)
-                    putExtra(Intent.EXTRA_SUBJECT, strings.vmShareBackupSubject)
+                    putExtra(Intent.EXTRA_SUBJECT, file.name)
+                    putExtra(Intent.EXTRA_TITLE, file.name)
+                    clipData = ClipData.newUri(context.contentResolver, file.name, contentUri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
 
-                context.startActivity(Intent.createChooser(shareIntent, strings.vmShareBackupChooser))
+                context.startActivity(Intent.createChooser(shareIntent, file.name))
             } catch (e: Exception) {
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedShareBackupFmt, e.message ?: ""))
             }
@@ -553,7 +557,7 @@ class SettingsViewModel(
                 val dbFile = withContext(Dispatchers.IO) {
                     val cacheDir = File(context.cacheDir, "shared_backups")
                     cacheDir.mkdirs()
-                    val targetFile = File(cacheDir, "shopping_tracker.db")
+                    val targetFile = File(cacheDir, datedFileName("shopping_tracker", "db"))
 
                     val pieces = repository.getAllPiecesSync()
                     val products = repository.getAllProductsSync()
@@ -589,17 +593,20 @@ class SettingsViewModel(
                 val contentUri = FileProvider.getUriForFile(
                     context,
                     "${context.packageName}.fileprovider",
-                    dbFile
+                    dbFile,
+                    dbFile.name
                 )
 
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/octet-stream"
                     putExtra(Intent.EXTRA_STREAM, contentUri)
-                    putExtra(Intent.EXTRA_SUBJECT, strings.vmShareDbSubject)
+                    putExtra(Intent.EXTRA_SUBJECT, dbFile.name)
+                    putExtra(Intent.EXTRA_TITLE, dbFile.name)
+                    clipData = ClipData.newUri(context.contentResolver, dbFile.name, contentUri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
 
-                context.startActivity(Intent.createChooser(shareIntent, strings.vmShareDbChooser))
+                context.startActivity(Intent.createChooser(shareIntent, dbFile.name))
             } catch (e: Exception) {
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedShareDbFmt, e.message ?: ""))
             }
@@ -658,6 +665,13 @@ class SettingsViewModel(
             } catch (e: Exception) {
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedClearDataFmt, e.message ?: ""))
             }
+        }
+    }
+
+    companion object {
+        fun datedFileName(baseName: String, extension: String): String {
+            val timestamp = java.text.SimpleDateFormat("yyyyMMddHHmmssSSS", Locale.US).format(java.util.Date())
+            return "${baseName}_${timestamp}.$extension"
         }
     }
 }

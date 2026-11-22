@@ -83,6 +83,9 @@ fun OfferSelectorDropdown(
                 searchText = it
                 isSearching = true
                 if (!expanded) expanded = true
+                if (it.isBlank() && offerType != "NONE") {
+                    onSelectBuiltInType("NONE")
+                }
             },
             label = { Text(strings.offerTypeOrSavedDeal) },
             placeholder = { Text(strings.searchOfferPlaceholder) },
@@ -92,9 +95,17 @@ fun OfferSelectorDropdown(
                     if (searchText.isNotEmpty()) {
                         IconButton(
                             onClick = {
-                                searchText = ""
-                                isSearching = true
-                                expanded = true
+                                if (offerType != "NONE") {
+                                    onSelectBuiltInType("NONE")
+                                    isSearching = false
+                                    searchText = strings.offerTypeLabel("NONE", currencySymbol)
+                                    expanded = false
+                                    focusManager.clearFocus()
+                                } else {
+                                    searchText = ""
+                                    isSearching = true
+                                    expanded = true
+                                }
                             },
                             modifier = Modifier.size(32.dp)
                         ) {
@@ -129,6 +140,9 @@ fun OfferSelectorDropdown(
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
                         expanded = true
+                    } else if (isSearching && searchText.isBlank()) {
+                        isSearching = false
+                        searchText = strings.offerTypeLabel(offerType, currencySymbol)
                     }
                 }
         )
@@ -162,7 +176,11 @@ fun OfferSelectorDropdown(
                         )
                         filteredLibrary.forEach { offer ->
                             val badge = offer.getDisplayBadge(currencySymbol)
-                            val offerDisplay = if (offer.title.isNotBlank()) "${offer.title} ($badge)" else badge
+                            val offerDisplay = if (offer.title.isNotBlank() && !offer.title.equals(badge, ignoreCase = true)) {
+                                "${offer.title} ($badge)"
+                            } else {
+                                badge
+                            }
                             Text(
                                 text = "🏷️ $offerDisplay",
                                 style = MaterialTheme.typography.bodyMedium,

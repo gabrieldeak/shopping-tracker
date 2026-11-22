@@ -205,7 +205,6 @@ fun ApplyVoucherDialog(
                         onValueChange = { customNameText = it },
                         label = { Text(strings.voucherNameOptional) },
                         placeholder = { Text(strings.voucherNamePlaceholder) },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )

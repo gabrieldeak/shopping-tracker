@@ -128,14 +128,21 @@ class InventoryRepository(
         inventoryDao.resetCartQuantities()
     }
 
-    suspend fun checkoutCartAndSaveTrip(totalCost: Double, itemCount: Int, itemsSummary: String, currencySymbol: String) {
-        if (itemCount > 0) {
+    suspend fun checkoutCartAndSaveTrip(
+        totalCost: Double,
+        itemCount: Int,
+        itemsSummary: String,
+        currencySymbol: String,
+        snapshotJson: String = "",
+    ) {
+        if (itemCount > 0 || snapshotJson.isNotBlank()) {
             val trip = ShoppingTripEntity(
                 tripDate = System.currentTimeMillis(),
                 totalCost = totalCost,
                 itemCount = itemCount,
                 itemsSummary = itemsSummary,
                 currencySymbol = currencySymbol,
+                snapshotJson = snapshotJson,
             )
             inventoryDao.insertShoppingTrip(trip)
         }
@@ -159,6 +166,64 @@ class InventoryRepository(
 
     suspend fun upsertOffer(offer: OfferEntity): Long {
         return inventoryDao.upsertOffer(offer)
+    }
+
+    suspend fun ensureOfferSavedInLibrary(
+        piece: PieceEntity,
+        currencySymbol: String,
+    ): Long? = ensureOfferSavedInLibrary(
+        offerType = piece.offerType,
+        buyQty = piece.offerBuyQty,
+        payQty = piece.offerPayQty,
+        fixedPrice = piece.offerFixedPrice,
+        percentOff = piece.offerPercentOff,
+        currencySymbol = currencySymbol,
+    )
+
+    suspend fun ensureOfferSavedInLibrary(
+        offerType: String,
+        buyQty: Int,
+        payQty: Int,
+        fixedPrice: Double,
+        percentOff: Double,
+        currencySymbol: String,
+        suggestedTitle: String = "",
+    ): Long? {
+        if (offerType == "NONE" || offerType == "NO_OFFER" || offerType.isBlank()) return null
+
+        val isValid = when (offerType) {
+            "THREE_FOR_TWO" -> buyQty >= 2 && payQty in 1 until buyQty
+            "MULTI_BUY_FIXED" -> buyQty >= 2 && fixedPrice > 0.0
+            "REDUCED_PRICE", "VOUCHER" -> fixedPrice > 0.0
+            "PERCENT_OFF" -> percentOff > 0.0 && percentOff <= 100.0
+            else -> false
+        }
+        if (!isValid) return null
+
+        val normalizedBuyQty = if (offerType == "THREE_FOR_TWO" || offerType == "MULTI_BUY_FIXED") buyQty else 0
+        val normalizedPayQty = if (offerType == "THREE_FOR_TWO") payQty else 0
+        val normalizedFixedPrice = if (offerType == "MULTI_BUY_FIXED" || offerType == "REDUCED_PRICE" || offerType == "VOUCHER") fixedPrice else 0.0
+        val normalizedPercentOff = if (offerType == "PERCENT_OFF") percentOff else 0.0
+
+        val existing = inventoryDao.getAllOffersSync().firstOrNull { offer ->
+            offer.offerType == offerType &&
+                offer.buyQty == normalizedBuyQty &&
+                offer.payQty == normalizedPayQty &&
+                kotlin.math.abs(offer.fixedPrice - normalizedFixedPrice) < 0.005 &&
+                kotlin.math.abs(offer.percentOff - normalizedPercentOff) < 0.005
+        }
+        if (existing != null) return existing.id
+
+        val candidate = OfferEntity(
+            title = suggestedTitle.trim(),
+            offerType = offerType,
+            buyQty = normalizedBuyQty,
+            payQty = normalizedPayQty,
+            fixedPrice = normalizedFixedPrice,
+            percentOff = normalizedPercentOff,
+        )
+        val resolvedTitle = candidate.title.ifBlank { candidate.getDisplayBadge(currencySymbol) }
+        return inventoryDao.upsertOffer(candidate.copy(title = resolvedTitle))
     }
 
     suspend fun importOffers(offers: List<OfferEntity>) {
@@ -235,6 +300,7 @@ class InventoryRepository(
             offerPercentOff = offer.percentOff
         )
         inventoryDao.upsertPiece(updatedPiece)
+        syncPieceToActiveBaskets(updatedPiece)
         inventoryDao.recordOfferHistory(
             ProductOfferHistoryEntity(
                 barcode = barcode,
@@ -338,6 +404,26 @@ class InventoryRepository(
         inventoryDao.updateShoppingListItemPrice(barcode, newPrice)
     }
 
+    suspend fun syncPieceToActiveBaskets(piece: PieceEntity) {
+        val allListItems = inventoryDao.getAllShoppingListItemsSync()
+            .filter { it.barcode == piece.barcode && it.offerType != "VOUCHER" && it.unitPrice >= 0 }
+        for (item in allListItems) {
+            val updated = if (item.offerGroupId.isBlank()) {
+                item.copy(
+                    unitPrice = piece.unitPrice,
+                    offerType = if (piece.offerType == "NONE") "NO_OFFER" else piece.offerType,
+                    offerBuyQty = piece.offerBuyQty,
+                    offerPayQty = piece.offerPayQty,
+                    offerFixedPrice = piece.offerFixedPrice,
+                    offerPercentOff = piece.offerPercentOff,
+                )
+            } else {
+                item.copy(unitPrice = piece.unitPrice)
+            }
+            inventoryDao.upsertShoppingListItem(updated)
+        }
+    }
+
     suspend fun setShoppingListItemChecked(listId: Long, barcode: String, isChecked: Boolean) {
         inventoryDao.setShoppingListItemChecked(listId, barcode, isChecked)
     }
@@ -394,19 +480,65 @@ class InventoryRepository(
     }
 
     suspend fun reloadTripIntoCart(trip: ShoppingTripEntity): String {
+        val snapshot = trip.parseSnapshot()
         val firstLine = trip.itemsSummary.lineSequence().firstOrNull()?.trim() ?: ""
-        val extractedName = if (firstLine.startsWith("Basket:") || firstLine.startsWith("List:")) {
-            firstLine.substringAfter(":").trim()
-        } else {
-            "Reloaded " + java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(trip.tripDate))
+        val extractedName = when {
+            snapshot != null && snapshot.basketName.isNotBlank() -> snapshot.basketName
+            firstLine.startsWith("Basket:") || firstLine.startsWith("List:") -> firstLine.substringAfter(":").trim()
+            else -> "Reloaded " + java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(trip.tripDate))
         }
 
         val existingLists = inventoryDao.getAllShoppingListsSync()
         val targetList = existingLists.firstOrNull { it.name.equals(extractedName, ignoreCase = true) }
         val targetListId = if (targetList != null) {
+            if (snapshot != null && snapshot.budgetLimit != 0.0) {
+                inventoryDao.upsertShoppingList(targetList.copy(budgetLimit = snapshot.budgetLimit))
+            }
             targetList.id
         } else {
-            inventoryDao.upsertShoppingList(ShoppingListEntity(name = extractedName))
+            inventoryDao.upsertShoppingList(
+                ShoppingListEntity(
+                    name = extractedName,
+                    budgetLimit = snapshot?.budgetLimit ?: 0.0,
+                )
+            )
+        }
+
+        if (snapshot != null && snapshot.items.isNotEmpty()) {
+            val existingBarcodes = inventoryDao.getAllPiecesSync().map { it.barcode }.toSet()
+            for (snapItem in snapshot.items) {
+                val isVoucher = snapItem.offerType == "VOUCHER" || snapItem.unitPrice < 0
+                if (!isVoucher && snapItem.barcode.isNotBlank() && !existingBarcodes.contains(snapItem.barcode)) {
+                    inventoryDao.upsertPiece(
+                        PieceEntity(
+                            barcode = snapItem.barcode,
+                            name = snapItem.name.ifBlank { snapItem.barcode },
+                            stockQuantity = 0,
+                            unitPrice = snapItem.unitPrice,
+                            createdAt = System.currentTimeMillis(),
+                        )
+                    )
+                }
+                inventoryDao.upsertShoppingListItem(
+                    ShoppingListItemEntity(
+                        listId = targetListId,
+                        barcode = snapItem.barcode,
+                        quantity = snapItem.quantity,
+                        unitPrice = snapItem.unitPrice,
+                        offerType = snapItem.offerType,
+                        offerBuyQty = snapItem.offerBuyQty,
+                        offerPayQty = snapItem.offerPayQty,
+                        offerFixedPrice = snapItem.offerFixedPrice,
+                        offerPercentOff = snapItem.offerPercentOff,
+                        addedAt = System.currentTimeMillis(),
+                        isChecked = snapItem.isChecked,
+                        offerGroupId = snapItem.offerGroupId,
+                        checkedQuantity = snapItem.checkedQuantity,
+                    )
+                )
+            }
+            inventoryDao.deleteShoppingTrip(trip)
+            return extractedName
         }
 
         val summaryLines = trip.itemsSummary.split("\n")
@@ -418,6 +550,8 @@ class InventoryRepository(
         var currentPayQty = 0
         var currentFixedPrice = 0.0
         var currentPercentOff = 0.0
+
+        val voucherLineRegex = Regex("""•\s*🎟️\s*Voucher\s*\((.+?)\)\s*[—\-]\s*-[^0-9]*([\d.]+)""")
 
         for (line in summaryLines) {
             val trimmed = line.trim()
@@ -474,6 +608,28 @@ class InventoryRepository(
                 continue
             }
             if (!trimmed.startsWith("•")) continue
+
+            val voucherMatch = voucherLineRegex.find(trimmed)
+            if (voucherMatch != null) {
+                val voucherName = voucherMatch.groupValues[1].trim()
+                val voucherAmount = voucherMatch.groupValues[2].toDoubleOrNull() ?: 0.0
+                if (voucherAmount > 0.0) {
+                    val voucherBarcode = "VOUCHER_${voucherName.replace(" ", "_")}"
+                    inventoryDao.upsertShoppingListItem(
+                        ShoppingListItemEntity(
+                            listId = targetListId,
+                            barcode = voucherBarcode,
+                            quantity = 1,
+                            unitPrice = -kotlin.math.abs(voucherAmount),
+                            offerType = "VOUCHER",
+                            offerFixedPrice = kotlin.math.abs(voucherAmount),
+                            addedAt = System.currentTimeMillis(),
+                        )
+                    )
+                }
+                continue
+            }
+
             val regex = Regex("""•\s*(.*?)\s*\(x(\d+)\)""")
             val match = regex.find(trimmed) ?: continue
             val itemName = match.groupValues[1].trim()
@@ -481,7 +637,6 @@ class InventoryRepository(
 
             val existing = currentPieces[itemName.lowercase()]
             val barcode = if (existing != null) {
-                inventoryDao.upsertPiece(existing.copy(stockQuantity = qty))
                 existing.barcode
             } else {
                 val newBarcode = "RELOAD_" + System.currentTimeMillis() + "_" + (100..999).random()
@@ -489,7 +644,7 @@ class InventoryRepository(
                     PieceEntity(
                         barcode = newBarcode,
                         name = itemName,
-                        stockQuantity = qty,
+                        stockQuantity = 0,
                         unitPrice = 0.0,
                         createdAt = System.currentTimeMillis()
                     )
@@ -513,6 +668,7 @@ class InventoryRepository(
                 )
             )
         }
+        inventoryDao.deleteShoppingTrip(trip)
         return extractedName
     }
 

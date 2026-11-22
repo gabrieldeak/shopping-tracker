@@ -349,8 +349,8 @@ fun ItemsScreen(
             shoppingLists = allShoppingLists,
             selectedCount = selectedBarcodes.size,
             onDismiss = { showAddToBasketDialog = false },
-            onConfirmAdd = { targetListIds ->
-                viewModel.addSelectedPiecesToShoppingLists(targetListIds)
+            onConfirmAdd = { targetListIds, quantityPerItem ->
+                viewModel.addSelectedPiecesToShoppingLists(targetListIds, quantityPerItem)
                 showAddToBasketDialog = false
             }
         )

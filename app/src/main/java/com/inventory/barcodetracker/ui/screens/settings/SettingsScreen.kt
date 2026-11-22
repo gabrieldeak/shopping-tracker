@@ -411,7 +411,7 @@ fun SettingsScreen(
                 icon = Icons.Default.CloudUpload,
                 iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
                 iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
-                onSave = { exportFullBackupLauncher.launch("barcode_tracker_backup.json") },
+                onSave = { exportFullBackupLauncher.launch(SettingsViewModel.datedFileName("barcode_tracker_backup", "json")) },
                 onShare = { viewModel.shareFullBackup(context) },
                 onRestore = {
                     viewModel.loadAvailableBackups(context, SettingsViewModel.BackupFileType.JSON)
@@ -427,7 +427,7 @@ fun SettingsScreen(
                 icon = Icons.Default.Save,
                 iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                 iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
-                onSave = { exportDatabaseLauncher.launch("shopping_tracker.db") },
+                onSave = { exportDatabaseLauncher.launch(SettingsViewModel.datedFileName("shopping_tracker", "db")) },
                 onShare = { viewModel.shareRawDatabase(context) },
                 onRestore = {
                     viewModel.loadAvailableBackups(context, SettingsViewModel.BackupFileType.DB)
@@ -450,7 +450,7 @@ fun SettingsScreen(
                 title = strings.itemsCatalogCsvTitle,
                 subtitle = strings.itemsCatalogCsvSub,
                 icon = Icons.Default.Inventory2,
-                onExport = { exportItemsLauncher.launch("shopping_items.csv") },
+                onExport = { exportItemsLauncher.launch(SettingsViewModel.datedFileName("shopping_items", "csv")) },
                 onImport = {
                     viewModel.loadAvailableBackups(context, SettingsViewModel.BackupFileType.CSV)
                     restorePickerTarget = "CSV_ITEMS"
@@ -462,7 +462,7 @@ fun SettingsScreen(
                 title = strings.historyCsvTitle,
                 subtitle = strings.historyCsvSub,
                 icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                onExport = { exportHistoryLauncher.launch("shopping_history.csv") },
+                onExport = { exportHistoryLauncher.launch(SettingsViewModel.datedFileName("shopping_history", "csv")) },
                 onImport = {
                     viewModel.loadAvailableBackups(context, SettingsViewModel.BackupFileType.CSV)
                     restorePickerTarget = "CSV_HISTORY"

@@ -3,7 +3,10 @@ package com.inventory.barcodetracker.ui.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,14 +23,19 @@ fun AddItemsToBasketDialog(
     shoppingLists: List<ShoppingListEntity>,
     selectedCount: Int,
     onDismiss: () -> Unit,
-    onConfirmAdd: (List<Long>) -> Unit,
+    onConfirmAdd: (List<Long>, Int) -> Unit,
+    initialCheckedListIds: Set<Long>? = null,
 ) {
     val strings = LocalAppStrings.current
     val checkedListIds = remember { mutableStateMapOf<Long, Boolean>() }
+    var quantityToAdd by remember { mutableIntStateOf(1) }
 
-    LaunchedEffect(shoppingLists) {
+    LaunchedEffect(shoppingLists, initialCheckedListIds) {
         if (checkedListIds.isEmpty()) {
-            shoppingLists.forEach { checkedListIds[it.id] = true }
+            val preselected = initialCheckedListIds?.takeIf { it.isNotEmpty() }
+            shoppingLists.forEach { list ->
+                checkedListIds[list.id] = preselected?.contains(list.id) ?: true
+            }
         }
     }
 
@@ -62,6 +70,59 @@ fun AddItemsToBasketDialog(
                         color = MaterialTheme.colorScheme.error
                     )
                 } else {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = strings.qtyLabel,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilledIconButton(
+                                    onClick = { if (quantityToAdd > 1) quantityToAdd-- },
+                                    enabled = quantityToAdd > 1,
+                                    modifier = Modifier.size(32.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Remove, contentDescription = strings.decreaseQtyDesc, modifier = Modifier.size(16.dp))
+                                }
+                                Text(
+                                    text = "$quantityToAdd",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp)
+                                )
+                                FilledIconButton(
+                                    onClick = { quantityToAdd++ },
+                                    modifier = Modifier.size(32.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = strings.increaseQtyDesc, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -101,7 +162,7 @@ fun AddItemsToBasketDialog(
             AppButton(
                 onClick = {
                     val targetIds = checkedListIds.filterValues { it }.keys.toList()
-                    onConfirmAdd(targetIds)
+                    onConfirmAdd(targetIds, quantityToAdd)
                 },
                 enabled = checkedListIds.any { it.value }
             ) {

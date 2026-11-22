@@ -18,8 +18,19 @@ data class ShoppingListItemEntity(
     val offerPercentOff: Double = 0.0,
     val addedAt: Long = System.currentTimeMillis(),
     val isChecked: Boolean = false,
-    val offerGroupId: String = ""
-)
+    val offerGroupId: String = "",
+    val checkedQuantity: Int = 0
+) {
+    val effectiveCheckedQty: Int
+        get() = when {
+            checkedQuantity > 0 -> checkedQuantity.coerceIn(0, quantity)
+            isChecked -> quantity
+            else -> 0
+        }
+
+    val uncheckedQty: Int
+        get() = maxOf(0, quantity - effectiveCheckedQty)
+}
 
 data class BasketGroupPricing(
     val groupId: String,
@@ -36,6 +47,8 @@ data class BasketPricingSummary(
     val uncheckedTotal: Double,
     val checkedTotal: Double,
     val groupPricings: Map<String, BasketGroupPricing>,
+    val subtotalBeforeVouchers: Double = regularItemsSubtotal,
+    val voucherDiscountAmount: Double = 0.0,
 )
 
 fun formatOfferBadge(
@@ -152,10 +165,10 @@ fun calculateBasketSummary(
         totalSavings += pricing.savings
 
         // Attribute group total proportionally by checked/unchecked raw value
-        val uncheckedRaw = groupItems.filter { !it.isChecked }.sumOf { item ->
+        val uncheckedRaw = groupItems.sumOf { item ->
             val p = pieceMap[item.barcode]
             val price = if (item.unitPrice > 0) item.unitPrice else (p?.unitPrice ?: 0.0)
-            price * item.quantity
+            price * item.uncheckedQty
         }
         val checkedRaw = pricing.rawSubtotal - uncheckedRaw
         if (pricing.rawSubtotal > 0.0) {
@@ -171,21 +184,29 @@ fun calculateBasketSummary(
         val lineSavings = item.calculateItemSavings(piece)
         regularSubtotal += lineTotal
         totalSavings += lineSavings
-        if (item.isChecked) checkedTotal += lineTotal else uncheckedTotal += lineTotal
+        if (item.quantity > 0) {
+            val checkedFrac = item.effectiveCheckedQty.toDouble() / item.quantity.toDouble()
+            checkedTotal += lineTotal * checkedFrac
+            uncheckedTotal += lineTotal * (1.0 - checkedFrac)
+        }
     }
 
     val voucherDiscount = itemsInList
         .filter { it.offerType == "VOUCHER" || it.unitPrice < 0 }
         .sumOf { it.unitPrice } // negative values
 
+    val voucherDiscountAmount = maxOf(0.0, -voucherDiscount)
+    val appliedVoucherSavings = minOf(regularSubtotal, voucherDiscountAmount)
     val netSubtotal = maxOf(0.0, regularSubtotal + voucherDiscount)
 
     return BasketPricingSummary(
         regularItemsSubtotal = netSubtotal,
-        totalSavings = totalSavings,
+        totalSavings = totalSavings + appliedVoucherSavings,
         uncheckedTotal = uncheckedTotal,
         checkedTotal = checkedTotal,
         groupPricings = groupPricings,
+        subtotalBeforeVouchers = regularSubtotal,
+        voucherDiscountAmount = voucherDiscountAmount,
     )
 }
 

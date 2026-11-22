@@ -14,6 +14,7 @@ import com.inventory.barcodetracker.di.AppContainer
 import com.inventory.barcodetracker.ui.AppViewModelFactory
 import com.inventory.barcodetracker.ui.components.AppTutorialDialog
 import com.inventory.barcodetracker.ui.components.FirstLaunchSetupDialog
+import com.inventory.barcodetracker.ui.components.LocalCapitalizationMode
 import com.inventory.barcodetracker.ui.i18n.AppStrings
 import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import com.inventory.barcodetracker.ui.screens.history.HistoryScreen
@@ -71,13 +72,17 @@ fun AppNavHost(
     )
     val appLanguage by appContainer.currencyPreferences.appLanguage.collectAsStateWithLifecycle()
     val currentCurrency by appContainer.currencyPreferences.currencySymbol.collectAsStateWithLifecycle()
+    val capitalizationMode by appContainer.currencyPreferences.capitalizationMode.collectAsStateWithLifecycle()
     val hasCompletedOnboarding by appContainer.currencyPreferences.hasCompletedOnboarding.collectAsStateWithLifecycle()
     var showTutorialThisSession by remember {
         mutableStateOf(!appContainer.currencyPreferences.hideTutorialOnStartup.value)
     }
     val strings = remember(appLanguage) { AppStrings.forLanguage(appLanguage) }
 
-    CompositionLocalProvider(LocalAppStrings provides strings) {
+    CompositionLocalProvider(
+        LocalAppStrings provides strings,
+        LocalCapitalizationMode provides capitalizationMode,
+    ) {
         if (!hasCompletedOnboarding) {
             FirstLaunchSetupDialog(
                 initialLanguage = appLanguage,

@@ -306,7 +306,6 @@ fun ItemDialog(
                         },
                         isError = nameError != null,
                         supportingText = nameError?.let { { Text(it) } },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -326,7 +325,6 @@ fun ItemDialog(
                         onValueChange = { category = it },
                         label = { Text(strings.categorySectionLabel) },
                         placeholder = { Text(strings.categoryPlaceholder) },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -335,7 +333,6 @@ fun ItemDialog(
                         value = description,
                         onValueChange = { description = it },
                         label = { Text(strings.notesBrandLabel) },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                         maxLines = 2,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -378,6 +375,12 @@ fun ItemDialog(
                         onSelectBuiltInType = { typeKey ->
                             offerType = typeKey
                             detectedOfferMessage = null
+                            if (typeKey == "NONE") {
+                                offerBuyQty = ""
+                                offerPayQty = ""
+                                offerFixedPrice = ""
+                                offerPercentOff = ""
+                            }
                         },
                         onSelectSavedOffer = { offer ->
                             offerType = offer.offerType
@@ -451,11 +454,7 @@ fun ItemDialog(
                                 createdAt = initialPiece?.createdAt ?: System.currentTimeMillis()
                             )
 
-                            if (initialPiece != null && initialPiece.unitPrice != parsedUnitPrice && parsedUnitPrice > 0.0) {
-                                pendingPieceToSave = piece
-                            } else {
-                                onSave(piece, false)
-                            }
+                            onSave(piece, true)
                         }
                     ) {
                         Text(strings.saveItem)

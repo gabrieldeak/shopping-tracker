@@ -118,6 +118,7 @@ object BackupRestoreService {
             obj.put("itemCount", t.itemCount)
             obj.put("itemsSummary", t.itemsSummary)
             obj.put("currencySymbol", t.currencySymbol)
+            obj.put("snapshotJson", t.snapshotJson)
             tripsArr.put(obj)
         }
         rootJson.put("shoppingTrips", tripsArr)
@@ -181,6 +182,7 @@ object BackupRestoreService {
             obj.put("addedAt", item.addedAt)
             obj.put("isChecked", item.isChecked)
             obj.put("offerGroupId", item.offerGroupId)
+            obj.put("checkedQuantity", item.effectiveCheckedQty)
             listItemsArr.put(obj)
         }
         rootJson.put("shoppingListItems", listItemsArr)
@@ -287,6 +289,7 @@ object BackupRestoreService {
                         itemCount = obj.optInt("itemCount", 0),
                         itemsSummary = obj.optString("itemsSummary", ""),
                         currencySymbol = obj.optString("currencySymbol", "$"),
+                        snapshotJson = obj.optString("snapshotJson", ""),
                     )
                 )
             }
@@ -371,7 +374,11 @@ object BackupRestoreService {
                         offerPercentOff = obj.optDouble("offerPercentOff", 0.0),
                         addedAt = obj.optLong("addedAt", System.currentTimeMillis()),
                         isChecked = obj.optBoolean("isChecked", false),
-                        offerGroupId = obj.optString("offerGroupId", "")
+                        offerGroupId = obj.optString("offerGroupId", ""),
+                        checkedQuantity = obj.optInt(
+                            "checkedQuantity",
+                            if (obj.optBoolean("isChecked", false)) obj.optInt("quantity", 1) else 0
+                        )
                     )
                 )
             }
@@ -515,11 +522,12 @@ object BackupRestoreService {
                     `totalCost` REAL NOT NULL,
                     `itemCount` INTEGER NOT NULL,
                     `itemsSummary` TEXT NOT NULL,
-                    `currencySymbol` TEXT NOT NULL
+                    `currencySymbol` TEXT NOT NULL,
+                    `snapshotJson` TEXT NOT NULL DEFAULT ''
                 )
                 """.trimIndent()
             )
-            val stmtTrip = db.compileStatement("INSERT OR REPLACE INTO `shopping_trips` VALUES (?, ?, ?, ?, ?, ?)")
+            val stmtTrip = db.compileStatement("INSERT OR REPLACE INTO `shopping_trips` VALUES (?, ?, ?, ?, ?, ?, ?)")
             for (t in shoppingTrips) {
                 stmtTrip.clearBindings()
                 if (t.id != 0L) stmtTrip.bindLong(1, t.id) else stmtTrip.bindNull(1)
@@ -528,6 +536,7 @@ object BackupRestoreService {
                 stmtTrip.bindLong(4, t.itemCount.toLong())
                 stmtTrip.bindString(5, t.itemsSummary)
                 stmtTrip.bindString(6, t.currencySymbol)
+                stmtTrip.bindString(7, t.snapshotJson)
                 stmtTrip.executeInsert()
             }
 
@@ -624,11 +633,12 @@ object BackupRestoreService {
                     `addedAt` INTEGER NOT NULL,
                     `isChecked` INTEGER NOT NULL DEFAULT 0,
                     `offerGroupId` TEXT NOT NULL DEFAULT '',
+                    `checkedQuantity` INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY(`listId`, `barcode`)
                 )
                 """.trimIndent()
             )
-            val stmtListItem = db.compileStatement("INSERT OR REPLACE INTO `shopping_list_items` VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            val stmtListItem = db.compileStatement("INSERT OR REPLACE INTO `shopping_list_items` VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
             for (item in shoppingListItems) {
                 stmtListItem.clearBindings()
                 stmtListItem.bindLong(1, item.listId)
@@ -643,6 +653,7 @@ object BackupRestoreService {
                 stmtListItem.bindLong(10, item.addedAt)
                 stmtListItem.bindLong(11, if (item.isChecked) 1L else 0L)
                 stmtListItem.bindString(12, item.offerGroupId)
+                stmtListItem.bindLong(13, item.effectiveCheckedQty.toLong())
                 stmtListItem.executeInsert()
             }
 
@@ -796,7 +807,8 @@ object BackupRestoreService {
                         totalCost = cursor.optDbl("totalCost"),
                         itemCount = cursor.optInt("itemCount"),
                         itemsSummary = cursor.optStr("itemsSummary"),
-                        currencySymbol = cursor.optStr("currencySymbol", "$")
+                        currencySymbol = cursor.optStr("currencySymbol", "$"),
+                        snapshotJson = cursor.optStr("snapshotJson", "")
                     )
                 )
             }
@@ -880,7 +892,11 @@ object BackupRestoreService {
                         offerPercentOff = cursor.optDbl("offerPercentOff"),
                         addedAt = cursor.optLong("addedAt", System.currentTimeMillis()),
                         isChecked = cursor.optInt("isChecked") != 0,
-                        offerGroupId = cursor.optStr("offerGroupId", "")
+                        offerGroupId = cursor.optStr("offerGroupId", ""),
+                        checkedQuantity = cursor.optInt(
+                            "checkedQuantity",
+                            if (cursor.optInt("isChecked") != 0) cursor.optInt("quantity", 1) else 0
+                        )
                     )
                 )
             }

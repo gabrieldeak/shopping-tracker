@@ -261,10 +261,10 @@ abstract class InventoryDao {
     @Query("UPDATE shopping_list_items SET unitPrice = :newPrice WHERE barcode = :barcode")
     abstract suspend fun updateShoppingListItemPrice(barcode: String, newPrice: Double)
 
-    @Query("UPDATE shopping_list_items SET isChecked = :isChecked WHERE listId = :listId AND barcode = :barcode")
+    @Query("UPDATE shopping_list_items SET isChecked = :isChecked, checkedQuantity = CASE WHEN :isChecked = 1 THEN quantity ELSE 0 END WHERE listId = :listId AND barcode = :barcode")
     abstract suspend fun setShoppingListItemChecked(listId: Long, barcode: String, isChecked: Boolean)
 
-    @Query("UPDATE shopping_list_items SET quantity = :quantity WHERE listId = :listId AND barcode = :barcode")
+    @Query("UPDATE shopping_list_items SET quantity = :quantity, checkedQuantity = MIN(checkedQuantity, :quantity), isChecked = CASE WHEN MIN(checkedQuantity, :quantity) >= :quantity AND :quantity > 0 THEN 1 ELSE 0 END WHERE listId = :listId AND barcode = :barcode")
     abstract suspend fun updateShoppingListItemQuantity(listId: Long, barcode: String, quantity: Int)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

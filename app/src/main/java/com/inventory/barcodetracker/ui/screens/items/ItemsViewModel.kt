@@ -107,19 +107,16 @@ class ItemsViewModel(
         }
     }
 
-    fun savePiece(piece: PieceEntity, updateBasketsPrice: Boolean = false) {
+    fun savePiece(piece: PieceEntity, updateBasketsPrice: Boolean = true) {
         viewModelScope.launch {
             val formattedPiece = piece.copy(
                 name = currencyPreferences.formatText(piece.name),
                 location = currencyPreferences.formatText(piece.location)
             )
             repository.upsertPiece(formattedPiece)
-            if (updateBasketsPrice) {
-                repository.updateShoppingListItemPrice(formattedPiece.barcode, formattedPiece.unitPrice)
-                _snackbarMessages.emit(String.format(java.util.Locale.US, strings.vmSavedPieceUpdatedBasketsFmt, formattedPiece.name))
-            } else {
-                _snackbarMessages.emit(String.format(java.util.Locale.US, strings.vmSavedPieceFmt, formattedPiece.name))
-            }
+            repository.syncPieceToActiveBaskets(formattedPiece)
+            repository.ensureOfferSavedInLibrary(formattedPiece, currencySymbol.value)
+            _snackbarMessages.emit(String.format(java.util.Locale.US, strings.vmSavedPieceUpdatedBasketsFmt, formattedPiece.name))
         }
     }
 
@@ -149,11 +146,12 @@ class ItemsViewModel(
         }
     }
 
-    fun addSelectedPiecesToShoppingLists(targetListIds: List<Long>) {
+    fun addSelectedPiecesToShoppingLists(targetListIds: List<Long>, quantityPerItem: Int = 1) {
         viewModelScope.launch {
             val selectedBarcodesList = _selectedBarcodes.value.toList()
             if (selectedBarcodesList.isEmpty() || targetListIds.isEmpty()) return@launch
 
+            val safeDelta = maxOf(1, quantityPerItem)
             val piecesMap = repository.getAllPiecesSync().associateBy { it.barcode }
 
             for (listId in targetListIds) {
@@ -161,7 +159,9 @@ class ItemsViewModel(
                 for (barcode in selectedBarcodesList) {
                     val piece = piecesMap[barcode] ?: continue
                     val existing = existingItems[barcode]
-                    val qty = (existing?.quantity ?: 0) + 1
+                    val qty = (existing?.quantity ?: 0) + safeDelta
+                    val prevChecked = existing?.effectiveCheckedQty ?: 0
+                    val newChecked = prevChecked.coerceIn(0, qty)
                     repository.upsertShoppingListItem(
                         ShoppingListItemEntity(
                             listId = listId,
@@ -173,7 +173,9 @@ class ItemsViewModel(
                             offerPayQty = piece.offerPayQty,
                             offerFixedPrice = piece.offerFixedPrice,
                             offerPercentOff = piece.offerPercentOff,
-                            isChecked = existing?.isChecked ?: false
+                            isChecked = newChecked >= qty,
+                            offerGroupId = existing?.offerGroupId ?: "",
+                            checkedQuantity = newChecked
                         )
                     )
                 }

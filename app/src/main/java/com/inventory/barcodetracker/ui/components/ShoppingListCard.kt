@@ -2,8 +2,10 @@ package com.inventory.barcodetracker.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,8 +45,10 @@ import com.inventory.barcodetracker.data.local.entity.calculateItemTotal
 import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
 import java.util.Locale
 
+enum class BasketCardSection { FULL, HEADER_ONLY, BODY_ONLY }
+
 @Suppress("DEPRECATION")
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ShoppingListCard(
     list: ShoppingListEntity,
@@ -51,6 +57,9 @@ fun ShoppingListCard(
     pieceMap: Map<String, PieceEntity> = emptyMap(),
     currencySymbol: String = "$",
     defaultBudgetLimit: Double = 0.0,
+    isExpanded: Boolean? = null,
+    onToggleExpand: (() -> Unit)? = null,
+    renderSection: BasketCardSection = BasketCardSection.FULL,
     onToggleSelect: () -> Unit,
     onRename: () -> Unit,
     onCopy: () -> Unit,
@@ -61,18 +70,34 @@ fun ShoppingListCard(
     onUngroupMixAndMatch: (String) -> Unit = {},
     onRemoveItem: (String) -> Unit = {},
     onToggleItemChecked: (String, Boolean) -> Unit = { _, _ -> },
-    onAdjustItemQuantity: (String, Int) -> Unit = { _, _ -> },
+    onAdjustItemQuantity: (String, Int, Boolean) -> Unit = { _, _, _ -> },
+    onEditItem: (PieceEntity) -> Unit = {},
+    onRemoveItemOffer: (String) -> Unit = {},
 ) {
     val strings = LocalAppStrings.current
-    var isExpanded by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    var internalExpanded by remember { mutableStateOf(false) }
+    val effectiveExpanded = isExpanded ?: internalExpanded
     var showCheckedItems by remember { mutableStateOf(false) }
     var itemPendingDelete by remember { mutableStateOf<Pair<ShoppingListItemEntity, String>?>(null) }
+    var showQuickActionsInline by remember { mutableStateOf(false) }
+    val toggleExpand = {
+        val next = !effectiveExpanded
+        if (onToggleExpand != null) {
+            onToggleExpand()
+        } else {
+            internalExpanded = next
+        }
+        if (next) showQuickActionsInline = false
+    }
 
     val totalCount = itemsInList.filter { it.offerType != "VOUCHER" && it.unitPrice >= 0 }.sumOf { it.quantity }
     val basketSummary = remember(itemsInList, pieceMap, currencySymbol) {
         calculateBasketSummary(itemsInList, pieceMap, currencySymbol)
     }
     val itemsSubtotal = basketSummary.regularItemsSubtotal
+    val preVoucherSubtotal = basketSummary.subtotalBeforeVouchers
+    val hasVoucherDiscount = basketSummary.voucherDiscountAmount > 0.0
     val totalSavings = basketSummary.totalSavings
 
     val effectiveBudgetLimit = when {
@@ -80,8 +105,8 @@ fun ShoppingListCard(
         list.budgetLimit > 0.0 -> list.budgetLimit
         else -> defaultBudgetLimit
     }
-    val isOverBudget = effectiveBudgetLimit > 0 && itemsSubtotal >= effectiveBudgetLimit
-    val budgetProgress = if (effectiveBudgetLimit > 0) (itemsSubtotal / effectiveBudgetLimit).coerceIn(0.0, 1.0).toFloat() else 0f
+    val isOverBudget = effectiveBudgetLimit > 0 && preVoucherSubtotal >= effectiveBudgetLimit
+    val budgetProgress = if (effectiveBudgetLimit > 0) (preVoucherSubtotal / effectiveBudgetLimit).coerceIn(0.0, 1.0).toFloat() else 0f
 
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { dismissValue ->
@@ -99,50 +124,37 @@ fun ShoppingListCard(
         }
     )
 
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = !isExpanded,
-        enableDismissFromEndToStart = !isExpanded,
-        backgroundContent = {
-            val direction = dismissState.dismissDirection
-            val color = when (direction) {
-                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
-                SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.primaryContainer
-                else -> MaterialTheme.colorScheme.surface
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(color, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 16.dp),
-                contentAlignment = if (direction == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd
-            ) {
-                if (direction == SwipeToDismissBoxValue.StartToEnd) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = strings.copyListDesc, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(strings.duplicate, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                } else if (direction == SwipeToDismissBoxValue.EndToStart) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(strings.delete, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(Icons.Default.Delete, contentDescription = strings.deleteListDesc, tint = MaterialTheme.colorScheme.onErrorContainer)
-                    }
-                }
-            }
-        }
-    ) {
+    val cardContent: @Composable () -> Unit = {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { isExpanded = !isExpanded },
+                .then(
+                    if (renderSection != BasketCardSection.BODY_ONLY) {
+                        Modifier.combinedClickable(
+                            onClick = toggleExpand,
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (!effectiveExpanded) {
+                                    showQuickActionsInline = !showQuickActionsInline
+                                }
+                            }
+                        )
+                    } else {
+                        Modifier
+                    }
+                ),
             shape = RoundedCornerShape(12.dp),
+            elevation = if (renderSection == BasketCardSection.HEADER_ONLY) {
+                CardDefaults.cardElevation(defaultElevation = 4.dp)
+            } else {
+                CardDefaults.cardElevation()
+            },
             colors = CardDefaults.cardColors(
                 containerColor = if (isOverBudget) MaterialTheme.colorScheme.errorContainer else if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
             )
         ) {
             Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                if (renderSection != BasketCardSection.BODY_ONLY) {
                 // Compact Primary Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -154,40 +166,20 @@ fun ShoppingListCard(
                         modifier = Modifier.size(36.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                text = list.name,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            if (isOverBudget) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.error,
-                                    shape = RoundedCornerShape(6.dp)
-                                ) {
-                                    Text(
-                                        text = strings.overBudget,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onError,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            text = list.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            itemVerticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = if (totalCount == 1) strings.oneItem else String.format(Locale.US, strings.itemsCountFmt, totalCount),
@@ -209,30 +201,64 @@ fun ShoppingListCard(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    Text(
-                        text = String.format(Locale.US, "%s%.2f", currencySymbol, itemsSubtotal),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
-                    )
-
-                    IconButton(
-                        onClick = { isExpanded = !isExpanded },
-                        modifier = Modifier.size(32.dp)
+                    Column(
+                        horizontalAlignment = Alignment.Start,
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        Icon(
-                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (isExpanded) strings.collapse else strings.expand,
-                            tint = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        if (isOverBudget) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.error,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = strings.overBudget,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onError,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = String.format(Locale.US, "%s%.2f", currencySymbol, itemsSubtotal),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer
+                                    else if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                    else MaterialTheme.colorScheme.primary
+                                )
+                                if (hasVoucherDiscount && preVoucherSubtotal > 0.0) {
+                                    Text(
+                                        text = String.format(Locale.US, "%s%.2f", currencySymbol, preVoucherSubtotal),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        textDecoration = TextDecoration.LineThrough,
+                                        color = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = toggleExpand,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (effectiveExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = if (effectiveExpanded) strings.collapse else strings.expand,
+                                    tint = if (isOverBudget) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
-                // Compact Budget Meter (always visible when a budget is set)
+                // Compact Budget Meter (always visible when a budget is set; tracks pre-voucher spend)
                 if (effectiveBudgetLimit > 0) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    val remaining = effectiveBudgetLimit - itemsSubtotal
+                    val remaining = effectiveBudgetLimit - preVoucherSubtotal
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -265,15 +291,49 @@ fun ShoppingListCard(
                     }
                 }
 
+                // Inline Quick Actions (shown directly below collapsed basket on long press)
+                AnimatedVisibility(visible = !effectiveExpanded && showQuickActionsInline) {
+                    val regularItemCount = itemsInList.count { it.offerType != "VOUCHER" && it.unitPrice >= 0 }
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        BasketActionButtonsRow(
+                            showMixAndMatch = regularItemCount >= 2,
+                            onSetBudget = {
+                                showQuickActionsInline = false
+                                onSetBudget()
+                            },
+                            onApplyVoucher = {
+                                showQuickActionsInline = false
+                                onApplyVoucher()
+                            },
+                            onRename = {
+                                showQuickActionsInline = false
+                                onRename()
+                            },
+                            onCopy = {
+                                showQuickActionsInline = false
+                                onCopy()
+                            },
+                            onOpenMixAndMatch = {
+                                showQuickActionsInline = false
+                                onOpenMixAndMatch()
+                            }
+                        )
+                    }
+                }
+                } // end if (renderSection != BODY_ONLY)
+
                 // Expanded Details Section
-                AnimatedVisibility(visible = isExpanded) {
+                if (renderSection != BasketCardSection.HEADER_ONLY) {
+                AnimatedVisibility(visible = effectiveExpanded || renderSection == BasketCardSection.BODY_ONLY) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp)
+                            .padding(top = if (renderSection == BasketCardSection.BODY_ONLY) 0.dp else 8.dp)
                     ) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        Spacer(modifier = Modifier.height(8.dp))
+                        if (renderSection != BasketCardSection.BODY_ONLY) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
 
                         val regularItems = remember(itemsInList) {
                             itemsInList.filter { it.offerType != "VOUCHER" && it.unitPrice >= 0 }
@@ -281,8 +341,8 @@ fun ShoppingListCard(
                         val ungroupedRegular = remember(regularItems) {
                             regularItems.filter { it.offerGroupId.isBlank() }
                         }
-                        val uncheckedItems = remember(ungroupedRegular) { ungroupedRegular.filter { !it.isChecked } }
-                        val checkedItems = remember(ungroupedRegular) { ungroupedRegular.filter { it.isChecked } }
+                        val uncheckedItems = remember(ungroupedRegular) { ungroupedRegular.filter { it.uncheckedQty > 0 } }
+                        val checkedItems = remember(ungroupedRegular) { ungroupedRegular.filter { it.effectiveCheckedQty > 0 } }
                         val voucherItems = remember(itemsInList) {
                             itemsInList.filter { it.offerType == "VOUCHER" || it.unitPrice < 0 }
                         }
@@ -380,7 +440,9 @@ fun ShoppingListCard(
                                                             showOfferBadge = false,
                                                             onToggleChecked = { onToggleItemChecked(item.barcode, !item.isChecked) },
                                                             onRequestDelete = { itemPendingDelete = item to displayName },
-                                                            onAdjustQuantity = { delta -> onAdjustItemQuantity(item.barcode, delta) }
+                                                            onAdjustQuantity = { delta -> onAdjustItemQuantity(item.barcode, delta, item.isChecked) },
+                                                            onEditItem = onEditItem,
+                                                            onRemoveOffer = { onRemoveItemOffer(item.barcode) }
                                                         )
                                                     }
                                                 }
@@ -396,16 +458,20 @@ fun ShoppingListCard(
                             // Unchecked Items
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 uncheckedItems.forEach { item ->
-                                    key(item.barcode) {
+                                    key("unchecked_${item.barcode}") {
                                         val piece = pieceMap[item.barcode]
                                         val displayName = piece?.name ?: item.barcode
                                         BasketItemRow(
                                             item = item,
                                             piece = piece,
                                             currencySymbol = currencySymbol,
-                                            onToggleChecked = { onToggleItemChecked(item.barcode, !item.isChecked) },
+                                            displayQty = item.uncheckedQty,
+                                            displayChecked = false,
+                                            onToggleChecked = { onToggleItemChecked(item.barcode, true) },
                                             onRequestDelete = { itemPendingDelete = item to displayName },
-                                            onAdjustQuantity = { delta -> onAdjustItemQuantity(item.barcode, delta) }
+                                            onAdjustQuantity = { delta -> onAdjustItemQuantity(item.barcode, delta, false) },
+                                            onEditItem = onEditItem,
+                                            onRemoveOffer = { onRemoveItemOffer(item.barcode) }
                                         )
                                     }
                                 }
@@ -413,6 +479,7 @@ fun ShoppingListCard(
 
                             // Collapsible Checked Items Section
                             if (checkedItems.isNotEmpty()) {
+                                val checkedUnitsCount = checkedItems.sumOf { it.effectiveCheckedQty }
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Surface(
                                     onClick = { showCheckedItems = !showCheckedItems },
@@ -427,7 +494,7 @@ fun ShoppingListCard(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = "(${checkedItems.size}) ${if (showCheckedItems) strings.hideCheckedItems else strings.showCheckedItems}",
+                                            text = "($checkedUnitsCount) ${if (showCheckedItems) strings.hideCheckedItems else strings.showCheckedItems}",
                                             style = MaterialTheme.typography.labelMedium,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -446,16 +513,22 @@ fun ShoppingListCard(
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         checkedItems.forEach { item ->
-                                            val piece = pieceMap[item.barcode]
-                                            val displayName = piece?.name ?: item.barcode
-                                            BasketItemRow(
-                                                item = item,
-                                                piece = piece,
-                                                currencySymbol = currencySymbol,
-                                                onToggleChecked = { onToggleItemChecked(item.barcode, !item.isChecked) },
-                                                onRequestDelete = { itemPendingDelete = item to displayName },
-                                                onAdjustQuantity = { delta -> onAdjustItemQuantity(item.barcode, delta) }
-                                            )
+                                            key("checked_${item.barcode}") {
+                                                val piece = pieceMap[item.barcode]
+                                                val displayName = piece?.name ?: item.barcode
+                                                BasketItemRow(
+                                                    item = item,
+                                                    piece = piece,
+                                                    currencySymbol = currencySymbol,
+                                                    displayQty = item.effectiveCheckedQty,
+                                                    displayChecked = true,
+                                                    onToggleChecked = { onToggleItemChecked(item.barcode, false) },
+                                                    onRequestDelete = { itemPendingDelete = item to displayName },
+                                                    onAdjustQuantity = { delta -> onAdjustItemQuantity(item.barcode, delta, true) },
+                                                    onEditItem = onEditItem,
+                                                    onRemoveOffer = { onRemoveItemOffer(item.barcode) }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -558,92 +631,14 @@ fun ShoppingListCard(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         // Streamlined Full-Width Actions Row
-                        val actionColors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                            contentColor = MaterialTheme.colorScheme.primary
+                        BasketActionButtonsRow(
+                            showMixAndMatch = regularItems.size >= 2,
+                            onSetBudget = onSetBudget,
+                            onApplyVoucher = onApplyVoucher,
+                            onRename = onRename,
+                            onCopy = onCopy,
+                            onOpenMixAndMatch = onOpenMixAndMatch
                         )
-                        val actionBorder = BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AppOutlinedButton(
-                                onClick = onSetBudget,
-                                colors = actionColors,
-                                border = actionBorder,
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(36.dp)
-                            ) {
-                                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(15.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(strings.budgetBtn, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-
-                            AppOutlinedButton(
-                                onClick = onApplyVoucher,
-                                colors = actionColors,
-                                border = actionBorder,
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(36.dp)
-                            ) {
-                                Icon(Icons.Default.LocalOffer, contentDescription = null, modifier = Modifier.size(15.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(strings.voucherBtn, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-
-                            AppOutlinedButton(
-                                onClick = onRename,
-                                colors = actionColors,
-                                border = actionBorder,
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(36.dp)
-                            ) {
-                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text(strings.rename, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-
-                            AppOutlinedButton(
-                                onClick = onCopy,
-                                colors = actionColors,
-                                border = actionBorder,
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(36.dp)
-                            ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text(strings.copy, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-                        }
-
-                        if (regularItems.size >= 2) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            AppOutlinedButton(
-                                onClick = onOpenMixAndMatch,
-                                colors = actionColors,
-                                border = actionBorder,
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(34.dp)
-                            ) {
-                                Icon(Icons.Default.LocalOffer, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(strings.mixAndMatchBtn, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-                        }
 
                         Spacer(modifier = Modifier.height(6.dp))
 
@@ -667,7 +662,62 @@ fun ShoppingListCard(
                         }
                     }
                 }
+                } // end if (renderSection != HEADER_ONLY)
             }
+        }
+    }
+
+    when (renderSection) {
+        BasketCardSection.FULL -> {
+            SwipeToDismissBox(
+                state = dismissState,
+                enableDismissFromStartToEnd = !effectiveExpanded,
+                enableDismissFromEndToStart = !effectiveExpanded,
+                backgroundContent = {
+                    val direction = dismissState.dismissDirection
+                    val color = when (direction) {
+                        SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
+                        SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.primaryContainer
+                        else -> MaterialTheme.colorScheme.surface
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(color, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = if (direction == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd
+                    ) {
+                        if (direction == SwipeToDismissBoxValue.StartToEnd) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = strings.copyListDesc, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(strings.duplicate, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                        } else if (direction == SwipeToDismissBoxValue.EndToStart) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(strings.delete, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(Icons.Default.Delete, contentDescription = strings.deleteListDesc, tint = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                        }
+                    }
+                }
+            ) {
+                cardContent()
+            }
+        }
+        BasketCardSection.HEADER_ONLY -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(vertical = 2.dp)
+            ) {
+                cardContent()
+            }
+        }
+        BasketCardSection.BODY_ONLY -> {
+            cardContent()
         }
     }
 
@@ -697,6 +747,106 @@ fun ShoppingListCard(
     }
 }
 
+@Composable
+private fun BasketActionButtonsRow(
+    showMixAndMatch: Boolean,
+    onSetBudget: () -> Unit,
+    onApplyVoucher: () -> Unit,
+    onRename: () -> Unit,
+    onCopy: () -> Unit,
+    onOpenMixAndMatch: () -> Unit,
+) {
+    val strings = LocalAppStrings.current
+    val actionColors = ButtonDefaults.outlinedButtonColors(
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        contentColor = MaterialTheme.colorScheme.primary
+    )
+    val actionBorder = BorderStroke(
+        1.dp,
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+    )
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AppOutlinedButton(
+                onClick = onSetBudget,
+                colors = actionColors,
+                border = actionBorder,
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+            ) {
+                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(strings.budgetBtn, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+
+            AppOutlinedButton(
+                onClick = onApplyVoucher,
+                colors = actionColors,
+                border = actionBorder,
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+            ) {
+                Icon(Icons.Default.LocalOffer, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(strings.voucherBtn, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+
+            AppOutlinedButton(
+                onClick = onRename,
+                colors = actionColors,
+                border = actionBorder,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(strings.rename, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+
+            AppOutlinedButton(
+                onClick = onCopy,
+                colors = actionColors,
+                border = actionBorder,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+            ) {
+                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(strings.copy, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+        }
+
+        if (showMixAndMatch) {
+            Spacer(modifier = Modifier.height(6.dp))
+            AppOutlinedButton(
+                onClick = onOpenMixAndMatch,
+                colors = actionColors,
+                border = actionBorder,
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(34.dp)
+            ) {
+                Icon(Icons.Default.LocalOffer, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(strings.mixAndMatchBtn, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BasketItemRow(
@@ -704,9 +854,13 @@ private fun BasketItemRow(
     piece: PieceEntity?,
     currencySymbol: String,
     showOfferBadge: Boolean = true,
+    displayQty: Int? = null,
+    displayChecked: Boolean? = null,
     onToggleChecked: () -> Unit,
     onRequestDelete: () -> Unit,
     onAdjustQuantity: (Int) -> Unit,
+    onEditItem: (PieceEntity) -> Unit = {},
+    onRemoveOffer: () -> Unit = {},
 ) {
     var itemExpanded by remember { mutableStateOf(false) }
 
@@ -731,7 +885,10 @@ private fun BasketItemRow(
     )
 
     val displayName = piece?.name ?: item.barcode
-    val lineTotal = mergedPiece?.calculatedTotal ?: item.calculateItemTotal(null)
+    val shownQty = displayQty ?: item.quantity
+    val shownChecked = displayChecked ?: item.isChecked
+    val fullLineTotal = mergedPiece?.calculatedTotal ?: item.calculateItemTotal(null)
+    val lineTotal = if (item.quantity > 0) fullLineTotal * shownQty.toDouble() / item.quantity.toDouble() else fullLineTotal
     val lineSavings = mergedPiece?.savings ?: item.calculateItemSavings(null)
     val offerDesc = mergedPiece?.getOfferDescription(currencySymbol) ?: ""
 
@@ -772,7 +929,7 @@ private fun BasketItemRow(
                         Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (item.isChecked) LocalAppStrings.current.uncheck else LocalAppStrings.current.check,
+                            text = if (shownChecked) LocalAppStrings.current.uncheck else LocalAppStrings.current.check,
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelMedium
@@ -798,7 +955,7 @@ private fun BasketItemRow(
                 .fillMaxWidth()
                 .clickable { itemExpanded = !itemExpanded },
             shape = RoundedCornerShape(10.dp),
-            color = if (item.isChecked) MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+            color = if (shownChecked) MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
             else MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
         ) {
             Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
@@ -811,9 +968,9 @@ private fun BasketItemRow(
                         modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
-                            imageVector = if (item.isChecked) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                            contentDescription = if (item.isChecked) LocalAppStrings.current.uncheckItemDesc else LocalAppStrings.current.checkItemDesc,
-                            tint = if (item.isChecked) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            imageVector = if (shownChecked) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = if (shownChecked) LocalAppStrings.current.uncheckItemDesc else LocalAppStrings.current.checkItemDesc,
+                            tint = if (shownChecked) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -823,15 +980,15 @@ private fun BasketItemRow(
                             text = displayName,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
-                            textDecoration = if (item.isChecked) TextDecoration.LineThrough else TextDecoration.None,
-                            color = if (item.isChecked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                            textDecoration = if (shownChecked) TextDecoration.LineThrough else TextDecoration.None,
+                            color = if (shownChecked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
                         )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "${LocalAppStrings.current.qtyLabel} ${item.quantity}",
+                                text = "${LocalAppStrings.current.qtyLabel} $shownQty",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -840,15 +997,30 @@ private fun BasketItemRow(
                                     color = MaterialTheme.colorScheme.tertiaryContainer,
                                     shape = RoundedCornerShape(6.dp)
                                 ) {
-                                    Text(
-                                        text = offerDesc,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(start = 5.dp, end = 2.dp, top = 1.dp, bottom = 1.dp)
+                                    ) {
+                                        Text(
+                                            text = "🏷️ $offerDesc",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        IconButton(
+                                            onClick = onRemoveOffer,
+                                            modifier = Modifier.size(18.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Clear,
+                                                contentDescription = LocalAppStrings.current.remove,
+                                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -859,7 +1031,7 @@ private fun BasketItemRow(
                             text = String.format(Locale.US, "%s%.2f", currencySymbol, lineTotal),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = if (item.isChecked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+                            color = if (shownChecked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
                         )
                     }
 
@@ -908,16 +1080,44 @@ private fun BasketItemRow(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(
-                                onClick = onRequestDelete,
-                                modifier = Modifier.size(30.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = LocalAppStrings.current.removeItemDesc,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                IconButton(
+                                    onClick = onRequestDelete,
+                                    modifier = Modifier.size(30.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = LocalAppStrings.current.removeItemDesc,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        val editable = mergedPiece ?: PieceEntity(
+                                            barcode = item.barcode,
+                                            name = displayName,
+                                            unitPrice = if (item.unitPrice > 0) item.unitPrice else 0.0,
+                                            offerType = if (effOfferType == "NO_OFFER") "NONE" else effOfferType,
+                                            offerBuyQty = effBuyQty,
+                                            offerPayQty = effPayQty,
+                                            offerFixedPrice = effFixedPrice,
+                                            offerPercentOff = effPercentOff
+                                        )
+                                        onEditItem(editable)
+                                    },
+                                    modifier = Modifier.size(30.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = LocalAppStrings.current.edit,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
 
                             Row(
@@ -941,7 +1141,7 @@ private fun BasketItemRow(
                                     Icon(Icons.Default.Remove, contentDescription = LocalAppStrings.current.decreaseQtyDesc, modifier = Modifier.size(15.dp))
                                 }
                                 Text(
-                                    text = "${item.quantity}",
+                                    text = "$shownQty",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp)

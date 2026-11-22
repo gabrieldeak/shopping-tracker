@@ -109,6 +109,7 @@ class HistoryViewModel(
         viewModelScope.launch {
             try {
                 val listName = repository.reloadTripIntoCart(trip)
+                _selectedTripIds.value = _selectedTripIds.value - trip.id
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmReloadedBasketFmt, listName))
             } catch (e: Exception) {
                 _snackbarMessages.emit(String.format(Locale.US, strings.vmFailedReloadBasketFmt, e.message ?: ""))

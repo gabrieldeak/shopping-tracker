@@ -383,6 +383,12 @@ private fun PieceResolutionContent(
                     onSelectBuiltInType = { typeKey ->
                         offerType = typeKey
                         detectedOfferMessage = null
+                        if (typeKey == "NONE") {
+                            offerBuyQty = ""
+                            offerPayQty = ""
+                            offerFixedPrice = ""
+                            offerPercentOff = ""
+                        }
                     },
                     onSelectSavedOffer = { offer ->
                         offerType = offer.offerType
@@ -810,6 +816,12 @@ private fun NotFoundResolutionContent(
                 onSelectBuiltInType = { typeKey ->
                     offerType = typeKey
                     detectedOfferMessage = null
+                    if (typeKey == "NONE") {
+                        offerBuyQty = ""
+                        offerPayQty = ""
+                        offerFixedPrice = ""
+                        offerPercentOff = ""
+                    }
                 },
                 onSelectSavedOffer = { offer ->
                     offerType = offer.offerType

@@ -18,9 +18,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+
+val LocalCapitalizationMode = staticCompositionLocalOf { "TITLE_CASE" }
+
+fun keyboardCapitalizationForMode(mode: String): KeyboardCapitalization = when (mode) {
+    "TITLE_CASE" -> KeyboardCapitalization.Words
+    "FIRST_LETTER" -> KeyboardCapitalization.Sentences
+    else -> KeyboardCapitalization.None
+}
 
 /**
  * Unified, modern search bar matching the Search & Scan bar look and feel.
@@ -104,7 +114,9 @@ fun AppSearchBar(
                         color = MaterialTheme.colorScheme.onSurface
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = keyboardCapitalizationForMode(LocalCapitalizationMode.current)
+                    ),
                     modifier = textFieldModifier.fillMaxWidth()
                 )
             }
@@ -167,6 +179,15 @@ fun AppOutlinedTextField(
     val resolvedTextStyle = textStyle.copy(
         color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     )
+    val capMode = LocalCapitalizationMode.current
+    val effectiveKeyboardOptions = if (
+        keyboardOptions.capitalization == KeyboardCapitalization.Unspecified &&
+        (keyboardOptions.keyboardType == KeyboardType.Unspecified || keyboardOptions.keyboardType == KeyboardType.Text)
+    ) {
+        keyboardOptions.copy(capitalization = keyboardCapitalizationForMode(capMode))
+    } else {
+        keyboardOptions
+    }
 
     BasicTextField(
         value = value,
@@ -176,7 +197,7 @@ fun AppOutlinedTextField(
         readOnly = readOnly,
         textStyle = resolvedTextStyle,
         cursorBrush = SolidColor(if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
-        keyboardOptions = keyboardOptions,
+        keyboardOptions = effectiveKeyboardOptions,
         singleLine = singleLine,
         maxLines = maxLines,
         minLines = minLines,

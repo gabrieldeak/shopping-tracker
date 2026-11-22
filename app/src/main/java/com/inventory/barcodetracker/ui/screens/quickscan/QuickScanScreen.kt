@@ -3,6 +3,7 @@ package com.inventory.barcodetracker.ui.screens.quickscan
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.LocalOffer
@@ -46,16 +49,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inventory.barcodetracker.data.local.entity.PieceEntity
 import com.inventory.barcodetracker.data.local.entity.ProductEntity
 import com.inventory.barcodetracker.data.local.entity.ShoppingListEntity
+import com.inventory.barcodetracker.ui.components.AddItemsToBasketDialog
 import com.inventory.barcodetracker.ui.components.AppButton
 import com.inventory.barcodetracker.ui.components.AppFilledTonalButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedButton
 import com.inventory.barcodetracker.ui.components.AppOutlinedTextField
 import com.inventory.barcodetracker.ui.components.AppSearchBar
+import com.inventory.barcodetracker.ui.components.BasketCardSection
 import com.inventory.barcodetracker.ui.components.ShoppingListCard
 import com.inventory.barcodetracker.ui.i18n.LocalAppStrings
+import com.inventory.barcodetracker.ui.screens.items.ItemDialog
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun QuickScanScreen(
     viewModel: QuickScanViewModel,
@@ -79,7 +85,9 @@ fun QuickScanScreen(
     var showLanguageMenu by remember { mutableStateOf(false) }
     var pendingCurrencySwitchPrompt by remember { mutableStateOf<String?>(null) }
     var listForMixAndMatch by remember { mutableStateOf<ShoppingListEntity?>(null) }
+    var editingBasketPiece by remember { mutableStateOf<Pair<Long, PieceEntity>?>(null) }
     var selectedSearchBarcodes by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var expandedListIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     LaunchedEffect(searchQuery) {
         if (searchQuery.isBlank()) {
@@ -96,6 +104,8 @@ fun QuickScanScreen(
     }
 
     var showManualInputDialog by remember { mutableStateOf(false) }
+    var pendingSearchBarcodesToAdd by remember { mutableStateOf<List<String>>(emptyList()) }
+    var searchPieceToDelete by remember { mutableStateOf<PieceEntity?>(null) }
     var showVoucherDialog by remember { mutableStateOf(false) }
     var showCreateListDialog by remember { mutableStateOf(false) }
     var showConfirmDeleteBatch by remember { mutableStateOf(false) }
@@ -383,8 +393,13 @@ fun QuickScanScreen(
                             }
                             AppButton(
                                 onClick = {
-                                    viewModel.addPiecesToSelectedBaskets(selectedSearchBarcodes.toList())
-                                    selectedSearchBarcodes = emptySet()
+                                    val chosen = selectedSearchBarcodes.toList()
+                                    if (allShoppingLists.isEmpty()) {
+                                        viewModel.addPiecesToSelectedBaskets(chosen)
+                                        selectedSearchBarcodes = emptySet()
+                                    } else {
+                                        pendingSearchBarcodesToAdd = chosen
+                                    }
                                 },
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 modifier = Modifier.height(34.dp)
@@ -464,11 +479,15 @@ fun QuickScanScreen(
                                 currencySymbol = currencySymbol,
                                 isSelected = isSelected,
                                 onToggleSelect = toggleSelection,
+                                onEdit = { editingBasketPiece = 0L to piece },
+                                onDelete = { searchPieceToDelete = piece },
                                 onClick = {
                                     if (selectedSearchBarcodes.isNotEmpty()) {
                                         toggleSelection()
+                                    } else if (allShoppingLists.isEmpty()) {
+                                        viewModel.addPiecesToSelectedBaskets(listOf(piece.barcode))
                                     } else {
-                                        viewModel.adjustPieceStock(piece.barcode, 1)
+                                        pendingSearchBarcodesToAdd = listOf(piece.barcode)
                                     }
                                 }
                             )
@@ -625,47 +644,170 @@ fun QuickScanScreen(
                         }
                     }
                 } else {
-                    items(allShoppingLists, key = { it.id }) { list ->
+                    allShoppingLists.forEach { list ->
                         val itemsInList = allShoppingListItems.filter { it.listId == list.id }
-                        ShoppingListCard(
-                            list = list,
-                            isSelected = selectedListIds.contains(list.id),
-                            itemsInList = itemsInList,
-                            pieceMap = allPiecesMap,
-                            currencySymbol = currencySymbol,
-                            defaultBudgetLimit = budgetLimit,
-                            onToggleSelect = { viewModel.toggleSelectList(list.id) },
-                            onRename = {
-                                listToRename = list
-                                renameListNameText = list.name
-                            },
-                            onCopy = {
-                                listToCopy = list
-                                copyListNameText = "${list.name} (Copy)"
-                            },
-                            onDelete = { listToDelete = list },
-                            onApplyVoucher = {
-                                listForVoucherDialog = list
-                                showVoucherDialog = true
-                            },
-                            onSetBudget = {
-                                listForBudgetDialog = list
-                                budgetInputText = if (list.budgetLimit > 0) String.format(Locale.US, "%.2f", list.budgetLimit) else if (budgetLimit > 0) String.format(Locale.US, "%.2f", budgetLimit) else ""
-                            },
-                            onOpenMixAndMatch = { listForMixAndMatch = list },
-                            onUngroupMixAndMatch = { groupId ->
-                                viewModel.clearMixAndMatchGroup(list.id, groupId)
-                            },
-                            onRemoveItem = { barcode ->
-                                viewModel.removeShoppingListItem(list.id, barcode)
-                            },
-                            onToggleItemChecked = { barcode, isChecked ->
-                                viewModel.toggleBasketItemChecked(list.id, barcode, isChecked)
-                            },
-                            onAdjustItemQuantity = { barcode, delta ->
-                                viewModel.adjustBasketItemQuantity(list.id, barcode, delta)
+                        val isBasketExpanded = expandedListIds.contains(list.id)
+                        val toggleBasketExpand = {
+                            expandedListIds = if (isBasketExpanded) {
+                                expandedListIds - list.id
+                            } else {
+                                expandedListIds + list.id
                             }
-                        )
+                        }
+
+                        if (isBasketExpanded) {
+                            stickyHeader(key = "basket_header_${list.id}") {
+                                ShoppingListCard(
+                                    list = list,
+                                    isSelected = selectedListIds.contains(list.id),
+                                    itemsInList = itemsInList,
+                                    pieceMap = allPiecesMap,
+                                    currencySymbol = currencySymbol,
+                                    defaultBudgetLimit = budgetLimit,
+                                    isExpanded = true,
+                                    onToggleExpand = toggleBasketExpand,
+                                    renderSection = BasketCardSection.HEADER_ONLY,
+                                    onToggleSelect = { viewModel.toggleSelectList(list.id) },
+                                    onRename = {
+                                        listToRename = list
+                                        renameListNameText = list.name
+                                    },
+                                    onCopy = {
+                                        listToCopy = list
+                                        copyListNameText = "${list.name} (Copy)"
+                                    },
+                                    onDelete = { listToDelete = list },
+                                    onApplyVoucher = {
+                                        listForVoucherDialog = list
+                                        showVoucherDialog = true
+                                    },
+                                    onSetBudget = {
+                                        listForBudgetDialog = list
+                                        budgetInputText = if (list.budgetLimit > 0) String.format(Locale.US, "%.2f", list.budgetLimit) else if (budgetLimit > 0) String.format(Locale.US, "%.2f", budgetLimit) else ""
+                                    },
+                                    onOpenMixAndMatch = { listForMixAndMatch = list },
+                                    onUngroupMixAndMatch = { groupId ->
+                                        viewModel.clearMixAndMatchGroup(list.id, groupId)
+                                    },
+                                    onRemoveItem = { barcode ->
+                                        viewModel.removeShoppingListItem(list.id, barcode)
+                                    },
+                                    onToggleItemChecked = { barcode, isChecked ->
+                                        viewModel.toggleBasketItemChecked(list.id, barcode, isChecked)
+                                    },
+                                    onAdjustItemQuantity = { barcode, delta, forCheckedSection ->
+                                        viewModel.adjustBasketItemQuantity(list.id, barcode, delta, forCheckedSection)
+                                    },
+                                    onEditItem = { piece ->
+                                        editingBasketPiece = list.id to piece
+                                    },
+                                    onRemoveItemOffer = { barcode ->
+                                        viewModel.clearOfferFromBasketItem(list.id, barcode)
+                                    }
+                                )
+                            }
+                            item(key = "basket_body_${list.id}") {
+                                ShoppingListCard(
+                                    list = list,
+                                    isSelected = selectedListIds.contains(list.id),
+                                    itemsInList = itemsInList,
+                                    pieceMap = allPiecesMap,
+                                    currencySymbol = currencySymbol,
+                                    defaultBudgetLimit = budgetLimit,
+                                    isExpanded = true,
+                                    onToggleExpand = toggleBasketExpand,
+                                    renderSection = BasketCardSection.BODY_ONLY,
+                                    onToggleSelect = { viewModel.toggleSelectList(list.id) },
+                                    onRename = {
+                                        listToRename = list
+                                        renameListNameText = list.name
+                                    },
+                                    onCopy = {
+                                        listToCopy = list
+                                        copyListNameText = "${list.name} (Copy)"
+                                    },
+                                    onDelete = { listToDelete = list },
+                                    onApplyVoucher = {
+                                        listForVoucherDialog = list
+                                        showVoucherDialog = true
+                                    },
+                                    onSetBudget = {
+                                        listForBudgetDialog = list
+                                        budgetInputText = if (list.budgetLimit > 0) String.format(Locale.US, "%.2f", list.budgetLimit) else if (budgetLimit > 0) String.format(Locale.US, "%.2f", budgetLimit) else ""
+                                    },
+                                    onOpenMixAndMatch = { listForMixAndMatch = list },
+                                    onUngroupMixAndMatch = { groupId ->
+                                        viewModel.clearMixAndMatchGroup(list.id, groupId)
+                                    },
+                                    onRemoveItem = { barcode ->
+                                        viewModel.removeShoppingListItem(list.id, barcode)
+                                    },
+                                    onToggleItemChecked = { barcode, isChecked ->
+                                        viewModel.toggleBasketItemChecked(list.id, barcode, isChecked)
+                                    },
+                                    onAdjustItemQuantity = { barcode, delta, forCheckedSection ->
+                                        viewModel.adjustBasketItemQuantity(list.id, barcode, delta, forCheckedSection)
+                                    },
+                                    onEditItem = { piece ->
+                                        editingBasketPiece = list.id to piece
+                                    },
+                                    onRemoveItemOffer = { barcode ->
+                                        viewModel.clearOfferFromBasketItem(list.id, barcode)
+                                    }
+                                )
+                            }
+                        } else {
+                            item(key = "basket_${list.id}") {
+                                ShoppingListCard(
+                                    list = list,
+                                    isSelected = selectedListIds.contains(list.id),
+                                    itemsInList = itemsInList,
+                                    pieceMap = allPiecesMap,
+                                    currencySymbol = currencySymbol,
+                                    defaultBudgetLimit = budgetLimit,
+                                    isExpanded = false,
+                                    onToggleExpand = toggleBasketExpand,
+                                    renderSection = BasketCardSection.FULL,
+                                    onToggleSelect = { viewModel.toggleSelectList(list.id) },
+                                    onRename = {
+                                        listToRename = list
+                                        renameListNameText = list.name
+                                    },
+                                    onCopy = {
+                                        listToCopy = list
+                                        copyListNameText = "${list.name} (Copy)"
+                                    },
+                                    onDelete = { listToDelete = list },
+                                    onApplyVoucher = {
+                                        listForVoucherDialog = list
+                                        showVoucherDialog = true
+                                    },
+                                    onSetBudget = {
+                                        listForBudgetDialog = list
+                                        budgetInputText = if (list.budgetLimit > 0) String.format(Locale.US, "%.2f", list.budgetLimit) else if (budgetLimit > 0) String.format(Locale.US, "%.2f", budgetLimit) else ""
+                                    },
+                                    onOpenMixAndMatch = { listForMixAndMatch = list },
+                                    onUngroupMixAndMatch = { groupId ->
+                                        viewModel.clearMixAndMatchGroup(list.id, groupId)
+                                    },
+                                    onRemoveItem = { barcode ->
+                                        viewModel.removeShoppingListItem(list.id, barcode)
+                                    },
+                                    onToggleItemChecked = { barcode, isChecked ->
+                                        viewModel.toggleBasketItemChecked(list.id, barcode, isChecked)
+                                    },
+                                    onAdjustItemQuantity = { barcode, delta, forCheckedSection ->
+                                        viewModel.adjustBasketItemQuantity(list.id, barcode, delta, forCheckedSection)
+                                    },
+                                    onEditItem = { piece ->
+                                        editingBasketPiece = list.id to piece
+                                    },
+                                    onRemoveItemOffer = { barcode ->
+                                        viewModel.clearOfferFromBasketItem(list.id, barcode)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -685,6 +827,20 @@ fun QuickScanScreen(
         onCreateProduct = viewModel::createProduct,
         onNavigateToProductBom = onNavigateToProductBom
     )
+
+    // Edit Item Dialog (triggered from an active basket item)
+    editingBasketPiece?.let { (listId, piece) ->
+        ItemDialog(
+            initialPiece = piece,
+            currencySymbol = currencySymbol,
+            savedOffers = savedOffers,
+            onDismiss = { editingBasketPiece = null },
+            onSave = { updatedPiece, updateBasketsPrice ->
+                viewModel.updatePieceFromBasket(listId, updatedPiece, updateBasketsPrice)
+                editingBasketPiece = null
+            }
+        )
+    }
 
     // Apply Voucher Dialog
     if (showVoucherDialog) {
@@ -765,7 +921,6 @@ fun QuickScanScreen(
                         onValueChange = { newListNameText = it },
                         label = { Text(strings.basketNameLabel) },
                         placeholder = { Text(strings.basketNamePlaceholder) },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -885,7 +1040,6 @@ fun QuickScanScreen(
                     value = renameListNameText,
                     onValueChange = { renameListNameText = it },
                     label = { Text(strings.basketNameLabel) },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -921,7 +1075,6 @@ fun QuickScanScreen(
                     value = copyListNameText,
                     onValueChange = { copyListNameText = it },
                     label = { Text(strings.newBasketNameLabel) },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1022,6 +1175,47 @@ fun QuickScanScreen(
                     TextButton(onClick = { listForBudgetDialog = null }) {
                         Text(strings.cancel)
                     }
+                }
+            }
+        )
+    }
+
+    // Add Search Item(s) to Basket Dialog
+    if (pendingSearchBarcodesToAdd.isNotEmpty()) {
+        AddItemsToBasketDialog(
+            shoppingLists = allShoppingLists,
+            selectedCount = pendingSearchBarcodesToAdd.size,
+            initialCheckedListIds = selectedListIds.ifEmpty { null },
+            onDismiss = { pendingSearchBarcodesToAdd = emptyList() },
+            onConfirmAdd = { targetListIds, quantityPerItem ->
+                viewModel.addPiecesToBaskets(pendingSearchBarcodesToAdd, targetListIds, quantityPerItem)
+                pendingSearchBarcodesToAdd = emptyList()
+                selectedSearchBarcodes = emptySet()
+            }
+        )
+    }
+
+    // Delete Search Piece Confirmation Dialog
+    searchPieceToDelete?.let { piece ->
+        AlertDialog(
+            onDismissRequest = { searchPieceToDelete = null },
+            title = { Text(strings.deleteItemTitle) },
+            text = { Text(String.format(Locale.US, strings.deleteItemConfirmFmt, piece.name)) },
+            confirmButton = {
+                AppButton(
+                    onClick = {
+                        viewModel.deletePiece(piece)
+                        selectedSearchBarcodes = selectedSearchBarcodes - piece.barcode
+                        searchPieceToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(strings.delete)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { searchPieceToDelete = null }) {
+                    Text(strings.cancel)
                 }
             }
         )
@@ -1233,73 +1427,146 @@ private fun SearchPieceCard(
     currencySymbol: String = "$",
     isSelected: Boolean = false,
     onToggleSelect: () -> Unit = {},
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {},
     onClick: () -> Unit,
 ) {
     val strings = LocalAppStrings.current
+    var isExpanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = isSelected,
-                onCheckedChange = { onToggleSelect() },
-                modifier = Modifier.size(34.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Icon(
-                Icons.Default.Inventory2,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = piece.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onToggleSelect() },
+                    modifier = Modifier.size(36.dp)
                 )
-                Text(
-                    text = "${strings.codePrefix} ${piece.barcode}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                if (piece.unitPrice > 0) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = String.format(Locale.US, "%s%.2f", currencySymbol, piece.unitPrice),
+                        text = piece.name,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (piece.unitPrice > 0) {
+                            Text(
+                                text = String.format(Locale.US, "%s%.2f", currencySymbol, piece.unitPrice),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        val offerLabel = piece.getOfferDescription(currencySymbol)
+                        if (piece.offerType != "NONE" && offerLabel.isNotBlank()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "🏷️ $offerLabel",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                IconButton(
+                    onClick = { isExpanded = !isExpanded },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (isExpanded) strings.collapse else strings.expand,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-                Text(
-                    text = strings.addPlusOne,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            }
+
+            AnimatedVisibility(visible = isExpanded) {
+                Column(modifier = Modifier.padding(top = 8.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "${strings.barcodeLabel} ${piece.barcode}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (piece.location.isNotBlank() && piece.location != "Default Bin") {
+                        Text(
+                            text = "${strings.categoryLabel} ${piece.location}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (piece.description.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = piece.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = onEdit,
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = strings.edit,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = strings.delete,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
