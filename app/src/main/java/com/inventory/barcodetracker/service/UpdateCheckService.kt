@@ -1,5 +1,6 @@
 package com.inventory.barcodetracker.service
 
+import com.inventory.barcodetracker.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -16,7 +17,7 @@ data class AppUpdateInfo(
 object UpdateCheckService {
 
     private const val GITHUB_API_URL = "https://api.github.com/repos/gabrieldeak/shopping-tracker/releases/latest"
-    const val CURRENT_VERSION = "3.0.4"
+    val CURRENT_VERSION: String = BuildConfig.VERSION_NAME
 
     suspend fun checkForUpdates(): AppUpdateInfo {
         return withContext(Dispatchers.IO) {
