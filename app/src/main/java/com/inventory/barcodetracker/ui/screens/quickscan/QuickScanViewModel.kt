@@ -619,7 +619,18 @@ class QuickScanViewModel(
                 return@launch
             }
 
-            // 3. Not in local database -> Show loading & query Open*Facts APIs in parallel
+            // 3. If typed from search and not a numeric barcode, treat the query as the item name
+            val isLikelyBarcode = fromScanner || (trimmed.length >= 6 && trimmed.all { it.isDigit() })
+            if (!isLikelyBarcode) {
+                _scannedItemState.value = ScannedItemState.NotFound(
+                    barcode = PieceEntity.generateItemBarcode(),
+                    initialName = currencyPreferences.formatText(trimmed),
+                    apisUnavailable = false,
+                )
+                return@launch
+            }
+
+            // 4. Not in local database -> Show loading & query Open*Facts APIs in parallel
             _scannedItemState.value = ScannedItemState.Loading(trimmed)
             val outcome = OpenFoodFactsService.lookupBarcodeWithStatus(trimmed)
             // Only update if user hasn't dismissed or switched to manual entry

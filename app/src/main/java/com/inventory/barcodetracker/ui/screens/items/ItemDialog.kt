@@ -435,7 +435,7 @@ fun ItemDialog(
                                 return@AppButton
                             }
 
-                            val finalBarcode = if (barcode.isBlank()) "ITEM_${System.currentTimeMillis()}" else barcode.trim()
+                            val finalBarcode = if (barcode.isBlank()) PieceEntity.generateItemBarcode() else barcode.trim()
                             val parsedUnitPrice = unitPrice.toDoubleOrNull() ?: 0.0
 
                             val piece = PieceEntity(

@@ -81,4 +81,11 @@ data class PieceEntity(
 
     val offerDescription: String
         get() = getOfferDescription("$")
+
+    companion object {
+        fun generateItemBarcode(): String {
+            val ts = java.text.SimpleDateFormat("yyyyMMddHHmmssSSS", Locale.US).format(java.util.Date())
+            return "ITEM_$ts"
+        }
+    }
 }
