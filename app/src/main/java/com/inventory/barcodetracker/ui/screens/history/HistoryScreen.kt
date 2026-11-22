@@ -55,6 +55,7 @@ fun HistoryScreen(
     val selectedTripIds by viewModel.selectedTripIds.collectAsStateWithLifecycle()
 
     var tripToDelete by remember { mutableStateOf<ShoppingTripEntity?>(null) }
+    var tripToReload by remember { mutableStateOf<ShoppingTripEntity?>(null) }
     var showConfirmDeleteBatch by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -173,7 +174,7 @@ fun HistoryScreen(
                             isSelected = selectedTripIds.contains(trip.id),
                             onToggleSelect = { viewModel.toggleSelectTrip(trip.id) },
                             onDelete = { tripToDelete = trip },
-                            onReload = { viewModel.reloadTripIntoCart(trip) }
+                            onReload = { tripToReload = trip }
                         )
                     }
                 }
@@ -200,6 +201,37 @@ fun HistoryScreen(
             },
             dismissButton = {
                 TextButton(onClick = { tripToDelete = null }) {
+                    Text(strings.cancel)
+                }
+            }
+        )
+    }
+
+    // Make Active Confirmation Dialog
+    tripToReload?.let { trip ->
+        val snapshot = trip.parseSnapshot()
+        val firstLine = trip.itemsSummary.lineSequence().firstOrNull()?.trim() ?: ""
+        val basketName = when {
+            snapshot != null && snapshot.basketName.isNotBlank() -> snapshot.basketName
+            firstLine.startsWith("Basket:") || firstLine.startsWith("List:") -> firstLine.substringAfter(":").trim()
+            else -> strings.defaultHistoryBasketName
+        }
+        AlertDialog(
+            onDismissRequest = { tripToReload = null },
+            title = { Text(strings.reloadBasketTitle) },
+            text = { Text(String.format(Locale.US, strings.reloadBasketConfirmFmt, basketName)) },
+            confirmButton = {
+                AppButton(
+                    onClick = {
+                        viewModel.reloadTripIntoCart(trip)
+                        tripToReload = null
+                    }
+                ) {
+                    Text(strings.reloadBasket)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { tripToReload = null }) {
                     Text(strings.cancel)
                 }
             }

@@ -203,8 +203,15 @@ class ShoppingTrackerE2ETest {
         }
         composeRule.onNodeWithContentDescription("Clear search").performClick()
 
-        // Save selected basket to History using the "Save" button in the selection bar
+        // Save selected basket to History using the "Save" button in the selection bar & confirm dialog
         composeRule.onNodeWithText("Save").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Save to History?").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Save").onLast().performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Save to History?").fetchSemanticsNodes().isEmpty()
+        }
 
         // Switch to History tab & expand receipt
         composeRule.onNodeWithText("History").performClick()
@@ -222,8 +229,15 @@ class ShoppingTrackerE2ETest {
         composeRule.onNodeWithText("Make Active").assertIsDisplayed()
         composeRule.onNode(hasText("Sourdough Bread") and hasText("Qty: 1")).assertIsDisplayed()
 
-        // Make Active back to Quick Scan
+        // Make Active back to Quick Scan & confirm dialog
         composeRule.onNodeWithText("Make Active").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Make Basket Active?").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Make Active").onLast().performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Make Basket Active?").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithText("Quick Scan").performClick()
         composeRule.waitUntil(timeoutMillis = 3000) {
             composeRule.onAllNodesWithText("Weekend Run", substring = true).fetchSemanticsNodes().isNotEmpty()
@@ -426,8 +440,15 @@ class ShoppingTrackerE2ETest {
         }
         composeRule.onAllNodesWithText("£4.00").onFirst().assertIsDisplayed()
 
-        // 5. Save to History -> verify Mix & Match box in History -> Make Active
+        // 5. Save to History -> confirm -> verify Mix & Match box in History -> Make Active -> confirm
         composeRule.onNodeWithText("Save").performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Save to History?").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Save").onLast().performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Save to History?").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithText("History").performClick()
         composeRule.waitUntil(timeoutMillis = 3000) {
             composeRule.onAllNodesWithContentDescription("Expand items").fetchSemanticsNodes().isNotEmpty()
@@ -439,6 +460,13 @@ class ShoppingTrackerE2ETest {
         }
         composeRule.onNodeWithText("Make Active")
             .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Make Basket Active?").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodesWithText("Make Active").onLast().performClick()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Make Basket Active?").fetchSemanticsNodes().isEmpty()
+        }
 
         // 6. Back on Quick Scan -> Mix & Match group is preserved, and ungrouping removes it cleanly
         composeRule.onNodeWithText("Quick Scan").performClick()

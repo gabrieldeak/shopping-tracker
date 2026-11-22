@@ -109,6 +109,7 @@ fun QuickScanScreen(
     var showVoucherDialog by remember { mutableStateOf(false) }
     var showCreateListDialog by remember { mutableStateOf(false) }
     var showConfirmDeleteBatch by remember { mutableStateOf(false) }
+    var showConfirmSaveBaskets by remember { mutableStateOf(false) }
     var listToRename by remember { mutableStateOf<ShoppingListEntity?>(null) }
     var listToCopy by remember { mutableStateOf<ShoppingListEntity?>(null) }
     var listToDelete by remember { mutableStateOf<ShoppingListEntity?>(null) }
@@ -587,7 +588,7 @@ fun QuickScanScreen(
                                         }
 
                                         AppButton(
-                                            onClick = { viewModel.finishAndSaveSelectedBaskets() },
+                                            onClick = { showConfirmSaveBaskets = true },
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                             modifier = Modifier.height(34.dp)
                                         ) {
@@ -1215,6 +1216,30 @@ fun QuickScanScreen(
             },
             dismissButton = {
                 TextButton(onClick = { searchPieceToDelete = null }) {
+                    Text(strings.cancel)
+                }
+            }
+        )
+    }
+
+    // Save Selected Baskets to History Confirmation Dialog
+    if (showConfirmSaveBaskets) {
+        AlertDialog(
+            onDismissRequest = { showConfirmSaveBaskets = false },
+            title = { Text(strings.saveBasketsToHistoryTitle) },
+            text = { Text(String.format(Locale.US, strings.saveBasketsToHistoryConfirmFmt, selectedListIds.size)) },
+            confirmButton = {
+                AppButton(
+                    onClick = {
+                        viewModel.finishAndSaveSelectedBaskets()
+                        showConfirmSaveBaskets = false
+                    }
+                ) {
+                    Text(strings.saveAction)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmSaveBaskets = false }) {
                     Text(strings.cancel)
                 }
             }

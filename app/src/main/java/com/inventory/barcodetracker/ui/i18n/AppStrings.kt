@@ -71,6 +71,8 @@ interface AppStrings {
     val deleteBasketConfirmFmt: String
     val deleteSelectedBasketsTitle: String
     val deleteSelectedBasketsConfirmFmt: String
+    val saveBasketsToHistoryTitle: String
+    val saveBasketsToHistoryConfirmFmt: String
     val setTargetBudgetTitleFmt: String
     val setTargetBudgetBodyFmt: String
     val budgetLimitLabelFmt: String
@@ -275,6 +277,8 @@ interface AppStrings {
     // History Screen
     val historyTitle: String
     val reloadBasket: String
+    val reloadBasketTitle: String
+    val reloadBasketConfirmFmt: String
     val searchHistoryPlaceholder: String
     val noSavedBasketsYet: String
     val noSavedBasketsSubtitle: String
@@ -572,6 +576,8 @@ object EnglishUkStrings : AppStrings {
     override val deleteBasketConfirmFmt = "Are you sure you want to delete \"%s\"?"
     override val deleteSelectedBasketsTitle = "Delete Selected Baskets"
     override val deleteSelectedBasketsConfirmFmt = "Are you sure you want to delete %d selected shopping basket(s)?"
+    override val saveBasketsToHistoryTitle = "Save to History?"
+    override val saveBasketsToHistoryConfirmFmt = "Save %d selected basket(s) to History and remove from Active Baskets?"
     override val setTargetBudgetTitleFmt = "Set Target Budget Limit (%s)"
     override val setTargetBudgetBodyFmt = "Enter a target limit for \"%s\". The card will notify you when total items reach or exceed this limit."
     override val budgetLimitLabelFmt = "Budget Limit (%s)"
@@ -769,6 +775,8 @@ object EnglishUkStrings : AppStrings {
     override val useAsName = "Use as Name"
     override val historyTitle = "Shopping History"
     override val reloadBasket = "Make Active"
+    override val reloadBasketTitle = "Make Basket Active?"
+    override val reloadBasketConfirmFmt = "Move \"%s\" back to Active Baskets and remove it from History?"
     override val searchHistoryPlaceholder = "Search history by basket, item or date..."
     override val noSavedBasketsYet = "No saved baskets yet"
     override val noSavedBasketsSubtitle = "When you finish shopping, tap 'Save' on any basket card to save a date-stamped receipt here."
@@ -1050,6 +1058,8 @@ object RomanianStrings : AppStrings {
     override val deleteBasketConfirmFmt = "Sigur doriți să ștergeți coșul \"%s\"?"
     override val deleteSelectedBasketsTitle = "Șterge coșurile selectate"
     override val deleteSelectedBasketsConfirmFmt = "Sigur doriți să ștergeți %d coș(uri) selectate?"
+    override val saveBasketsToHistoryTitle = "Salvați în Istoric?"
+    override val saveBasketsToHistoryConfirmFmt = "Salvați %d coș(uri) selectate în Istoric și eliminați-le din Coșurile Active?"
     override val setTargetBudgetTitleFmt = "Setează Bugetul (%s)"
     override val setTargetBudgetBodyFmt = "Introduceți o limită de buget pentru \"%s\". Cardul vă va avertiza când totalul atinge sau depășește această limită."
     override val budgetLimitLabelFmt = "Limită buget (%s)"
@@ -1247,6 +1257,8 @@ object RomanianStrings : AppStrings {
     override val useAsName = "Folosește ca Nume"
     override val historyTitle = "Istoric Cumpărături"
     override val reloadBasket = "Activează Coșul"
+    override val reloadBasketTitle = "Activați Coșul?"
+    override val reloadBasketConfirmFmt = "Mutați \"%s\" înapoi în Coșurile Active și eliminați-l din Istoric?"
     override val searchHistoryPlaceholder = "Caută în istoric după coș, produs sau dată..."
     override val noSavedBasketsYet = "Niciun coș salvat încă"
     override val noSavedBasketsSubtitle = "Când terminați cumpărăturile, apăsați 'Salvează' pe orice coș pentru a salva bonul aici."
