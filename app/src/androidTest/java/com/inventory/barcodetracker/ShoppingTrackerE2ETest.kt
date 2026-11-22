@@ -37,7 +37,8 @@ class ShoppingTrackerE2ETest {
 
         val repository = InventoryRepository(database.inventoryDao())
         val scannerService = BarcodeScannerService(context)
-        val preferences = CurrencyPreferences(context)
+        context.getSharedPreferences("test_app_settings", Context.MODE_PRIVATE).edit().clear().commit()
+        val preferences = CurrencyPreferences(context, prefsName = "test_app_settings")
         preferences.setAppLanguage("en")
         preferences.setCurrencySymbol("£")
         preferences.setBudgetLimit(0.0)
@@ -60,6 +61,8 @@ class ShoppingTrackerE2ETest {
     @After
     fun tearDown() {
         database.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("test_app_settings", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     @Test
@@ -209,14 +212,15 @@ class ShoppingTrackerE2ETest {
             composeRule.onAllNodesWithContentDescription("Expand items").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithContentDescription("Expand items").performClick()
-        composeRule.waitUntil(timeoutMillis = 3000) {
-            composeRule.onAllNodesWithText("Make Active").fetchSemanticsNodes().isNotEmpty()
+        composeRule.waitUntil(timeoutMillis = 5000) {
+            composeRule.onAllNodesWithText("Make Active").fetchSemanticsNodes().isNotEmpty() &&
+                composeRule.onAllNodes(hasText("Sourdough Bread") and hasText("Qty: 1")).fetchSemanticsNodes().isNotEmpty()
         }
+        composeRule.waitForIdle()
 
         // Verify itemized card & top actions
         composeRule.onNodeWithText("Make Active").assertIsDisplayed()
-        composeRule.onAllNodesWithText("Sourdough Bread").onLast().assertIsDisplayed()
-        composeRule.onNodeWithText("Qty: 1").assertIsDisplayed()
+        composeRule.onNode(hasText("Sourdough Bread") and hasText("Qty: 1")).assertIsDisplayed()
 
         // Make Active back to Quick Scan
         composeRule.onNodeWithText("Make Active").performClick()

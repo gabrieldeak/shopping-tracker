@@ -8,9 +8,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 
-class CurrencyPreferences(context: Context) {
+class CurrencyPreferences(
+    context: Context,
+    prefsName: String = "app_settings",
+) {
     private val prefs: SharedPreferences =
-        context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
 
     private val _currencySymbol = MutableStateFlow(
         prefs.getString(KEY_CURRENCY_SYMBOL, "£") ?: "£",
