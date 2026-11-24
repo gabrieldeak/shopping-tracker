@@ -363,7 +363,7 @@ class ShoppingTrackerE2ETest {
         // 2. Add two grape varieties to catalog
         composeRule.onNodeWithText("Items").performClick()
         composeRule.waitUntil(timeoutMillis = 5000) {
-            composeRule.onAllNodesWithText("Search catalog by name or barcode...").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Search items or barcode...").fetchSemanticsNodes().isNotEmpty()
         }
         listOf("Red Grapes" to "2.50", "Green Grapes" to "2.48").forEach { (name, price) ->
             composeRule.waitUntil(timeoutMillis = 5000) {
@@ -505,7 +505,7 @@ class ShoppingTrackerE2ETest {
         // 1. Add two items to catalog while no baskets exist
         composeRule.onNodeWithText("Items").performClick()
         composeRule.waitUntil(timeoutMillis = 5000) {
-            composeRule.onAllNodesWithText("Search catalog by name or barcode...").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Search items or barcode...").fetchSemanticsNodes().isNotEmpty()
         }
         listOf("Red Apples" to "2.20", "Green Apples" to "2.30").forEach { (name, price) ->
             composeRule.waitUntil(timeoutMillis = 5000) {

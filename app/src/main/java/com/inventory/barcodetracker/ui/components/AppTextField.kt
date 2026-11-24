@@ -22,6 +22,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 val LocalCapitalizationMode = staticCompositionLocalOf { "TITLE_CASE" }
@@ -101,9 +102,10 @@ fun AppSearchBar(
                 if (query.isEmpty()) {
                     Text(
                         text = placeholder,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 BasicTextField(
